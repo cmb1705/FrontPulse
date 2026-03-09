@@ -1,0 +1,49 @@
+# Core dependencies - pinned for reproducibility
+pandas==2.2.3
+pyarrow==18.1.0
+PyYAML==6.0.2
+requests==2.32.3
+networkx==3.4.2
+tqdm==4.67.1
+pydantic==2.12.3
+
+# Performance monitoring (PERF-3)
+psutil==6.1.1
+memory_profiler==0.61.0
+
+# Community detection dependencies
+# Note: On Windows, these may require conda installation
+python-igraph==0.11.8
+leidenalg==0.10.2
+
+# NLP and Machine Learning dependencies (Phase 2: SciBERT embeddings)
+# NOTE: PyTorch CUDA versions must be installed separately:
+# pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 torchaudio==2.6.0+cu124 --index-url https://download.pytorch.org/whl/cu124
+# If already installed, these will be skipped:
+torch>=2.6.0
+torchvision>=0.21.0
+torchaudio>=2.6.0
+torch-geometric>=2.7.0
+transformers>=4.57.0
+scikit-learn>=1.7.0
+statsmodels>=0.14.5
+numpy>=2.2.0
+imbalanced-learn>=0.12.0  # SMOTE for class imbalance handling
+lightgbm>=4.6.0  # Gradient boosting alternative to Random Forest
+optuna>=4.5.0  # Hyperparameter tuning for meta-learning (Task 3.2)
+
+# Phase 4 NPMI improvements
+langdetect>=1.0.9
+spacy>=3.8.0
+# NOTE: After installing spacy>=3.8.0, download the language model:
+# For spacy 3.8.x, use direct wheel install:
+# pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+# (The standard 'python -m spacy download' command hasn't been updated for 3.8.x yet)
+
+# Visualization dependencies
+plotly==5.24.1
+# kaleido==0.2.1  # Optional: For static image export (may have installation issues on Windows)
+
+# Testing dependencies
+pytest==8.3.4
+pytest-cov==6.0.0

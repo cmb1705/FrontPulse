@@ -1,0 +1,32 @@
+schema_version: 1
+description: Primary MSD time-forward holdout (train <=2019Q4, predict 2020Q1-2025Q3).
+
+split:
+  train:
+    start: 2003Q1
+    end: 2019Q4
+  predict:
+    start: 2020Q1
+    end: 2025Q3
+
+hyperparameters:
+  model_type: gradient_boosting
+  calibrate: true
+  calibration_method: isotonic
+  n_estimators: 214
+  max_depth: 10
+  learning_rate: 0.03423022333888965
+  cv_folds: 5
+  threshold: 0.07
+  persistence_window: 2
+
+artifacts:
+  output_dir: data/out/experiments/time_forward_holdout_2020
+  best_config_source: data/out/experiments/msd_meta_tuning_field/best_config.json
+
+metadata:
+  last_updated: 2025-11-13
+  maintainer: analytics@perovskite.work
+  notes:
+    - Mirrors TIME_FORWARD_HOLDOUT_PLAN.md Phase 1 target.
+    - Use --labels data/out/02_lineage_tracking/inflection_labels.csv.

@@ -1,0 +1,144 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Run Ruff linter
+      run: |
+        echo "## Ruff Linting Results" >> $GITHUB_STEP_SUMMARY
+        ruff check src/ tests/ run.py --output-format=github || true
+      continue-on-error: true
+
+    - name: Check code formatting with Black
+      run: |
+        echo "## Black Formatting Check" >> $GITHUB_STEP_SUMMARY
+        black --check --diff src/ tests/ run.py || echo "::warning::Code formatting issues found. Run 'black src/ tests/ run.py' to fix."
+      continue-on-error: true
+
+    - name: Check import sorting with isort
+      run: |
+        echo "## Import Sorting Check" >> $GITHUB_STEP_SUMMARY
+        isort --check-only --diff src/ tests/ run.py || echo "::warning::Import sorting issues found. Run 'isort src/ tests/ run.py' to fix."
+      continue-on-error: true
+
+    - name: Run type checking with mypy
+      run: |
+        echo "## Type Checking Results" >> $GITHUB_STEP_SUMMARY
+        mypy src/ --ignore-missing-imports --no-strict-optional --check-untyped-defs || echo "::warning::Type checking found issues"
+      continue-on-error: true
+
+    - name: Check for security issues with bandit
+      run: |
+        pip install bandit
+        echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+        bandit -r src/ -f json -o bandit-report.json || true
+        bandit -r src/ || echo "::warning::Security scan found potential issues"
+      continue-on-error: true
+
+    - name: Generate complexity report
+      run: |
+        pip install radon
+        echo "## Code Complexity Report" >> $GITHUB_STEP_SUMMARY
+        radon cc src/ -a -nb || true
+      continue-on-error: true
+
+  docs-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Check for broken links in markdown
+      run: |
+        pip install markdown-link-check || true
+        find . -name "*.md" -exec echo "Checking {}" \; || true
+      continue-on-error: true
+
+    - name: Validate YAML configs
+      run: |
+        python -c "
+import yaml
+import sys
+from pathlib import Path
+
+errors = []
+yaml_files = ['config/defaults.yaml', 'config/settings.yaml.template']
+
+for file in yaml_files:
+    path = Path(file)
+    if path.exists():
+        try:
+            with open(path) as f:
+                yaml.safe_load(f)
+            print(f'✓ {file} is valid')
+        except Exception as e:
+            errors.append(f'{file}: {e}')
+            print(f'✗ {file}: {e}')
+
+if errors:
+    sys.exit(1)
+"
+
+  dependency-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Check for security vulnerabilities
+      run: |
+        pip install safety
+        safety check --json || echo "::warning::Security vulnerabilities found in dependencies"
+      continue-on-error: true
+
+    - name: Check for outdated packages
+      run: |
+        pip list --outdated || true
+      continue-on-error: true

@@ -1,0 +1,93 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.conda/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+coverage.xml
+*.cover
+.cache
+.pytest_cache/
+nosetests.xml
+.mypy_cache/
+.ruff_cache/
+.bandit
+bandit-report.json
+
+# IDE / editor settings
+.vscode/
+.idea/
+*.swp
+*~
+.claude
+.venv
+CLAUDE.md
+AGENTS.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data and outputs
+data/raw/
+data/out
+data/
+data/interim/
+data/temp/
+outputs/
+*.log
+*.tmp
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+.2yp*
+config/settings.yaml  # User-specific settings (use settings.yaml.template)
+.archive
+
+# References
+ideas/
+references/.archive/
+nul
+catboost_info/
+
+# Local-only research, planning, and generated work products
+_local/
+github_issues.json
+slice_validation.json
+threshold_curve.png

@@ -1,0 +1,102 @@
+# 2YP Pipeline Default Configuration Values
+# This file centralizes all magic numbers and default parameters
+# for easier tuning and documentation.
+#
+# Note: These are system defaults. User-specific settings should go
+# in config/settings.yaml (see settings.yaml.template)
+
+# Data Ingestion
+ingest:
+  # Default records per page for API requests (max: 200)
+  default_per_page: 200
+
+  # Raw data chunking for NDJSON exports
+  raw_chunk_size: 1000
+
+  # Memory-efficient chunking thresholds
+  large_dataset_threshold: 10000  # Records
+  memory_chunk_size: 50000  # Records per chunk
+
+# Bibliographic Coupling Parameters
+coupling:
+  # Citation importance weight (alpha)
+  # Higher values favor direct citations over coupling
+  alpha: 1.0
+
+  # Coupling importance weight (beta)
+  # Controls strength of coupling relationships
+  beta: 0.3
+
+  # Temporal decay (lambda)
+  # Exponential decay applied to coupling weights over time
+  lambda_decay: 0.15
+
+  # Minimum shared references to create coupling edge
+  min_shared_refs: 5
+
+  # Minimum normalized coupling score (0.0-1.0)
+  # Literature standard for "core documents": 0.25 (Glänzel & Czerwon, 1996)
+  min_coupling_score: 0.25
+
+  # Maximum year difference for coupling (temporal window)
+  # Literature standard: 5 years for research front detection
+  # Set to null for no limit (couples papers regardless of year gap)
+  max_year_diff: 5
+
+  # Worker process count for coupling computation
+  # Will be overridden by --coupling-workers flag
+  default_workers: 4
+
+# Community Detection (Leiden Algorithm)
+community:
+  # Default resolution parameter
+  # Higher values create more, smaller communities
+  default_resolution: 0.001
+
+  # Minimum community size (nodes)
+  min_size: 10
+
+  # Maximum community size (nodes) before splitting
+  max_size: 0
+
+  # Absolute ceiling for community size
+  max_absolute_ceiling: 15000
+
+# Graph Building
+graphs:
+  # Parallel workers for graph construction
+  # Will be overridden by --graph-workers flag
+  #
+  # IMPORTANT: If coupling is enabled with cache (coupling.cache_dir is set),
+  # the system automatically forces graph_workers=1 to prevent cache corruption.
+  # Multiple workers writing to the same coupling cache simultaneously causes
+  # race conditions that corrupt incremental builds.
+  #
+  # Safe configurations:
+  #   - graph_workers > 1 + coupling disabled: OK (no cache)
+  #   - graph_workers > 1 + coupling cache_dir=null: OK (no cache)
+  #   - graph_workers = 1 + coupling with cache: OK (sequential, safe)
+  #
+  # See GRAPH_PARALLELIZATION_ANALYSIS.md for details.
+  default_workers: 2
+
+  # Coupling reference list chunking
+  # Chunk size = max(1, ceil(ref_count / (workers * divisor)))
+  chunk_divisor: 2
+
+# Memory Management
+memory:
+  # Minimum available memory warning threshold (GB)
+  warning_threshold_gb: 8.0
+
+  # Critical memory threshold (GB) - error if below
+  critical_threshold_gb: 2.0
+
+  # Large dataset threshold for chunking suggestions
+  large_dataset_rows: 100000
+
+  # Default chunk size when memory is sufficient
+  default_chunk_size: 100000
+
+  # Chunk size for very large datasets with limited memory
+  constrained_chunk_size: 50000

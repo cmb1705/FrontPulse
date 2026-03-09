@@ -1,0 +1,269 @@
+# Multi-Signal Context Integration Configuration
+# Task 5.3: Centralized configuration for metrics, features, and model tuning
+
+version: "1.0"
+last_updated: "2025-11-06"
+
+# =============================================================================
+# Metric Configuration
+# =============================================================================
+metrics:
+  # Which metrics to compute and include
+  enabled:
+    - author_influx
+    - citation_velocity
+    - reference_vitality
+    - topic_diversity
+    - cross_cluster_bridging
+
+  # Metric-specific parameters
+  author_influx:
+    enabled: true
+    pattern: "by_quarter__*.parquet"
+
+  citation_velocity:
+    enabled: true
+    pattern: "by_quarter__*.parquet"
+    min_age_years: 0.25
+    recent_window: 2.0
+    high_velocity_threshold: 5.0
+
+  reference_vitality:
+    enabled: true
+    pattern: "by_quarter__*.parquet"
+    recent_window_years: 3.0
+    recent_ratio_threshold: 0.5
+
+  topic_diversity:
+    enabled: true
+    pattern: "by_quarter__*.parquet"
+    max_concepts: 20
+
+  cross_cluster_bridging:
+    enabled: true
+    graphs_dir: "data/out/graphs"
+    resolution: 1.0
+    min_size: 10
+    max_size: 5000
+    min_degree: 2
+    top_nodes: 100
+    high_ratio_threshold: 0.2
+
+# =============================================================================
+# Feature Engineering Configuration
+# =============================================================================
+features:
+  # Enable context features derived from global metrics
+  context_features:
+    enabled: true  # Set to false for baseline mode (core features only)
+
+    # Which types of context features to include
+    include:
+      z_scores: true          # Standardized scores (metric_z)
+      qoq_deltas: true        # Quarter-over-quarter changes (metric_qoq_delta)
+      rolling_averages: true  # Rolling windows (metric_roll_1q, _2q, _4q)
+      burst_detection: true   # Max/min deviations (metric_max_dev_4q, _min_dev_4q)
+
+    # Rolling window sizes (in quarters)
+    rolling_windows: [1, 2, 4]
+
+    # Burst detection lookback (quarters)
+    burst_lookback: 4
+
+  # Normalization strategies
+  normalization:
+    strategy: "standard"  # Options: "standard", "robust", "minmax", "none"
+
+    # Field-level normalization
+    field_normalization:
+      enabled: true
+      method: "z_score"  # Options: "z_score", "percentile", "ratio"
+
+    # Front-level normalization
+    front_normalization:
+      enabled: true
+      method: "ratio"  # Options: "z_score", "percentile", "ratio"
+
+  # Feature selection
+  selection:
+    # Core features (always included)
+    core_features:
+      - semantic_velocity
+      - velocity_acceleration
+      - growth_rate
+      - growth_acceleration
+      - new_works
+      - total_works
+      - novel_terms
+      - novelty_rate
+      - novelty_momentum
+      - awakening_intensity
+      - cross_domain_share
+      - cross_domain_refs
+      - within_lineage_refs
+      - citation_balance
+      - cd_index
+      - cd_min
+      - cd_max
+      - disruption_intensity
+
+    # Automatic feature detection
+    auto_detect_context: true  # Automatically include context features if present
+
+# =============================================================================
+# Model Training Configuration (MSD)
+# =============================================================================
+model:
+  # Training parameters
+  training:
+    test_size: 0.25
+    random_state: 42
+    cv_folds: 5
+
+    # Class balancing
+    use_smote: true
+    smote_k_neighbors: 5
+
+    # Default model (when not tuning)
+    default_model: "lightgbm"
+    default_params:
+      n_estimators: 100
+      max_depth: 7
+      learning_rate: 0.1
+      class_weight: "balanced"
+      random_state: 42
+
+  # Calibration settings
+  calibration:
+    enabled: true
+    method: "sigmoid"  # Options: "sigmoid" (Platt), "isotonic", "none"
+
+  # Threshold selection
+  threshold:
+    optimization_metric: "recall"  # Options: "recall", "precision", "f1", "pr_auc"
+    precision_constraint: 0.20  # Minimum precision required
+
+# =============================================================================
+# Meta-Learning / Hyperparameter Tuning Configuration
+# =============================================================================
+tuning:
+  # Optuna configuration
+  enabled: false  # Set to true to enable automated tuning
+  n_trials: 50
+  timeout: 3600  # seconds, null for no timeout
+
+  # Search space
+  search_space:
+    # Model families to try
+    model_types:
+      - logistic
+      - random_forest
+      - gradient_boosting
+      - lightgbm
+
+    # Logistic Regression
+    logistic:
+      C: [0.001, 10.0]  # log-uniform
+      penalty: ["l1", "l2"]
+      solver: ["liblinear", "saga"]
+
+    # Random Forest
+    random_forest:
+      n_estimators: [50, 300]
+      max_depth: [3, 15]
+      min_samples_split: [2, 20]
+      min_samples_leaf: [1, 20]
+      max_features: ["sqrt", "log2"]
+
+    # Gradient Boosting
+    gradient_boosting:
+      n_estimators: [50, 300]
+      max_depth: [3, 10]
+      learning_rate: [0.01, 0.3]  # log-uniform
+      subsample: [0.5, 1.0]
+      min_samples_split: [2, 20]
+      min_samples_leaf: [1, 20]
+
+    # LightGBM
+    lightgbm:
+      n_estimators: [50, 300]
+      max_depth: [3, 15]
+      learning_rate: [0.01, 0.3]  # log-uniform
+      num_leaves: [20, 150]
+      min_child_samples: [5, 50]
+      subsample: [0.5, 1.0]
+      colsample_bytree: [0.5, 1.0]
+
+    # Calibration options
+    calibration:
+      enabled: [false, true]
+      method: ["sigmoid", "isotonic"]
+
+  # Optimization objective
+  objective:
+    metric: "recall"  # Maximize recall
+    constraint:
+      metric: "precision"
+      min_value: 0.20
+
+  # Sampler and pruner
+  sampler: "TPE"  # Options: "TPE", "Random", "Grid"
+  pruner: "MedianPruner"  # Options: "MedianPruner", "HyperbandPruner", null
+
+# =============================================================================
+# Pipeline Integration Configuration
+# =============================================================================
+pipeline:
+  # Metric refresh
+  metric_refresh:
+    enabled_by_default: false  # Requires explicit --refresh-metrics flag
+    parallel_execution: false  # Run metrics sequentially
+    validate_outputs: true
+
+  # Caching
+  cache:
+    abstract_cache_dir: "data/out/cache_lineage"
+    enable_abstract_cache: true
+
+  # Output paths
+  paths:
+    metrics_dir: "data/out/metrics"
+    slices_dir: "data/current_ingest/slices"
+    experiments_dir: "data/out/experiments"
+    features_output: "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
+
+# =============================================================================
+# Validation & Monitoring Configuration
+# =============================================================================
+validation:
+  # Schema validation
+  schema_validation:
+    enabled: true
+    strict_mode: false  # Allow extra columns in metrics
+
+  # Performance regression testing
+  performance_testing:
+    enabled: false  # Enable for CI/CD
+    baseline_recall: 0.85
+    baseline_precision: 0.20
+    tolerance: 0.05  # ±5% drift allowed
+
+  # Coverage checks
+  coverage:
+    min_coverage: 0.90  # Minimum 90% of lineage-quarters should have metrics
+    warn_threshold: 0.95
+
+# =============================================================================
+# Logging & Audit Trail Configuration
+# =============================================================================
+logging:
+  level: "INFO"  # Options: "DEBUG", "INFO", "WARNING", "ERROR"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  # Audit trail
+  audit:
+    enabled: true
+    log_dir: "logs"
+    track_metric_versions: true
+    track_model_configs: true
+    track_feature_versions: true

@@ -1,0 +1,5 @@
+slices:
+  last_8q:
+    expr: "publication_date >= @cutoff"
+  by_quarter:
+    groupby: ["pub_qtr"]

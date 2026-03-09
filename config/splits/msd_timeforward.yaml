@@ -1,0 +1,19 @@
+schema_version: 1
+description: Time-forward train/dev/test split for MSD evaluations.
+
+splits:
+  train:
+    start: 2003Q1
+    end: 2017Q4
+  dev:
+    start: 2018Q1
+    end: 2021Q4
+  test:
+    start: 2022Q1
+    end: 2025Q3
+
+metadata:
+  last_updated: 2025-11-13
+  maintainer: analytics@perovskite.work
+  notes:
+    - Adjust end quarter when new data ingested.

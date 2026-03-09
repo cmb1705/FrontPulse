@@ -1,0 +1,15 @@
+sources:
+  primary:
+    kind: openalex
+    entity: works
+    # Keep personal contact info in config/settings.yaml or pass --mailto.
+    mailto: null
+    max_records: null
+    per_page: 200
+    filters:
+      topics.id: T10247
+      from_publication_date: '2003-01-01'
+      to_publication_date: ''
+    select: null
+    sort: null
+merges: []

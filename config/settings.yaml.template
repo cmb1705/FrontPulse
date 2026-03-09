@@ -1,0 +1,37 @@
+# 2YP Pipeline Settings
+# This file contains user-specific configuration for the pipeline.
+#
+# Usage:
+#   - Edit this file to set your defaults
+#   - Values can be overridden via CLI flags
+#   - See README.md for detailed documentation
+
+# OpenAlex API Configuration
+openalex:
+  # Your contact email (required for OpenAlex API compliance)
+  # Override with: --mailto YOUR_EMAIL
+  mailto: null  # Set your email here or use --mailto flag
+
+  # Topic ID to query (e.g., T10247 for planetary science)
+  # Find topics at: https://openalex.org/topics
+  topics_id: "<PSC_TOPIC_ID>"
+
+  # Records per API page (1-200)
+  per_page: 200
+
+  # Maximum total records to fetch (null = unlimited)
+  max_records: null
+
+# Date Range
+dates:
+  # Start date for publication filter (YYYY-MM-DD)
+  from_date: "2000-01-01"
+
+  # End date for publication filter (YYYY-MM-DD)
+  to_date: "2025-08-30"
+
+# Graph Building
+graphs:
+  # Default graph mode: none, annual, delta, both, cumulative
+  # Override with: --graph-mode MODE
+  mode: "cumulative"

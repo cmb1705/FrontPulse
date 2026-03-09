@@ -1,0 +1,687 @@
+# Research Front Definitions for Perovskite Solar Cells
+# Each front includes:
+#   - canonical: Primary terms that define the front
+#   - aliases: Common synonyms and variations
+#   - regex_patterns: Patterns for flexible matching
+#   - description: Brief description for human reviewers
+#   - anchor_dois: Landmark papers that define this front
+
+core_psc:
+  description: "Core perovskite solar cell research - foundational work on basic PSC devices"
+  canonical:
+    - "perovskite solar cell"
+    - "organometal halide perovskite"
+    - "hybrid perovskite"
+    - "methyl ammonium lead iodide"
+    - "halide perovskite solar cell"
+    - "metal halide perovskite"
+    - "lead halide perovskite"
+    - "hybrid organic inorganic perovskite"
+    - "perovskite absorber layer"
+    - "perovskite thin film device"
+    - "planar perovskite solar cell"
+    - "mesoporous perovskite solar cell"
+    - "perovskite photovoltaic device"
+    - "perovskite photoactive layer"
+    - "perovskite device optimization"
+    - "perovskite charge transport"
+  aliases:
+    - "PSC"
+    - "MAPBI3"
+    - "MAPbI3"
+    - "CH3NH3PbI3"
+    - "perovskite photovoltaic"
+    - "perovskite PV"
+    - "perovskite device"
+    - "perovskite cell"
+    - "halide PSC"
+    - "ABX3 perovskite"
+    - "halide perovskite absorber"
+    - "hybrid lead halide"
+    - "PSC device"
+    - "perovskite solar absorber"
+    - "perovskite active layer"
+    - "perovskite junction"
+    - "perovskite morphology"
+    - "perovskite process optimization"
+    - "perovskite device engineering"
+    - "perovskite thin film absorber"
+  regex_patterns:
+    - "\\bperovskite\\s+(solar|photovoltaic|PV)\\b"
+    - "\\b(MA|FA|Cs)Pb[I|Br|Cl]\\d?"
+    - "\\bPSC\\b"
+  anchor_dois:
+    - "10.1021/ja809598r"  # Kojima 2009 - First report
+    - "10.1038/srep00591"  # Kim 2012 - 9.7% efficiency
+    - "10.1126/science.1243982"  # Liu 2013 - Planar heterojunction
+    - "10.1038/nature12340"  # Burschka 2013 - Sequential deposition
+    - "10.1126/science.1243167"  # Green 2014 - Progress review
+    - "10.1039/c3ee40810h"  # Snaith 2013 - Architecture review
+    - "10.1002/aenm.201400499"  # Jung 2014 - High efficiency
+    - "10.1021/jacs.5b05462"  # Jeon 2015 - Compositional engineering
+
+stability_engineering:
+  description: "Research on improving PSC stability against moisture, oxygen, light, and thermal degradation"
+  canonical:
+    - "stability"
+    - "degradation"
+    - "encapsulation"
+    - "moisture resistance"
+    - "oxygen sensitivity"
+    - "thermal stability"
+    - "photostability"
+    - "humidity stability"
+    - "UV stability"
+    - "accelerated aging"
+    - "operational reliability"
+    - "burn in testing"
+  aliases:
+    - "device lifetime"
+    - "long term stability"
+    - "operational stability"
+    - "environmental stability"
+    - "T80 lifetime"
+    - "ISOS protocol"
+    - "light soaking"
+    - "humidity ingress"
+    - "thermal cycling"
+    - "damp heat"
+    - "stability testing"
+  regex_patterns:
+    - "\\bstabilit(y|ies|ization)\\b"
+    - "\\bdegrad(ation|ing|ed)\\b"
+    - "\\bencapsulat(ion|ed|ing)\\b"
+    - "\\bmoisture\\s+(resistance|stability|ingress)\\b"
+  anchor_dois:
+    - "10.1002/anie.201503153"  # Aristidou 2015 - Oxygen degradation
+    - "10.1039/c6ee00409a"  # Bryant 2016 - Light+oxygen
+    - "10.1126/science.aaa5760"  # Saliba 2016 - Cesium stabilization
+    - "10.1038/nenergy.2016.142"  # Niu 2016 - Stability review
+    - "10.1002/adma.201603573"  # Li 2016 - Encapsulation
+    - "10.1021/jacs.6b10227"  # Wang 2016 - Water vapor stability
+    - "10.1002/aenm.201701073"  # Cheacharoen 2018 - Barrier testing
+    - "10.1038/s41560-018-0200-6"  # Domanski 2018 - Degradation mechanisms
+
+perovskite_silicon_tandems:
+  description: "Perovskite-silicon tandem solar cells - stacking PSC on silicon bottom cell"
+  canonical:
+    - "perovskite silicon tandem"
+    - "PSC-Si tandem"
+    - "two terminal tandem"
+    - "four terminal tandem"
+    - "silicon heterojunction"
+    - "perovskite on silicon"
+    - "perovskite silicon stack"
+    - "monolithic perovskite silicon"
+    - "tandem top cell"
+    - "perovskite silicon dual junction"
+  aliases:
+    - "perovskite/silicon"
+    - "perovskite-Si"
+    - "2T tandem"
+    - "4T tandem"
+    - "monolithic tandem"
+    - "mechanically stacked"
+    - "SHJ bottom cell"
+    - "perovskite-Si tandem"
+    - "perovskite on Si"
+    - "silicon bottom cell"
+    - "dual junction tandem"
+    - "perovskite silicon two terminal"
+  regex_patterns:
+    - "\\bperovskite[\\s\\/\\-]+(silicon|Si)\\s+tandem\\b"
+    - "\\b(2|two|four|4)[\\s\\-]?terminal\\s+tandem\\b"
+    - "\\bPSC[\\s\\/\\-]+Si\\s+tandem\\b"
+  anchor_dois:
+    - "10.1021/nl5048779"  # Loper 2014 - Theory
+    - "10.1126/science.aap9282"  # Al-Ashouri 2020 - 29.15%
+    - "10.1038/s41560-020-0598-5"  # Chen 2020 - 26.7% efficiency
+    - "10.1126/science.aaz8541"  # Kim 2020 - Interface engineering
+    - "10.1038/s41586-020-03007-6"  # Jost 2021 - Textured Si
+    - "10.1002/adma.201908932"  # Hou 2020 - 2T monolithic
+    - "10.1021/acs.chemrev.9b00069"  # Anaya 2019 - Review
+
+all_perovskite_tandems:
+  description: "All-perovskite tandem cells using wide-bandgap and narrow-bandgap perovskites"
+  canonical:
+    - "all perovskite tandem"
+    - "wide bandgap perovskite"
+    - "narrow bandgap perovskite"
+    - "tin lead mixed perovskite"
+    - "perovskite perovskite tandem"
+    - "low bandgap perovskite"
+    - "wide gap top cell"
+    - "narrow gap bottom cell"
+    - "perovskite bilayer tandem"
+  aliases:
+    - "all-PSC tandem"
+    - "dual perovskite"
+    - "Sn-Pb perovskite"
+    - "mixed halide perovskite"
+    - "bromide iodide perovskite"
+    - "perovskite-perovskite tandem"
+    - "wide bandgap top cell"
+    - "low bandgap bottom cell"
+    - "tin-lead alloy perovskite"
+    - "perovskite tandem stack"
+  regex_patterns:
+    - "\\ball[\\s\\-]?perovskite\\s+tandem\\b"
+    - "\\b(Sn|tin)[\\s\\-]?(Pb|lead)\\s+(mixed\\s+)?perovskite\\b"
+    - "\\bwide[\\s\\-]?bandgap\\s+perovskite\\b"
+  anchor_dois:
+    - "10.1126/science.aaf9717"  # Eperon 2016 - First report
+    - "10.1126/science.aaz3691"  # Lin 2020 - 24.8% efficiency
+    - "10.1038/s41563-020-0634-5"  # Tong 2020 - Bandgap engineering
+    - "10.1002/aenm.201903249"  # Li 2019 - Sn-Pb optimization
+    - "10.1021/acs.jpclett.0c02363"  # Zhao 2020 - Stability
+    - "10.1002/adma.201907396"  # Lin 2020 - Mixed cation
+
+interface_passivation:
+  description: "Interface engineering and passivation to reduce recombination and hysteresis"
+  canonical:
+    - "interface passivation"
+    - "surface passivation"
+    - "PCBM"
+    - "fullerene"
+    - "self assembled monolayer"
+    - "SAM"
+    - "defect passivation"
+    - "surface ligand treatment"
+    - "Lewis base passivation"
+    - "quaternary ammonium passivation"
+    - "alkylammonium halide passivation"
+    - "interface dipole engineering"
+  aliases:
+    - "interface engineering"
+    - "charge selective contact"
+    - "electron transport layer"
+    - "hole transport layer"
+    - "ETL"
+    - "HTL"
+    - "C60"
+    - "surface defect passivation"
+    - "Lewis acid base treatment"
+    - "ammonium halide treatment"
+    - "surface ligand exchange"
+    - "molecular passivation"
+    - "passivation additive"
+  regex_patterns:
+    - "\\b(interface|surface)\\s+passivat(ion|ed|ing)\\b"
+    - "\\bPCBM\\b"
+    - "\\bC60\\b"
+    - "\\bSAM\\b"
+    - "\\bself[\\s\\-]?assembled\\s+monolayer\\b"
+  anchor_dois:
+    - "10.1038/ncomms6784"  # Shao 2014 - PCBM hysteresis reduction
+    - "10.1126/science.aaa2725"  # Jeon 2015 - Interface engineering
+    - "10.1038/s41560-018-0324-8"  # Stolterfoht 2019 - SAMs
+    - "10.1002/adma.201805417"  # Tan 2019 - Electron-selective contacts
+    - "10.1021/acsenergylett.9b02338"  # Chen 2020 - Hole-selective contacts
+    - "10.1038/s41560-021-00958-4"  # Yoo 2022 - Interface dipoles
+    - "10.1002/aenm.202003457"  # Kim 2021 - Passivation strategies
+
+2d_perovskites:
+  description: "Two-dimensional layered perovskites with organic spacer layers"
+  canonical:
+    - "2D perovskite"
+    - "layered perovskite"
+    - "Ruddlesden Popper"
+    - "phenethylammonium"
+    - "butylammonium"
+    - "Dion Jacobson perovskite"
+    - "R-P phase perovskite"
+    - "quasi two dimensional perovskite"
+    - "bulky spacer perovskite"
+    - "organic spacer layered perovskite"
+  aliases:
+    - "two dimensional perovskite"
+    - "RP perovskite"
+    - "PEA"
+    - "BA"
+    - "low dimensional perovskite"
+    - "Dion-Jacobson"
+    - "DJ perovskite"
+    - "R-P perovskite"
+    - "quasi-2D perovskite"
+    - "spacing cation"
+  regex_patterns:
+    - "\\b2D\\s+perovskite\\b"
+    - "\\b(two|2)[\\s\\-]?dimensional\\s+perovskite\\b"
+    - "\\blayered\\s+perovskite\\b"
+    - "\\bRuddlesden[\\s\\-]?Popper\\b"
+  anchor_dois:
+    - "10.1002/anie.201406466"  # Smith 2014 - First report
+    - "10.1038/nature17653"  # Tsai 2016 - High efficiency 2D
+    - "10.1038/ncomms14083"  # Cao 2017 - 2D capping layer
+    - "10.1002/adma.201604019"  # Zhang 2017 - BA2MAn−1PbnI3n+1
+    - "10.1021/jacs.7b01815"  # Wang 2017 - Stability enhancement
+    - "10.1002/aenm.201702019"  # Chen 2017 - Quantum wells
+    - "10.1038/s41563-018-0154-x"  # Stoumpos 2018 - Structure review
+
+2d3d_hybrids:
+  description: "Hybrid structures combining 2D and 3D perovskites for enhanced stability"
+  canonical:
+    - "2D/3D hybrid"
+    - "2D 3D heterostructure"
+    - "dimensional engineering"
+    - "quasi 2D 3D perovskite"
+    - "graded dimensional structure"
+    - "2D 3D interface engineering"
+  aliases:
+    - "2D-3D"
+    - "mixed dimensional"
+    - "quasi-2D"
+    - "2D capping layer"
+    - "dimensional gradient"
+    - "2D/3D stacking"
+    - "low dimensional capping"
+    - "quasi-3D"
+  regex_patterns:
+    - "\\b2D[\\s\\/\\-]+3D\\s+(hybrid|heterostructure)\\b"
+    - "\\bmixed[\\s\\-]?dimensional\\s+perovskite\\b"
+    - "\\bquasi[\\s\\-]?2D\\b"
+  anchor_dois:
+    - "10.1038/ncomms15330"  # Grancini 2017 - 2D/3D architecture
+    - "10.1021/jacs.7b03652"  # Wang 2017 - Phase distribution
+    - "10.1002/aenm.201702724"  # Ma 2018 - Interface engineering
+    - "10.1002/adma.201805417"  # Lin 2019 - Gradient structure
+    - "10.1021/acsenergylett.9b00880"  # Jiang 2019 - 2D barrier
+    - "10.1038/s41467-020-15338-1"  # Lee 2020 - Stability mechanisms
+
+lead_free_alternatives:
+  description: "Lead-free perovskite alternatives addressing toxicity concerns"
+  canonical:
+    - "tin perovskite"
+    - "lead free perovskite"
+    - "Sn perovskite"
+    - "bismuth perovskite"
+    - "germanium perovskite"
+    - "lead-free PSC"
+    - "tin lead alloy perovskite"
+    - "halide perovskite without lead"
+    - "Sb perovskite"
+    - "copper based perovskite"
+  aliases:
+    - "Sn-based PSC"
+    - "tin halide perovskite"
+    - "MASnI3"
+    - "FASnI3"
+    - "Bi perovskite"
+    - "Ge perovskite"
+    - "lead-free PSC"
+    - "SnPb perovskite"
+    - "MASnPbI3"
+    - "tin-rich perovskite"
+    - "antimony perovskite"
+    - "copper perovskite"
+  regex_patterns:
+    - "\\blead[\\s\\-]?free\\s+perovskite\\b"
+    - "\\b(tin|Sn)[\\s\\-]?(based\\s+)?perovskite\\b"
+    - "\\b(Bi|bismuth|Ge|germanium)\\s+perovskite\\b"
+  anchor_dois:
+    - "10.1038/nphoton.2014.82"  # Hao 2014 - Tin perovskites
+    - "10.1126/science.aam5655"  # Liao 2017 - FASnI3 12.4%
+    - "10.1038/s41560-020-00653-2"  # Jiang 2020 - 14.81% FASnI3
+    - "10.1021/acs.jpclett.6b00564"  # Noel 2016 - Germani um perovskites
+    - "10.1021/acsenergylett.8b01322"  # Lanzetta 2019 - Tin oxidation
+    - "10.1002/adma.201903880"  # Jokar 2019 - MASnI3 stability
+    - "10.1039/c9ee00476a"  # Shao 2019 - Tin-lead mixing
+
+double_perovskites:
+  description: "Double perovskite structures with alternating B-site cations"
+  canonical:
+    - "double perovskite"
+    - "elpasolite"
+    - "Cs2AgBiBr6"
+    - "lead free double perovskite"
+    - "A2BB'X6 perovskite"
+    - "vacancy ordered perovskite"
+    - "silver bismuth halide"
+  aliases:
+    - "A2BB'X6"
+    - "vacancy ordered double perovskite"
+    - "silver bismuth perovskite"
+    - "Cs2AgBiCl6"
+    - "BiAg halide"
+    - "lead-free double perovskite"
+    - "ordered double perovskite"
+  regex_patterns:
+    - "\\bdouble\\s+perovskite\\b"
+    - "\\bCs2Ag(Bi|Sb)(Br|I|Cl)6\\b"
+    - "\\belpasolite\\b"
+  anchor_dois:
+    - "10.1002/adma.201703565"  # Greul 2018 - Cs2AgBiBr6
+    - "10.1002/aenm.201602812"  # McClure 2016 - First solar cell
+    - "10.1021/acs.jpcc.7b09803"  # Slavney 2017 - Band structure
+    - "10.1002/adma.201805137"  # Wu 2018 - Indirect bandgap
+    - "10.1021/acs.inorgchem.8b01095"  # Xiao 2018 - Synthesis
+    - "10.1039/c8cc09477k"  # Longo 2019 - Properties review
+
+inverted_architecture:
+  description: "Inverted (p-i-n) device structures with alternative charge extraction"
+  canonical:
+    - "inverted PSC"
+    - "p-i-n architecture"
+    - "NiOx"
+    - "PTAA"
+    - "PEDOT:PSS"
+    - "p-i-n perovskite"
+    - "inverted planar PSC"
+    - "polyTPD"
+    - "self assembled monolayer HTL"
+    - "ITO/PTAA stack"
+  aliases:
+    - "p-i-n device"
+    - "inverted planar"
+    - "bottom HTL"
+    - "nickel oxide"
+    - "p-i-n structure"
+    - "inverted perovskite cell"
+    - "polyTPD HTL"
+    - "SAM HTL"
+    - "ITO/PTAA interface"
+  regex_patterns:
+    - "\\binverted\\s+(PSC|perovskite|architecture|structure)\\b"
+    - "\\bp[\\s\\-]?i[\\s\\-]?n\\s+(architecture|device|structure)\\b"
+    - "\\bNiO[x]?\\b"
+  anchor_dois:
+    - "10.1038/s41560-019-0544-1"  # KAUST 2020 - 23.37% certified
+    - "10.1126/science.aaf1168"  # Jeon 2016 - p-i-n engineering
+    - "10.1002/adma.201606321"  # Yang 2017 - NiOx HTL
+    - "10.1021/acs.jpclett.7b00471"  # Chen 2017 - PEDOT optimization
+    - "10.1002/aenm.201701959"  # Wang 2018 - PTAA interface
+    - "10.1038/s41560-020-00705-7"  # Yoo 2021 - 25.2% efficiency
+    - "10.1002/adfm.202003408"  # Wu 2020 - HTL materials review
+
+scalable_manufacturing:
+  description: "Scalable deposition methods including blade coating, slot-die, and roll-to-roll"
+  canonical:
+    - "blade coating"
+    - "doctor blade"
+    - "slot die"
+    - "roll to roll"
+    - "R2R"
+    - "spray coating"
+    - "screen printing"
+    - "scalable manufacturing"
+    - "mass production"
+    - "industrial scale"
+  aliases:
+    # Core fabrication methods
+    - "meniscus coating"
+    - "large area deposition"
+    - "roll-to-roll"
+    - "continuous processing"
+    - "R2R processing"
+    - "roll-to-roll deposition"
+    - "high throughput fabrication"
+    - "slot-die coating"
+    - "blade coater"
+    - "inkjet printing"
+    - "gravure printing"
+    - "flexographic printing"
+
+    # Scale-up terminology
+    - "scale up"
+    - "scale-up"
+    - "upscaling"
+    - "pilot scale"
+    - "pilot plant"
+    - "pilot line"
+    - "production line"
+    - "manufacturing process"
+    - "process optimization"
+    - "process scalability"
+    - "industrial production"
+    - "commercial production"
+    - "commercial scale"
+    - "commercial manufacturing"
+
+    # Batch processing
+    - "batch processing"
+    - "batch fabrication"
+    - "batch-to-batch reproducibility"
+    - "batch variation"
+    - "batch consistency"
+
+    # Throughput & yield
+    - "throughput"
+    - "production rate"
+    - "fabrication yield"
+    - "manufacturing yield"
+    - "process yield"
+    - "high yield process"
+
+    # Cost & economics
+    - "cost reduction"
+    - "cost effective"
+    - "low cost fabrication"
+    - "cost per watt"
+    - "manufacturing cost"
+    - "production cost"
+    - "economical production"
+
+    # Quality control
+    - "quality control"
+    - "reproducibility"
+    - "process control"
+    - "quality assurance"
+    - "in-line monitoring"
+    - "process monitoring"
+    - "defect control"
+    - "uniformity control"
+
+  regex_patterns:
+    - "\\b(blade|doctor\\s+blade)\\s+coat(ing|ed)\\b"
+    - "\\bslot[\\s\\-]?die\\b"
+    - "\\b(roll[\\s\\-]?to[\\s\\-]?roll|R2R)\\b"
+    - "\\bscalab(le|ility)\\s+(manufactur|fabrication|deposition)\\b"
+    - "\\b(pilot|industrial|commercial)\\s+(scale|production|line)\\b"
+    - "\\b(throughput|yield|cost)\\b"
+  anchor_dois:
+    - "10.1039/c5ee01169h"  # Deng 2015 - Blade coating 15%
+    - "10.1002/aenm.201400620"  # Barrows 2014 - Slot-die coating
+    - "10.1016/j.joule.2018.05.012"  # Park 2018 - Roll-to-roll
+    - "10.1021/acsenergylett.8b00456"  # Galagan 2018 - R2R review
+    - "10.1002/adma.201806823"  # Dou 2019 - Large area blade coating
+    - "10.1038/s41560-020-0598-5"  # Di Giacomo 2020 - Scalable modules
+    - "10.1039/c9ee02115a"  # Li 2019 - Industrial fabrication
+
+flexible_devices:
+  description: "Flexible and lightweight perovskite solar cells on plastic substrates"
+  canonical:
+    - "flexible PSC"
+    - "plastic substrate"
+    - "PET substrate"
+    - "PEN substrate"
+    - "wearable"
+    - "flexible perovskite module"
+    - "ultrathin perovskite"
+    - "bendable PSC"
+    - "rollable perovskite"
+    - "conformable solar cell"
+  aliases:
+    - "flexible perovskite"
+    - "bendable"
+    - "lightweight"
+    - "polyethylene terephthalate"
+    - "polyethylene naphthalate"
+    - "ultrathin PSC"
+    - "foldable PSC"
+    - "curved perovskite"
+    - "wearable perovskite"
+    - "plastic perovskite device"
+  regex_patterns:
+    - "\\bflexible\\s+(PSC|perovskite|device|solar)\\b"
+    - "\\b(PET|PEN)\\s+substrate\\b"
+    - "\\bplastic\\s+substrate\\b"
+  anchor_dois:
+    - "10.1021/nl403514x"  # Kumar 2013 - First flexible PSC
+    - "10.1038/ncomms5908"  # Roldan-Carmona 2014 - PEN substrate
+    - "10.1002/aenm.201501410"  # Feng 2016 - High efficiency flexible
+    - "10.1021/acsenergylett.7b00050"  # Yang 2017 - Ultrathin flexible
+    - "10.1002/adfm.201801984"  # Kaltenbrunner 2018 - Ultralight PSC
+    - "10.1038/s41467-020-16831-8"  # Becker 2020 - Roll-to-roll flexible
+    - "10.1002/adma.201904369"  # Park 2020 - Wearable PSC
+
+simplified_architectures:
+  description: "Simplified device architectures eliminating ETL or HTL layers"
+  canonical:
+    - "ETL free"
+    - "HTL free"
+    - "charge transport layer free"
+    - "simplified architecture"
+    - "transport layer free perovskite"
+    - "carbon electrode PSC"
+    - "minimalist perovskite structure"
+    - "bare perovskite contact"
+  aliases:
+    - "ETL-free"
+    - "HTL-free"
+    - "transport layer free"
+    - "minimalist architecture"
+    - "transport-layer-free PSC"
+    - "charge transport free"
+    - "carbon-based perovskite"
+    - "simplified PSC"
+  regex_patterns:
+    - "\\b(ETL|HTL|electron\\s+transport|hole\\s+transport)[\\s\\-]?free\\b"
+    - "\\bsimplified\\s+(architecture|structure|device)\\b"
+    - "\\btransport[\\s\\-]?layer[\\s\\-]?free\\b"
+  anchor_dois:
+    - "10.1002/adfm.201401733"  # Liang 2014 - ETL-free PSC
+    - "10.1002/adma.201404525"  # Chen 2015 - HTL-free architecture
+    - "10.1021/acsami.5b08539"  # Rong 2015 - Printable HTL-free
+    - "10.1002/adma.201600969"  # Zhou 2016 - Simplified planar
+    - "10.1002/ente.201700868"  # Bag 2018 - Carbon electrode HTL-free
+    - "10.1039/c9ta01269a"  # Chen 2019 - ETL-free inverted
+
+large_area_modules:
+  description: "Large-area perovskite modules bridging lab-to-commercial scale"
+  canonical:
+    - "perovskite module"
+    - "large area"
+    - "mini module"
+    - "60 cell module"
+    - "module fabrication"
+    - "perovskite panel"
+    - "module scale device"
+    - "module interconnection"
+    - "large area perovskite"
+  aliases:
+    # Module terminology
+    - "module efficiency"
+    - "lab to module"
+    - "upscaling"
+    - "panel"
+    - "multi-cell"
+    - "solar module"
+    - "photovoltaic module"
+    - "module design"
+    - "module architecture"
+
+    # Size/area terminology
+    - "large-area"
+    - "large scale"
+    - "large area device"
+    - "large area deposition"
+    - "large area fabrication"
+    - "large substrate"
+    - "cm2 area"
+    - "cm² area"
+    - "square centimeter"
+
+    # Interconnection
+    - "series connection"
+    - "parallel connection"
+    - "interconnect"
+    - "cell interconnection"
+    - "laser scribing"
+    - "P1 P2 P3"
+    - "monolithic series"
+    - "submodule"
+
+    # Module metrics
+    - "aperture area"
+    - "active area"
+    - "total area"
+    - "geometric fill factor"
+    - "module power"
+
+    # Scalability
+    - "scale up"
+    - "upscale"
+    - "upscaling process"
+    - "transition from small to large"
+    - "lab-to-module"
+
+  regex_patterns:
+    - "\\b(large[\\s\\-]?area|upscal(ing|ed))\\s+(module|perovskite)\\b"
+    - "\\bperovskite\\s+module\\b"
+    - "\\blab[\\s\\-]?to[\\s\\-]?module\\b"
+    - "\\b\\d+\\s?(cm2|cm²|square\\s+cm)\\b"
+    - "\\bmodule\\s+(efficiency|fabrication|design)\\b"
+  anchor_dois:
+    - "10.1038/nenergy.2016.177"  # Yang 2016 - 12.1% mini module
+    - "10.1038/s41560-017-0067-y"  # Hu 2018 - 17.3% module
+    - "10.1038/s41560-020-0565-1"  # Li 2020 - 19.1% module
+    - "10.1126/science.aav8680"  # Grancini 2019 - 10,000h stability
+    - "10.1002/aenm.201802728"  # Razza 2019 - Upscaling issues
+    - "10.1039/c9ee02115a"  # Qiu 2019 - Laser scribing
+    - "10.1002/adma.202003026"  # Zhang 2020 - Module certification
+
+mesoscopic_architecture:
+  description: "Mesoscopic device structures using Al2O3 or TiO2 scaffolds"
+  canonical:
+    - "mesoscopic PSC"
+    - "mesoporous"
+    - "Al2O3 scaffold"
+    - "TiO2 scaffold"
+    - "mesoscopic perovskite solar cell"
+    - "mesoporous scaffold"
+    - "triple mesoscopic stack"
+    - "scaffold assisted perovskite"
+  aliases:
+    - "meso-superstructured"
+    - "mesoscopic architecture"
+    - "scaffold architecture"
+    - "mesoporous scaffold"
+    - "scaffold-based PSC"
+    - "triple layer mesoscopic"
+    - "meso carbon PSC"
+  regex_patterns:
+    - "\\bmeso(scopic|porous|\\-superstructured)\\b"
+    - "\\b(Al2O3|TiO2)\\s+scaffold\\b"
+  anchor_dois:
+    - "10.1126/science.1228604"  # Lee 2012 - Meso-superstructured
+    - "10.1038/nature12340"  # Burschka 2013 - Sequential mesoporous
+    - "10.1039/c4ee01138d"  # Mei 2014 - Triple mesoscopic
+    - "10.1126/science.aaa0940"  # Li 2015 - Mesoscopic carbon
+    - "10.1021/acs.jpclett.6b02221"  # Zhang 2017 - Carbon electrode
+    - "10.1039/c7se00077d"  # Chen 2017 - Fully printable
+    - "10.1021/acsenergylett.8b02224"  # Mei 2019 - High stability
+
+indoor_photovoltaics:
+  description: "Perovskite solar cells optimized for indoor/low-light applications"
+  canonical:
+    - "indoor photovoltaic"
+    - "low light"
+    - "LED illumination"
+    - "IoT power"
+  aliases:
+    - "indoor PSC"
+    - "ambient light"
+    - "1000 lux"
+    - "200 lux"
+  regex_patterns:
+    - "\\bindoor\\s+(photovoltaic|PSC|perovskite|application)\\b"
+    - "\\blow[\\s\\-]?light\\b"
+    - "\\b(LED|ambient)\\s+(light|illumination)\\b"
+  anchor_dois:
+    - "10.1002/aenm.201500058"  # De Rossi 2015 - Indoor application
+    - "10.1021/acsenergylett.7b00129"  # Mainville 2017 - IoT power
+    - "10.1002/aenm.201800502"  # Lechene 2018 - Indoor optimization
+    - "10.1021/acsenergylett.9b01944"  # Chen 2019 - Wide bandgap indoor
+    - "10.1002/aenm.202001344"  # Mathews 2020 - Indoor efficiency
+    - "10.1038/s41560-021-00882-7"  # Cui 2021 - 39% indoor efficiency
+    - "10.1002/adfm.202105718"  # Dagar 2022 - Tandem indoor

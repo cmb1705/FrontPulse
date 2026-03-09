@@ -1,0 +1,8 @@
+pip install pandas pyarrow
+python src/validate_slices.py "data/out/by_quarter__*.parquet" --json slice_validation.json
+# Always continues; prints anomalies.
+# If you ever want CI/CD-style failure:
+python src/validate_slices.py "data/out/by_quarter__*.parquet" --strict
+
+# run graph_checks to verify no duplicate edges and see if self loops exist
+# run ref_resolution 

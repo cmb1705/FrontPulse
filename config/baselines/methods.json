@@ -1,0 +1,26 @@
+[
+  {
+    "name": "msd_lightgbm",
+    "path": "data/out/experiments/msd_training/msd_inflection/leakage_free/breakthrough_predictions.csv",
+    "score_column": "inflection_probability",
+    "pred_column": "is_inflection_pred"
+  },
+  {
+    "name": "simple_heuristics",
+    "path": "data/out/experiments/baselines/simple_heuristics/breakthrough_predictions.csv",
+    "score_column": "heuristic_score",
+    "pred_column": "is_inflection_pred"
+  },
+  {
+    "name": "kleinberg_burst",
+    "path": "data/out/experiments/baselines/kleinberg_burst/breakthrough_predictions.csv",
+    "score_column": "burst_level",
+    "pred_column": "is_inflection_pred"
+  },
+  {
+    "name": "semantic_changepoint",
+    "path": "data/out/experiments/baselines/semantic_changepoint/breakthrough_predictions.csv",
+    "score_column": "change_score",
+    "pred_column": "is_inflection_pred"
+  }
+]

@@ -1,0 +1,772 @@
+schema_version: 1
+
+templates:
+  context_metric_template: &context_metric_template
+    source: compute_lineage_multisignal_features.py
+    units: dimensionless
+    causal_window: rolling up to 4 quarters
+    caveats:
+      - "Requires context feature generation (--enable-context-features)."
+  field_baseline_template: &field_baseline_template
+    source: data/out/04_front_aggregation/field_metrics.csv
+    units: varies
+    causal_window: "quarterly aggregate"
+    caveats:
+      - "Represents entire perovskite corpus, not lineage-specific."
+  field_relative_template: &field_relative_template
+    source: compute_lineage_multisignal_features.py
+    units: ratio
+    causal_window: aligned with quarter
+    caveats:
+      - "Undefined when field baselines are near zero (epsilon applied)."
+
+groups:
+  identifiers:
+    description: Identifier columns used for joins or QA.
+    columns:
+      - lineage_id
+      - quarter
+
+  quarter_flags:
+    description: Indicator flags for seasonal patterns (Q1–Q4).
+    columns:
+      - is_quarter_1
+      - is_quarter_2
+      - is_quarter_3
+      - is_quarter_4
+
+  core:
+    description: Canonical MSD predictors (semantic, growth, novelty, disruption).
+    columns:
+      - semantic_velocity
+      - velocity_acceleration
+      - growth_rate
+      - growth_acceleration
+      - new_works
+      - total_works
+      - novel_terms
+      - novelty_rate
+      - novelty_momentum
+      - awakening_intensity
+      - cross_domain_share
+      - cross_domain_refs
+      - within_lineage_refs
+      - citation_balance
+      - cd_index
+      - cd_min
+      - cd_max
+      - disruption_intensity
+
+  lineage_activity:
+    description: Additional lineage-level intensity features.
+    columns:
+      - n_new_papers
+      - cumulative_works
+      - new_works_roll_mean_2q
+      - new_works_roll_mean_4q
+      - new_works_roll_std_4q
+      - new_works_yoy_delta
+      - new_works_yoy_ratio
+      - growth_rate_diff
+      - growth_rate_yoy_delta
+
+  metadata_features:
+    description: QA/support columns not typically fed into models.
+    columns:
+      - n_papers_cd
+      - logistic_midpoint_quarter
+
+  logistic_fits:
+    description: Logistic growth fit parameters from curve fitting.
+    columns:
+      - logistic_carrying_capacity
+      - logistic_growth_rate
+      - logistic_midpoint_idx
+      - logistic_fit_r2
+
+  author_flow:
+    description: Author influx derived metrics (Task 2.1).
+    columns:
+      - author_influx_z
+      - author_influx_qoq_delta
+      - author_influx_roll_1q
+      - author_influx_roll_2q
+      - author_influx_roll_4q
+      - author_influx_max_dev_4q
+      - author_influx_min_dev_4q
+
+  citation_velocity:
+    description: Citation velocity derived metrics.
+    columns:
+      - citation_velocity_z
+      - citation_velocity_qoq_delta
+      - citation_velocity_roll_1q
+      - citation_velocity_roll_2q
+      - citation_velocity_roll_4q
+      - citation_velocity_max_dev_4q
+      - citation_velocity_min_dev_4q
+
+  reference_vitality:
+    description: Reference vitality derived metrics.
+    columns:
+      - reference_vitality_z
+      - reference_vitality_qoq_delta
+      - reference_vitality_roll_1q
+      - reference_vitality_roll_2q
+      - reference_vitality_roll_4q
+      - reference_vitality_max_dev_4q
+      - reference_vitality_min_dev_4q
+
+  topic_diversity:
+    description: Topic diversity derived metrics.
+    columns:
+      - topic_diversity_z
+      - topic_diversity_qoq_delta
+      - topic_diversity_roll_1q
+      - topic_diversity_roll_2q
+      - topic_diversity_roll_4q
+      - topic_diversity_max_dev_4q
+      - topic_diversity_min_dev_4q
+
+  cross_cluster_bridging:
+    description: Cross-cluster bridging derived metrics.
+    columns:
+      - cross_cluster_bridging_z
+      - cross_cluster_bridging_qoq_delta
+      - cross_cluster_bridging_roll_1q
+      - cross_cluster_bridging_roll_2q
+      - cross_cluster_bridging_roll_4q
+      - cross_cluster_bridging_max_dev_4q
+      - cross_cluster_bridging_min_dev_4q
+
+  field_baseline:
+    description: Absolute field-wide metrics for each quarter.
+    columns:
+      - field_total_new_works
+      - field_median_new_works
+      - field_mean_new_works
+      - field_lineage_count
+      - field_new_works_p50
+      - field_new_works_p75
+      - field_new_works_p90
+      - field_quarter_int
+      - field_cumulative_new_works
+      - field_total_new_works_roll_mean_2
+      - field_total_new_works_roll_mean_4
+      - field_total_new_works_roll_std_4
+      - field_total_new_works_diff
+      - field_total_new_works_yoy_delta
+      - field_total_new_works_yoy_ratio
+      - field_cumulative_growth_rate
+      - field_cumulative_acceleration
+      - field_quarter_of_year
+      - field_seasonal_baseline_new_works
+      - field_seasonal_adjusted_new_works
+
+  field_relative:
+    description: Ratios/differences comparing lineage metrics to field baseline.
+    columns:
+      - relative_new_works
+      - relative_cumulative_works
+      - growth_vs_field
+      - acceleration_vs_field
+      - new_works_over_p75
+
+  modeling_default:
+    description: Standard MSD modeling bundle (core + context + lineage activity).
+    includes:
+      - quarter_flags
+      - core
+      - lineage_activity
+      - logistic_fits
+      - author_flow
+      - citation_velocity
+      - reference_vitality
+      - topic_diversity
+      - cross_cluster_bridging
+
+  context_all:
+    description: Aggregate for all Task 2.1 context groups.
+    includes:
+      - author_flow
+      - citation_velocity
+      - reference_vitality
+      - topic_diversity
+      - cross_cluster_bridging
+
+  field_all:
+    description: Aggregate for absolute and relative field metrics.
+    includes:
+      - field_baseline
+      - field_relative
+
+  all_predictors:
+    description: Every predictor column tracked by the multisignal pipeline.
+    includes:
+      - quarter_flags
+      - core
+      - lineage_activity
+      - logistic_fits
+      - context_all
+      - field_all
+
+features:
+  lineage_id:
+    description: Unique lineage identifier.
+    groups: [identifiers]
+    source: compute_lineage_multisignal_features.py
+    units: id
+    causal_window: n/a
+    caveats: []
+
+  quarter:
+    description: Fiscal quarter label (YYYYQn).
+    groups: [identifiers]
+    source: compute_lineage_multisignal_features.py
+    units: categorical
+    causal_window: n/a
+    caveats: []
+
+  is_quarter_1:
+    description: Indicator for quarters ending in March.
+    groups: [quarter_flags]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: n/a
+    caveats:
+      - "Used for explicit seasonality controls."
+  is_quarter_2:
+    description: Indicator for quarters ending in June.
+    groups: [quarter_flags]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: n/a
+    caveats: []
+  is_quarter_3:
+    description: Indicator for quarters ending in September.
+    groups: [quarter_flags]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: n/a
+    caveats: []
+  is_quarter_4:
+    description: Indicator for quarters ending in December.
+    groups: [quarter_flags]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: n/a
+    caveats: []
+
+  semantic_velocity:
+    description: Semantic drift velocity computed in Stage 1.
+    groups: [core]
+    source: semantic_velocity.csv
+    units: sigma / quarter
+    causal_window: rolling 4-quarter
+    caveats:
+      - "Missing for earliest quarters until language model burn-in."
+  velocity_acceleration:
+    description: Quarter-over-quarter change in semantic velocity.
+    groups: [core]
+    source: multi_signal_detector.engineer_features
+    units: sigma / quarter^2
+    causal_window: rolling 2-quarter
+    caveats:
+      - "Zero-imputed for first observed quarter per lineage."
+
+  growth_rate:
+    description: Percent change of cumulative works vs prior quarter.
+    groups: [core]
+    source: multi_signal_detector.load_and_merge_signals
+    units: ratio
+    causal_window: rolling 2-quarter
+    caveats:
+      - "Can spike when cumulative works is near zero."
+  growth_acceleration:
+    description: Difference in growth_rate quarter to quarter.
+    groups: [core]
+    source: multi_signal_detector.engineer_features
+    units: ratio delta
+    causal_window: rolling 2-quarter
+    caveats: []
+  new_works:
+    description: Number of new works added in the quarter.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: works per quarter
+    causal_window: current quarter
+    caveats:
+      - "Zero-inflated for dormant lineages."
+  total_works:
+    description: Cumulative works up to the quarter.
+    groups: [core]
+    source: multi_signal_detector.load_and_merge_signals
+    units: works
+    causal_window: cumulative
+    caveats: []
+  novel_terms:
+    description: Count of novel technical terms detected.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: count
+    causal_window: current quarter
+    caveats:
+      - "Depends on vocabulary thresholds from Stage 0."
+  novelty_rate:
+    description: Ratio of novel_terms to total tokens.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: ratio
+    causal_window: current quarter
+    caveats: []
+  novelty_momentum:
+    description: Product of novelty rate and number of new papers.
+    groups: [core]
+    source: multi_signal_detector.engineer_features
+    units: scaled count
+    causal_window: current quarter
+    caveats: []
+
+  awakening_intensity:
+    description: Magnitude of activity spike post dormancy.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: last two quarters
+    caveats: []
+  n_new_papers:
+    description: Number of unique papers entering the lineage this quarter.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: current quarter
+    caveats: []
+  cumulative_works:
+    description: Running sum of new works.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: cumulative
+    caveats: []
+
+  cross_domain_share:
+    description: Share of references that cross domains.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: ratio
+    causal_window: current quarter
+    caveats: []
+  cross_domain_refs:
+    description: Count of cross-domain references.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: count
+    causal_window: current quarter
+    caveats: []
+  within_lineage_refs:
+    description: Count of internal references.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: count
+    causal_window: current quarter
+    caveats: []
+  citation_balance:
+    description: Ratio of cross-domain to within-lineage references.
+    groups: [core]
+    source: multi_signal_detector.engineer_features
+    units: ratio
+    causal_window: current quarter
+    caveats:
+      - "Adds 1 in denominator to avoid division by zero."
+
+  cd_index:
+    description: Disruption index derived from citation network.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: dimensionless
+    causal_window: current quarter
+    caveats: []
+  cd_min:
+    description: Minimum disruption index observed historically.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: dimensionless
+    causal_window: cumulative
+    caveats: []
+  cd_max:
+    description: Maximum disruption index observed historically.
+    groups: [core]
+    source: compute_lineage_multisignal_features.py
+    units: dimensionless
+    causal_window: cumulative
+    caveats: []
+  disruption_intensity:
+    description: Disruption index scaled by new papers.
+    groups: [core]
+    source: multi_signal_detector.engineer_features
+    units: scaled score
+    causal_window: current quarter
+    caveats: []
+
+  new_works_roll_mean_2q:
+    description: Two-quarter rolling mean of new works.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: rolling 2-quarter
+    caveats: []
+  new_works_roll_mean_4q:
+    description: Four-quarter rolling mean of new works.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: rolling 4-quarter
+    caveats: []
+  new_works_roll_std_4q:
+    description: Four-quarter rolling standard deviation of new works.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: rolling 4-quarter
+    caveats: []
+  new_works_yoy_delta:
+    description: Difference vs same quarter last year.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: year-over-year
+    caveats: []
+  new_works_yoy_ratio:
+    description: Ratio vs same quarter last year.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: ratio
+    causal_window: year-over-year
+    caveats:
+      - "Undefined when denominator zero (handled via epsilon)."
+  growth_rate_diff:
+    description: Difference between quarter growth rate and long-term trend.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: ratio
+    causal_window: rolling 4-quarter
+    caveats: []
+  growth_rate_yoy_delta:
+    description: YoY delta of growth rate.
+    groups: [lineage_activity]
+    source: compute_lineage_multisignal_features.py
+    units: ratio delta
+    causal_window: year-over-year
+    caveats: []
+
+  logistic_carrying_capacity:
+    description: Estimated carrying capacity from logistic fit.
+    groups: [logistic_fits]
+    source: compute_lineage_multisignal_features.py
+    units: works
+    causal_window: fit over full history
+    caveats:
+      - "Unstable for noisy or short histories."
+  logistic_growth_rate:
+    description: Logistic model growth rate parameter.
+    groups: [logistic_fits]
+    source: compute_lineage_multisignal_features.py
+    units: rate
+    causal_window: fit over full history
+    caveats: []
+  logistic_midpoint_idx:
+    description: Quarter index where logistic fit reaches 50%.
+    groups: [logistic_fits]
+    source: compute_lineage_multisignal_features.py
+    units: index
+    causal_window: fit over full history
+    caveats: []
+  logistic_midpoint_quarter:
+    description: Quarter label where logistic fit reaches 50%.
+    groups: [logistic_fits]
+    source: compute_lineage_multisignal_features.py
+    units: categorical
+    causal_window: fit over full history
+    caveats: []
+  logistic_fit_r2:
+    description: R-squared of logistic regression fit.
+    groups: [logistic_fits]
+    source: compute_lineage_multisignal_features.py
+    units: goodness-of-fit
+    causal_window: fit over full history
+    caveats:
+      - "Low values indicate unreliable logistic parameters."
+
+  author_influx_z:
+    <<: *context_metric_template
+    description: "Z-score normalized count of unique authors entering the lineage."
+    groups: [author_flow]
+  author_influx_qoq_delta:
+    <<: *context_metric_template
+    description: "Quarter-over-quarter change in author influx."
+    groups: [author_flow]
+  author_influx_roll_1q:
+    <<: *context_metric_template
+    description: "One-quarter rolling average of author influx."
+    groups: [author_flow]
+  author_influx_roll_2q:
+    <<: *context_metric_template
+    description: "Two-quarter rolling average of author influx."
+    groups: [author_flow]
+  author_influx_roll_4q:
+    <<: *context_metric_template
+    description: "Four-quarter rolling average of author influx."
+    groups: [author_flow]
+  author_influx_max_dev_4q:
+    <<: *context_metric_template
+    description: "Maximum deviation from the four-quarter rolling average of author influx."
+    groups: [author_flow]
+  author_influx_min_dev_4q:
+    <<: *context_metric_template
+    description: "Minimum deviation from the four-quarter rolling average of author influx."
+    groups: [author_flow]
+
+  citation_velocity_z:
+    <<: *context_metric_template
+    description: "Z-score of outbound citation velocity."
+    groups: [citation_velocity]
+  citation_velocity_qoq_delta:
+    <<: *context_metric_template
+    description: "Quarter-over-quarter change in citation velocity."
+    groups: [citation_velocity]
+  citation_velocity_roll_1q:
+    <<: *context_metric_template
+    description: "One-quarter rolling mean of citation velocity."
+    groups: [citation_velocity]
+  citation_velocity_roll_2q:
+    <<: *context_metric_template
+    description: "Two-quarter rolling mean of citation velocity."
+    groups: [citation_velocity]
+  citation_velocity_roll_4q:
+    <<: *context_metric_template
+    description: "Four-quarter rolling mean of citation velocity."
+    groups: [citation_velocity]
+  citation_velocity_max_dev_4q:
+    <<: *context_metric_template
+    description: "Maximum deviation from the four-quarter rolling citation velocity."
+    groups: [citation_velocity]
+  citation_velocity_min_dev_4q:
+    <<: *context_metric_template
+    description: "Minimum deviation from the four-quarter rolling citation velocity."
+    groups: [citation_velocity]
+
+  reference_vitality_z:
+    <<: *context_metric_template
+    description: "Z-score of reference vitality."
+    groups: [reference_vitality]
+  reference_vitality_qoq_delta:
+    <<: *context_metric_template
+    description: "Quarter-over-quarter change in reference vitality."
+    groups: [reference_vitality]
+  reference_vitality_roll_1q:
+    <<: *context_metric_template
+    description: "One-quarter rolling mean of reference vitality."
+    groups: [reference_vitality]
+  reference_vitality_roll_2q:
+    <<: *context_metric_template
+    description: "Two-quarter rolling mean of reference vitality."
+    groups: [reference_vitality]
+  reference_vitality_roll_4q:
+    <<: *context_metric_template
+    description: "Four-quarter rolling mean of reference vitality."
+    groups: [reference_vitality]
+  reference_vitality_max_dev_4q:
+    <<: *context_metric_template
+    description: "Maximum deviation from the four-quarter rolling reference vitality."
+    groups: [reference_vitality]
+  reference_vitality_min_dev_4q:
+    <<: *context_metric_template
+    description: "Minimum deviation from the four-quarter rolling reference vitality."
+    groups: [reference_vitality]
+
+  topic_diversity_z:
+    <<: *context_metric_template
+    description: "Z-score of topic diversity within the lineage."
+    groups: [topic_diversity]
+  topic_diversity_qoq_delta:
+    <<: *context_metric_template
+    description: "Quarter-over-quarter change in topic diversity."
+    groups: [topic_diversity]
+  topic_diversity_roll_1q:
+    <<: *context_metric_template
+    description: "One-quarter rolling mean of topic diversity."
+    groups: [topic_diversity]
+  topic_diversity_roll_2q:
+    <<: *context_metric_template
+    description: "Two-quarter rolling mean of topic diversity."
+    groups: [topic_diversity]
+  topic_diversity_roll_4q:
+    <<: *context_metric_template
+    description: "Four-quarter rolling mean of topic diversity."
+    groups: [topic_diversity]
+  topic_diversity_max_dev_4q:
+    <<: *context_metric_template
+    description: "Maximum deviation from the four-quarter rolling topic diversity."
+    groups: [topic_diversity]
+  topic_diversity_min_dev_4q:
+    <<: *context_metric_template
+    description: "Minimum deviation from the four-quarter rolling topic diversity."
+    groups: [topic_diversity]
+
+  cross_cluster_bridging_z:
+    <<: *context_metric_template
+    description: "Z-score of cross-cluster bridging intensity."
+    groups: [cross_cluster_bridging]
+  cross_cluster_bridging_qoq_delta:
+    <<: *context_metric_template
+    description: "Quarter-over-quarter change in cross-cluster bridging."
+    groups: [cross_cluster_bridging]
+  cross_cluster_bridging_roll_1q:
+    <<: *context_metric_template
+    description: "One-quarter rolling mean of cross-cluster bridging."
+    groups: [cross_cluster_bridging]
+  cross_cluster_bridging_roll_2q:
+    <<: *context_metric_template
+    description: "Two-quarter rolling mean of cross-cluster bridging."
+    groups: [cross_cluster_bridging]
+  cross_cluster_bridging_roll_4q:
+    <<: *context_metric_template
+    description: "Four-quarter rolling mean of cross-cluster bridging."
+    groups: [cross_cluster_bridging]
+  cross_cluster_bridging_max_dev_4q:
+    <<: *context_metric_template
+    description: "Maximum deviation from the four-quarter rolling cross-cluster bridging."
+    groups: [cross_cluster_bridging]
+  cross_cluster_bridging_min_dev_4q:
+    <<: *context_metric_template
+    description: "Minimum deviation from the four-quarter rolling cross-cluster bridging."
+    groups: [cross_cluster_bridging]
+
+  field_total_new_works:
+    <<: *field_baseline_template
+    description: "Total number of new works across the corpus in the quarter."
+    groups: [field_baseline]
+    units: works
+  field_median_new_works:
+    <<: *field_baseline_template
+    description: "Median new works per lineage across the corpus."
+    groups: [field_baseline]
+    units: works
+  field_mean_new_works:
+    <<: *field_baseline_template
+    description: "Mean new works per lineage across the corpus."
+    groups: [field_baseline]
+    units: works
+  field_lineage_count:
+    <<: *field_baseline_template
+    description: "Number of active lineages in the quarter."
+    groups: [field_baseline]
+    units: count
+  field_new_works_p50:
+    <<: *field_baseline_template
+    description: "50th percentile of lineage new works."
+    groups: [field_baseline]
+    units: works
+  field_new_works_p75:
+    <<: *field_baseline_template
+    description: "75th percentile of lineage new works."
+    groups: [field_baseline]
+    units: works
+  field_new_works_p90:
+    <<: *field_baseline_template
+    description: "90th percentile of lineage new works."
+    groups: [field_baseline]
+    units: works
+  field_quarter_int:
+    <<: *field_baseline_template
+    description: "Integer representation of the quarter (YYYY*4+Q)."
+    groups: [field_baseline]
+    units: integer
+  field_cumulative_new_works:
+    <<: *field_baseline_template
+    description: "Cumulative number of works across the corpus."
+    groups: [field_baseline]
+    units: works
+  field_total_new_works_roll_mean_2:
+    <<: *field_baseline_template
+    description: "Two-quarter rolling mean of field-wide new works."
+    groups: [field_baseline]
+    units: works
+  field_total_new_works_roll_mean_4:
+    <<: *field_baseline_template
+    description: "Four-quarter rolling mean of field-wide new works."
+    groups: [field_baseline]
+    units: works
+  field_total_new_works_roll_std_4:
+    <<: *field_baseline_template
+    description: "Four-quarter rolling standard deviation of field-wide new works."
+    groups: [field_baseline]
+    units: works
+  field_total_new_works_diff:
+    <<: *field_baseline_template
+    description: "Difference between current and previous quarter field-wide new works."
+    groups: [field_baseline]
+    units: works
+  field_total_new_works_yoy_delta:
+    <<: *field_baseline_template
+    description: "Year-over-year delta in field-wide new works."
+    groups: [field_baseline]
+    units: works
+  field_total_new_works_yoy_ratio:
+    <<: *field_baseline_template
+    description: "Year-over-year ratio of field-wide new works."
+    groups: [field_baseline]
+    units: ratio
+  field_cumulative_growth_rate:
+    <<: *field_baseline_template
+    description: "Percentage growth in cumulative field-wide output."
+    groups: [field_baseline]
+    units: ratio
+  field_cumulative_acceleration:
+    <<: *field_baseline_template
+    description: "Change in field-wide cumulative growth rate."
+    groups: [field_baseline]
+    units: ratio delta
+  field_quarter_of_year:
+    <<: *field_baseline_template
+    description: "Quarter number (1-4) for the field metrics."
+    groups: [field_baseline]
+    units: index
+  field_seasonal_baseline_new_works:
+    <<: *field_baseline_template
+    description: "Median field output for the given quarter of year."
+    groups: [field_baseline]
+    units: works
+  field_seasonal_adjusted_new_works:
+    <<: *field_baseline_template
+    description: "Field new works after removing seasonal baseline."
+    groups: [field_baseline]
+    units: works
+
+  relative_new_works:
+    <<: *field_relative_template
+    description: "Ratio of lineage new works to field median."
+    groups: [field_relative]
+  relative_cumulative_works:
+    <<: *field_relative_template
+    description: "Ratio of lineage cumulative works to field cumulative output."
+    groups: [field_relative]
+  growth_vs_field:
+    <<: *field_relative_template
+    description: "Difference between lineage growth rate and field growth rate."
+    groups: [field_relative]
+  acceleration_vs_field:
+    <<: *field_relative_template
+    description: "Difference between lineage and field growth acceleration."
+    groups: [field_relative]
+  new_works_over_p75:
+    <<: *field_relative_template
+    description: "Lineage new works divided by field 75th percentile."
+    groups: [field_relative]
+
+metadata:
+  version: 2
+  last_updated: 2025-11-13
+  maintainer: analytics@perovskite.work
+  notes:
+    - Update groups/metadata when new engineered features are introduced.

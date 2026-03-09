@@ -1,0 +1,64 @@
+required:
+  work_id: string
+  title: string
+  publication_date: datetime64[ns]
+  publication_year: Int16
+  type: string
+  language: string
+  cited_by_count: Int32
+  is_oa: boolean
+  oa_status: string
+  author_count: Int16
+  primary_venue_name: string
+  ref_count: Int32
+  pub_qtr: string
+  referenced_works: object
+
+coerce_types:
+  work_id: string
+  work_id_url: string
+  doi: string
+  title: string
+  publication_date: datetime64[ns]
+  publication_year: Int16
+  type: string
+  language: string
+  cited_by_count: Int32
+  is_oa: boolean
+  oa_status: string
+  has_fulltext: boolean
+  primary_venue_id: string
+  primary_venue_name: string
+  primary_venue_type: string
+  author_count: Int16
+  first_author_id: string
+  first_author_name: string
+  first_author_orcid: string
+  author_ids: string
+  institution_ids: string
+  institution_country_codes: string
+  is_international_collab: boolean
+  primary_concept_id: string
+  primary_concept_name: string
+  primary_concept_level0: string
+  primary_topic_id: string
+  primary_topic_name: string
+  primary_topic_field: string
+  primary_topic_domain: string
+  ref_count: Int32
+  pub_year: Int16
+  pub_qtr: string
+  referenced_works: object
+
+constraints:
+  non_null:
+    - work_id
+    - publication_date
+  ranges:
+    cited_by_count:
+      min: 0
+
+indexes:
+  - work_id
+sort_by:
+  - publication_date

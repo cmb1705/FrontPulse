@@ -1,0 +1,55 @@
+schema_version: 1
+description: Standard feature subset configurations for MSD experiments.
+
+configs:
+  baseline:
+    label: "Core + context (production)"
+    include_groups:
+      - core
+      - lineage_activity
+      - logistic_fits
+      - author_flow
+      - citation_velocity
+      - reference_vitality
+      - topic_diversity
+      - cross_cluster_bridging
+  core_only:
+    label: "Core signals only"
+    include_groups:
+      - core
+      - lineage_activity
+  core_plus_field:
+    label: "Core + field baselines"
+    include_groups:
+      - core
+      - lineage_activity
+      - field_all
+  all_predictors:
+    label: "All predictors (core+context+field)"
+    include_groups:
+      - all_predictors
+  strong_signals_top20:
+    label: "Top ~20 stable signals (pruning consensus)"
+    include_columns:
+      - relative_cumulative_works
+      - total_works
+      - new_works_over_p75
+      - new_works_roll_mean_4q
+      - new_works_roll_std_4q
+      - logistic_growth_rate
+      - logistic_midpoint_idx
+      - logistic_carrying_capacity
+      - logistic_fit_r2
+      - semantic_velocity
+      - novelty_rate
+      - novelty_momentum
+      - cross_domain_share
+      - cross_cluster_bridging_roll_4q
+      - cross_cluster_bridging_max_dev_4q
+      - cd_min
+      - growth_acceleration
+      - growth_vs_field
+      - topic_diversity_qoq_delta
+      - reference_vitality_roll_4q
+      - author_influx_roll_2q
+      - citation_balance
