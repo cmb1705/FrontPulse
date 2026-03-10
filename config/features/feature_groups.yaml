@@ -37,6 +37,7 @@ groups:
 
   core:
     description: Canonical MSD predictors (semantic, growth, novelty, disruption).
+    leakage_status: mixed  # cd_index, cd_min, cd_max, disruption_intensity use future citations
     columns:
       - semantic_velocity
       - velocity_acceleration
@@ -59,6 +60,7 @@ groups:
 
   lineage_activity:
     description: Additional lineage-level intensity features.
+    leakage_status: safe  # All trailing/historical
     columns:
       - n_new_papers
       - cumulative_works
@@ -78,6 +80,7 @@ groups:
 
   logistic_fits:
     description: Logistic growth fit parameters from curve fitting.
+    leakage_status: unsafe  # S-curve fitted on full history; encodes future trajectory
     columns:
       - logistic_carrying_capacity
       - logistic_growth_rate
@@ -141,6 +144,7 @@ groups:
 
   field_baseline:
     description: Absolute field-wide metrics for each quarter.
+    leakage_status: unsafe  # Computed once on full corpus without temporal split
     columns:
       - field_total_new_works
       - field_median_new_works
@@ -165,6 +169,7 @@ groups:
 
   field_relative:
     description: Ratios/differences comparing lineage metrics to field baseline.
+    leakage_status: unsafe  # Derived from field_baseline (inherits leakage)
     columns:
       - relative_new_works
       - relative_cumulative_works

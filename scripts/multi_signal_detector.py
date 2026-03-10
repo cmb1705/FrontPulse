@@ -491,12 +491,20 @@ def select_features(
     df: pd.DataFrame,
     required_features: Optional[List[str]] = None,
     field_feature_mode: str = "auto",
+    leakage_safe: bool = False,
 ) -> Tuple[pd.DataFrame, List[str]]:
-    """
-    Select final feature set for training.
+    """Select final feature set for training.
 
     Automatically includes context features if available.
     Context features are from Task 2.1 (field-normalized metrics).
+
+    Args:
+        df: Feature DataFrame.
+        required_features: If provided, use exactly these features.
+        field_feature_mode: "auto", "off", or "only" for field features.
+        leakage_safe: If True, exclude features that use future data
+            (logistic fits, CD disruption index, field-relative metrics).
+            See ``docs/implementation/leakage_audit.md`` for details.
     """
     if required_features is not None:
         missing = [feat for feat in required_features if feat not in df.columns]
@@ -512,6 +520,13 @@ def select_features(
 
     if field_feature_mode not in {"auto", "off", "only"}:
         raise ValueError(f"Unknown field_feature_mode: {field_feature_mode}")
+
+    # Features that require future data (leakage-prone).
+    # cd_index/cd_min/cd_max use future citations; disruption_intensity
+    # is derived from cd_index.  See docs/implementation/leakage_audit.md.
+    _LEAKAGE_PRONE_CORE = {
+        'cd_index', 'cd_min', 'cd_max', 'disruption_intensity',
+    }
 
     # Core features
     core_features = [
@@ -536,12 +551,20 @@ def select_features(
         'cross_domain_refs',
         'within_lineage_refs',
         'citation_balance',
-        # Disruption
+        # Disruption (excluded in leakage-safe mode)
         'cd_index',
         'cd_min',
         'cd_max',
         'disruption_intensity',
     ]
+
+    if leakage_safe:
+        core_features = [f for f in core_features if f not in _LEAKAGE_PRONE_CORE]
+        print("   [LEAKAGE-SAFE] Excluded CD/disruption features from core")
+        if field_feature_mode != "off":
+            print("   [LEAKAGE-SAFE] Forcing field_feature_mode='off' "
+                  "(field baselines computed on full corpus)")
+            field_feature_mode = "off"
 
     feature_columns: List[str] = []
     if field_feature_mode != "only":
@@ -1392,6 +1415,10 @@ def main():
                        help='Exclude field-relative columns even if present in the multisignal matrix.')
     parser.add_argument('--field-features-only', action='store_true',
                        help='Use only field-relative columns (ablation mode).')
+    parser.add_argument('--leakage-safe', action='store_true',
+                       help='Exclude features that use future data (logistic fits, '
+                            'CD disruption index, field-relative metrics). '
+                            'Use for prospective evaluation experiments.')
 
     args = parser.parse_args()
     if args.disable_field_features and args.field_features_only:
@@ -1528,7 +1555,11 @@ def main():
 
     # Step 4: Select features
     field_feature_mode = "off" if args.disable_field_features else ("only" if args.field_features_only else "auto")
-    X, feature_names = select_features(train_df, field_feature_mode=field_feature_mode)
+    X, feature_names = select_features(
+        train_df,
+        field_feature_mode=field_feature_mode,
+        leakage_safe=getattr(args, 'leakage_safe', False),
+    )
     y = train_df['is_milestone']
     prediction_X, _ = select_features(prediction_df, required_features=feature_names)
 

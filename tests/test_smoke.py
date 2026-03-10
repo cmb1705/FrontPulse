@@ -186,3 +186,46 @@ def test_artifact_persistence_policy_exists() -> None:
     """Artifact persistence policy must exist for trusted IO guidance."""
     path = PROJECT_ROOT / "docs" / "implementation" / "artifact_persistence_policy.md"
     assert path.exists(), "Artifact persistence policy missing"
+
+
+# ---------------------------------------------------------------------------
+# Leakage-safe feature path
+# ---------------------------------------------------------------------------
+
+_LEAKAGE_PRONE_FEATURES = {
+    "logistic_carrying_capacity",
+    "logistic_growth_rate",
+    "logistic_midpoint_idx",
+    "logistic_fit_r2",
+    "cd_index",
+    "cd_min",
+    "cd_max",
+    "disruption_intensity",
+}
+
+
+def test_leakage_safe_config_exists() -> None:
+    """Leakage-safe feature config must be defined."""
+    import yaml
+
+    path = PROJECT_ROOT / "config" / "features" / "feature_subset_configs.yaml"
+    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
+    configs = cfg.get("configs", {})
+    assert "leakage_safe" in configs, "leakage_safe config missing"
+
+
+def test_leakage_safe_excludes_known_leaky_features() -> None:
+    """Leakage-safe config must not contain any known leakage-prone features."""
+    import yaml
+
+    path = PROJECT_ROOT / "config" / "features" / "feature_subset_configs.yaml"
+    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
+    safe_cols = set(cfg["configs"]["leakage_safe"].get("include_columns", []))
+    overlap = safe_cols & _LEAKAGE_PRONE_FEATURES
+    assert not overlap, f"Leakage-safe config contains leaky features: {overlap}"
+
+
+def test_leakage_audit_doc_exists() -> None:
+    """Leakage audit document must exist for experiment guidance."""
+    path = PROJECT_ROOT / "docs" / "implementation" / "leakage_audit.md"
+    assert path.exists(), "Leakage audit document missing"

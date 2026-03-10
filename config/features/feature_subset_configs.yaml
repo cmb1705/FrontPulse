@@ -53,3 +53,93 @@ configs:
       - reference_vitality_roll_4q
       - author_influx_roll_2q
       - citation_balance
+
+  # ── Leakage-safe configurations ──────────────────────────────────────────
+  # These configs exclude all features that use future data.  See
+  # docs/implementation/leakage_audit.md for the full classification.
+  #
+  # Excluded feature groups:
+  #   logistic_fits   -- S-curve fitted on full history (causal_window: full)
+  #   cd_*            -- disruption index uses future citations
+  #   disruption_*    -- derived from cd_index
+  #   field_baseline  -- computed once on entire corpus, not per-split
+  #   field_relative  -- ratios against field_baseline (inherits leakage)
+
+  leakage_safe:
+    label: "Leakage-safe core (no logistic, CD, or field features)"
+    description: >
+      Strictly prospective-safe features only.  Excludes logistic fit
+      parameters (require full-history S-curve), CD disruption index
+      (requires future citations), and field-relative metrics (computed
+      on full corpus without temporal split).
+    include_columns:
+      # -- Semantic --
+      - semantic_velocity
+      - velocity_acceleration
+      # -- Growth --
+      - growth_rate
+      - growth_acceleration
+      - new_works
+      - total_works
+      # -- Novelty --
+      - novel_terms
+      - novelty_rate
+      - novelty_momentum
+      # -- Dormancy / Awakening --
+      - dormancy_length
+      - awakening_intensity
+      - is_awakening
+      # -- Cross-domain citations --
+      - cross_domain_share
+      - cross_domain_refs
+      - within_lineage_refs
+      - citation_balance
+      # -- Lineage activity --
+      - n_new_papers
+      - cumulative_works
+      - new_works_roll_mean_2q
+      - new_works_roll_mean_4q
+      - new_works_roll_std_4q
+      - new_works_yoy_delta
+      - new_works_yoy_ratio
+      - growth_rate_diff
+      - growth_rate_yoy_delta
+      # -- Quarter flags --
+      - is_quarter_1
+      - is_quarter_2
+      - is_quarter_3
+      - is_quarter_4
+
+  leakage_safe_extended:
+    label: "Leakage-safe core + context metrics"
+    description: >
+      Extends leakage_safe with Task 2.1 context metrics (author flow,
+      citation velocity, reference vitality, topic diversity, cross-cluster
+      bridging).  These use trailing rolling windows and are considered safe
+      if the underlying metrics are computed without future data.
+    include_groups:
+      - quarter_flags
+      - lineage_activity
+      - author_flow
+      - citation_velocity
+      - reference_vitality
+      - topic_diversity
+      - cross_cluster_bridging
+    include_columns:
+      # Core features minus CD/disruption (not in a separate group)
+      - semantic_velocity
+      - velocity_acceleration
+      - growth_rate
+      - growth_acceleration
+      - new_works
+      - total_works
+      - novel_terms
+      - novelty_rate
+      - novelty_momentum
+      - dormancy_length
+      - awakening_intensity
+      - is_awakening
+      - cross_domain_share
+      - cross_domain_refs
+      - within_lineage_refs
+      - citation_balance
