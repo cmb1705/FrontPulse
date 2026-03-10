@@ -24,10 +24,11 @@ Stage 4 worker processes can mount the cache instead of rebuilding the global in
 
 from __future__ import annotations
 import json
-import pickle
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 import time
+
+from .trusted_io import load_trusted_pickle
 
 # Lazy import for abstract extractor
 _AbstractExtractor = None
@@ -224,8 +225,9 @@ class LineageTextStore:
                 continue
 
             # Load graph and extract papers
-            with open(graph_path, 'rb') as f:
-                G = pickle.load(f)
+            G = load_trusted_pickle(
+                graph_path, description=f"citation graph {quarter}"
+            )
 
             # Get works from all communities belonging to this lineage
             for work_id in G.nodes():

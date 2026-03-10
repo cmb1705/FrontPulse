@@ -29,7 +29,7 @@ Performance:
 """
 
 from __future__ import annotations
-import pathlib, pickle
+import pathlib
 import json
 import math
 from collections import Counter, defaultdict
@@ -888,9 +888,9 @@ def save_graph(
     if write_pickle:
         pkl_path = str(basepath) + ".pkl"
         try:
-            with open(pkl_path, "wb") as f:
-                pickle.dump(H, f)
-            logger.info(f"Successfully saved graph to {pkl_path}")
+            save_trusted_pickle(
+                H, pkl_path, description="citation graph pickle"
+            )
         except Exception as e:
             logger.error(f"FAILED to save graph pickle to {pkl_path}: {e}")
             raise

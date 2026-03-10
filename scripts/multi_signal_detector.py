@@ -32,9 +32,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import warnings
 from pathlib import Path
 from typing import Dict, Tuple, List, Any, Optional
+
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
 import numpy as np
 import pandas as pd
@@ -56,11 +61,12 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score, cross_vali
 from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
-import pickle
 try:
     from sklearn.frozen import FrozenEstimator  # type: ignore
 except ImportError:
     FrozenEstimator = None  # type: ignore
+
+from src.trusted_io import save_trusted_pickle
 
 from persistence_utils import ensure_persistence_column
 from utils.quarter_utils import (
@@ -1244,10 +1250,11 @@ def save_model_and_metrics(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save model
+    # Save model (trusted artifact -- not portable)
     model_path = output_dir / 'breakthrough_detector_model.pkl'
-    with open(model_path, 'wb') as f:
-        pickle.dump(pipeline, f)
+    save_trusted_pickle(
+        pipeline, model_path, description="MSD trained model"
+    )
     print(f"   Saved model to {model_path}")
 
     # Add configuration metadata to metrics
