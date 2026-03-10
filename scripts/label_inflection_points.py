@@ -27,6 +27,12 @@ except Exception:  # pragma: no cover - SciPy optional
 from persistence_utils import ensure_persistence_column
 from utils.quarter_utils import quarter_to_int, int_to_quarter
 
+# Onset detector (Phase 1 prospective-safe labeling)
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in __import__("sys").path:
+    __import__("sys").path.insert(0, str(_REPO))
+from src.onset_detector import OnsetResult, detect_onset
+
 LOG = logging.getLogger("inflection_labels")
 
 
@@ -118,7 +124,7 @@ def parse_args() -> argparse.Namespace:
         "--min-acceleration-growth",
         type=float,
         default=0.5,
-        help="Minimum fractional cumulative growth required within the next window (e.g., 0.5 = +50%).",
+        help="Minimum fractional cumulative growth required within the next window (e.g., 0.5 = +50%%).",
     )
     parser.add_argument(
         "--acceleration-window",
@@ -148,6 +154,42 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional limit on number of lineages to process (smoke tests).",
     )
+
+    # Detection mode (Phase 1 onset support)
+    parser.add_argument(
+        "--mode",
+        choices=["retrospective", "onset", "comparison"],
+        default="retrospective",
+        help="Detection mode: 'retrospective' (logistic/derivative), "
+             "'onset' (prospective-safe onset detection), or "
+             "'comparison' (both side-by-side). Default: retrospective.",
+    )
+    # Onset-specific parameters (see onset_label_specification.md)
+    parser.add_argument(
+        "--onset-smoothing-window",
+        type=int,
+        default=3,
+        help="Trailing rolling-mean window for onset detection (default: 3).",
+    )
+    parser.add_argument(
+        "--onset-growth-threshold",
+        type=float,
+        default=0.10,
+        help="Minimum QoQ growth rate for onset trigger (default: 0.10).",
+    )
+    parser.add_argument(
+        "--onset-confirmation-quarters",
+        type=int,
+        default=3,
+        help="Consecutive quarters of positive growth required (default: 3).",
+    )
+    parser.add_argument(
+        "--onset-min-count",
+        type=int,
+        default=3,
+        help="Minimum smoothed count to avoid noise triggers (default: 3).",
+    )
+
     return parser.parse_args()
 
 
@@ -410,6 +452,49 @@ def detect_inflection_for_lineage(
     }
 
 
+# ---------------------------------------------------------------------------
+# Onset detection mode (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+def detect_onset_for_lineage(
+    lineage_id: int,
+    lineage_df: pd.DataFrame,
+    args: argparse.Namespace,
+) -> Dict[str, object]:
+    """Run onset detection on a single lineage and return a result dict.
+
+    Always returns a dict (one row per lineage), even when onset is not
+    detected, matching the output schema in onset_label_specification.md.
+    """
+    sorted_df = lineage_df.sort_values("quarter_int")
+    quarters = sorted_df["quarter"].tolist()
+    counts = sorted_df["new_works"].astype(int).tolist()
+
+    result: OnsetResult = detect_onset(
+        quarters,
+        counts,
+        smoothing_window=args.onset_smoothing_window,
+        growth_threshold=args.onset_growth_threshold,
+        confirmation_quarters=args.onset_confirmation_quarters,
+        min_count=args.onset_min_count,
+    )
+
+    return {
+        "lineage_id": lineage_id,
+        "onset_quarter": result.quarter or "",
+        "onset_detected": int(result.detected),
+        "onset_reason": result.reason,
+        "onset_growth_rate": result.growth_rate,
+        "onset_smoothed_count": result.smoothed_count,
+        "onset_confirmation_length": result.confirmation_length,
+        "early_onset": result.early_onset,
+        "smoothing_window": args.onset_smoothing_window,
+        "growth_threshold": args.onset_growth_threshold,
+        "confirmation_window": args.onset_confirmation_quarters,
+    }
+
+
 def prepare_timeseries(ts_path: Path) -> pd.DataFrame:
     df = pd.read_csv(ts_path)
     required_cols = {"lineage_id", "quarter", "new_works"}
@@ -529,6 +614,46 @@ def main() -> None:
         ts_df = ts_df[ts_df["lineage_id"].isin(keep_ids)]
         LOG.info("Limiting processing to %d lineages for smoke run.", len(keep_ids))
 
+    mode = getattr(args, "mode", "retrospective")
+    LOG.info("Detection mode: %s", mode)
+    total_lineages = ts_df["lineage_id"].nunique()
+    LOG.info("Processing %d lineages...", total_lineages)
+
+    # ── Onset-only mode ────────────────────────────────────────────────
+    if mode == "onset":
+        onset_rows: List[Dict[str, object]] = []
+        for lineage_id, group in ts_df.groupby("lineage_id"):
+            onset_rows.append(detect_onset_for_lineage(int(lineage_id), group, args))
+
+        onset_df = pd.DataFrame(onset_rows)
+        ensure_directory(out_path)
+        onset_df.to_csv(out_path, index=False)
+
+        n_detected = int(onset_df["onset_detected"].sum())
+        LOG.info(
+            "Wrote %d onset labels (%d detected, %.1f%%) to %s",
+            len(onset_df), n_detected,
+            100 * n_detected / max(len(onset_df), 1), out_path,
+        )
+
+        metadata = {
+            "timeseries": str(ts_path),
+            "output": str(out_path),
+            "mode": "onset",
+            "total_lineages": total_lineages,
+            "onset_detected": n_detected,
+            "onset_pct": round(100 * n_detected / max(total_lineages, 1), 2),
+            "parameters": {
+                "smoothing_window": args.onset_smoothing_window,
+                "growth_threshold": args.onset_growth_threshold,
+                "confirmation_quarters": args.onset_confirmation_quarters,
+                "min_count": args.onset_min_count,
+            },
+        }
+        save_metadata(out_path, metadata)
+        return
+
+    # ── Retrospective or comparison mode ───────────────────────────────
     milestone_lookup = build_milestone_lookup(milestone_path)
     field_metrics_lookup: Dict[str, Dict[str, float]] = {}
     if not args.disable_field_metrics:
@@ -539,37 +664,53 @@ def main() -> None:
         LOG.info("Field metrics disabled; skipping corpus-level guard.")
 
     detections: List[Dict[str, object]] = []
-    total_lineages = ts_df["lineage_id"].nunique()
-    LOG.info("Processing %d lineages...", total_lineages)
+    onset_rows_cmp: List[Dict[str, object]] = []
 
     for lineage_id, group in ts_df.groupby("lineage_id"):
+        lid = int(lineage_id)
         result = detect_inflection_for_lineage(
-            int(lineage_id),
-            group,
-            milestone_lookup,
-            field_metrics_lookup,
-            args,
+            lid, group, milestone_lookup, field_metrics_lookup, args,
         )
         if result:
             detections.append(result)
+        if mode == "comparison":
+            onset_rows_cmp.append(detect_onset_for_lineage(lid, group, args))
 
     if not detections:
         LOG.warning("No inflections detected.")
-        return
+        if mode != "comparison":
+            return
 
-    detections_df = pd.DataFrame(detections)
+    detections_df = pd.DataFrame(detections) if detections else pd.DataFrame()
     ensure_directory(out_path)
-    detections_df.to_csv(out_path, index=False)
+
+    if mode == "comparison" and onset_rows_cmp:
+        # Merge retrospective and onset labels side-by-side
+        onset_df = pd.DataFrame(onset_rows_cmp)
+        if not detections_df.empty:
+            combined = detections_df.merge(onset_df, on="lineage_id", how="outer")
+        else:
+            combined = onset_df
+        combined.to_csv(out_path, index=False)
+        n_retro = len(detections_df)
+        n_onset = int(onset_df["onset_detected"].sum())
+        LOG.info(
+            "Comparison mode: %d retrospective + %d onset labels -> %s",
+            n_retro, n_onset, out_path,
+        )
+    else:
+        detections_df.to_csv(out_path, index=False)
     LOG.info("Wrote %d inflections to %s", len(detections_df), out_path)
 
     metadata = {
         "timeseries": str(ts_path),
         "milestones": str(milestone_path),
         "output": str(out_path),
+        "mode": mode,
         "total_lineages": total_lineages,
         "detections": len(detections_df),
-        "logistic_success": int((detections_df["inflection_type"] == "logistic").sum()),
-        "derivative_success": int((detections_df["inflection_type"] == "derivative").sum()),
+        "logistic_success": int((detections_df["inflection_type"] == "logistic").sum()) if "inflection_type" in detections_df.columns else 0,
+        "derivative_success": int((detections_df["inflection_type"] == "derivative").sum()) if "inflection_type" in detections_df.columns else 0,
         "parameters": {
             "min_points": args.min_points,
             "logistic_r2": args.logistic_r2,
