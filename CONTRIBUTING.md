@@ -1,6 +1,6 @@
-# Contributing to 2YP
+# Contributing to FrontPulse
 
-Thank you for your interest in contributing to the 2YP research-front monitoring pipeline! This guide will help you get started with development, understand our coding conventions, and successfully contribute to the project.
+Thank you for your interest in contributing to the FrontPulse research-front monitoring pipeline! This guide will help you get started with development, understand our coding conventions, and successfully contribute to the project.
 
 ## Table of Contents
 
@@ -29,8 +29,8 @@ Thank you for your interest in contributing to the 2YP research-front monitoring
 1. **Fork and clone the repository:**
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/2YP.git
-   cd 2YP
+   git clone https://github.com/YOUR_USERNAME/FrontPulse.git
+   cd FrontPulse
    ```
 
 2. **Create a virtual environment:**
@@ -668,6 +668,6 @@ When reporting bugs, include:
 
 ## Thank You
 
-Your contributions help make 2YP better for everyone. Whether you're fixing a typo, adding a feature, or improving documentation, we appreciate your time and effort.
+Your contributions help make FrontPulse better for everyone. Whether you're fixing a typo, adding a feature, or improving documentation, we appreciate your time and effort.
 
 Happy coding!

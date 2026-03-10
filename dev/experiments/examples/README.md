@@ -1,6 +1,6 @@
 # Pipeline API Examples
 
-This directory contains example scripts demonstrating how to use the `Pipeline` class for programmatic execution of the 2YP research front monitoring pipeline.
+This directory contains example scripts demonstrating how to use the `Pipeline` class for programmatic execution of the FrontPulse research front monitoring pipeline.
 
 ## Quick Start
 

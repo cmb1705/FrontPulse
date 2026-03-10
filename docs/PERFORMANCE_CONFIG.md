@@ -2,7 +2,7 @@
 
 ## Global Parallel Workers Setting
 
-All parallel operations in the 2YP pipeline now use a single, centralized default that can be easily adjusted.
+All parallel operations in the FrontPulse pipeline now use a single, centralized default that can be easily adjusted.
 
 ### Quick Start
 

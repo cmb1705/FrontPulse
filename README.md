@@ -1,4 +1,4 @@
-# 2YP
+# FrontPulse
 
 Dynamic research-front monitoring on OpenAlex bibliometric data. The pipeline ingests scholarly works, builds citation graphs, detects community lineages via Leiden clustering, maps lineages to research fronts, and identifies inflection points where exponential growth begins.
 
@@ -36,7 +36,7 @@ Dynamic research-front monitoring on OpenAlex bibliometric data. The pipeline in
    copy config\settings.yaml.template config\settings.yaml
    ```
 
-   Settings priority (highest to lowest): CLI arguments > `config/settings.yaml` > `.2yp_settings.json` > built-in defaults. The template is version-controlled; your `config/settings.yaml` is git-ignored.
+   Settings priority (highest to lowest): CLI arguments > `config/settings.yaml` > `.2yp_settings.json` (legacy) > built-in defaults. The template is version-controlled; your `config/settings.yaml` is git-ignored.
 
 ## Project Layout
 

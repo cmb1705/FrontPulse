@@ -1,4 +1,4 @@
-# 2YP Configuration Guide
+# FrontPulse Configuration Guide
 
 ## Critical: Graph Workers and Coupling Cache
 
