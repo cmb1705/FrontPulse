@@ -24,8 +24,7 @@ try:
 except Exception:  # pragma: no cover - SciPy optional
     curve_fit = None
 
-from persistence_utils import ensure_persistence_column
-from utils.quarter_utils import quarter_to_int, int_to_quarter
+from utils.quarter_utils import quarter_to_int
 
 # Onset detector (Phase 1 prospective-safe labeling)
 _REPO = Path(__file__).resolve().parents[1]
@@ -651,6 +650,18 @@ def main() -> None:
             },
         }
         save_metadata(out_path, metadata)
+
+        # Emit MSD-compatible labels (columns renamed for construct_labels())
+        msd_path = out_path.parent / (out_path.stem + "_msd" + out_path.suffix)
+        msd_df = onset_df.loc[
+            onset_df["onset_detected"] == 1, ["lineage_id", "onset_quarter"]
+        ].copy()
+        msd_df = msd_df.rename(columns={"onset_quarter": "quarter"})
+        msd_df["is_inflection_onset"] = 1
+        msd_df.to_csv(msd_path, index=False)
+        LOG.info(
+            "Wrote MSD-compatible onset labels to %s (%d rows)", msd_path, len(msd_df),
+        )
         return
 
     # ── Retrospective or comparison mode ───────────────────────────────
