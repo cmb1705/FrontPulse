@@ -7,8 +7,12 @@ Provides functions for:
 """
 
 from __future__ import annotations
-from typing import Dict, Any, List, Tuple
-import math, networkx as nx
+
+import math
+from typing import Dict, List, Tuple
+
+import networkx as nx
+
 
 def pagerank_core(G: nx.Graph, partition: List[Tuple[str,int]], core_frac: float = 0.10) -> Dict[int, set]:
     """Identify core members of each community using PageRank centrality.
@@ -96,7 +100,7 @@ def match_by_cores(prev_cores: Dict[int,set], curr_cores: Dict[int,set]) -> List
         all_pairs = [(-_overlap(prev_cores[pi], curr_cores[cj]), i, j)
                      for i, pi in enumerate(prev_ids) for j, cj in enumerate(curr_ids)]
         for _, i, j in sorted(all_pairs):
-            if i in used_prev or j in used_curr: 
+            if i in used_prev or j in used_curr:
                 continue
             ov = -M[i][j]
             if ov > 0:

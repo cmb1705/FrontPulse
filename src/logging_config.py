@@ -5,12 +5,12 @@ Provides consistent logging across all modules with configurable verbosity
 and file output with rotation.
 """
 from __future__ import annotations
+
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
-from logging.handlers import RotatingFileHandler
-
 
 # Global logger instance
 _logger: Optional[logging.Logger] = None

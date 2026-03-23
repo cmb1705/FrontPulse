@@ -1,8 +1,10 @@
 """Settings management for 2YP pipeline configuration."""
 from __future__ import annotations
+
 import json
 import pathlib
 from typing import Any, Dict, Optional
+
 import yaml
 
 # New explicit settings path (preferred)

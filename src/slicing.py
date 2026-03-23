@@ -1,9 +1,11 @@
 """Temporal and categorical slicing of DataFrames based on YAML configuration."""
 from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
+
 import pandas as pd
 import yaml
-from pathlib import Path
-from typing import Dict, Optional, Any, Union, Tuple
 
 
 def apply_slices(

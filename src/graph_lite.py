@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Optional
 
 import networkx as nx
 import numpy as np
@@ -98,7 +98,7 @@ class LiteGraph:
         stats_path.write_text(json.dumps(self.coupling_stats, indent=2))
 
     @classmethod
-    def load(cls, path: Path) -> "LiteGraph":
+    def load(cls, path: Path) -> LiteGraph:
         data = np.load(path, allow_pickle=False)
         node_ids = data["node_ids"]
         pub_ts = data["pub_ts"]
@@ -163,7 +163,7 @@ class LiteGraph:
         *,
         include_publication_dates: bool = True,
         include_edge_types: bool = True,
-    ) -> "LiteGraph":
+    ) -> LiteGraph:
         node_ids = np.array(list(G.nodes()), dtype="U64")
         index_map = {node: idx for idx, node in enumerate(node_ids)}
 

@@ -32,14 +32,14 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import logging
-from pathlib import Path
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional, Union
-from dataclasses import dataclass, asdict
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 
 class EventType(Enum):
@@ -436,7 +436,7 @@ class AuditLogger:
 
         events = []
 
-        with open(self.jsonl_path, 'r') as f:
+        with open(self.jsonl_path) as f:
             for line in f:
                 try:
                     event = json.loads(line.strip())

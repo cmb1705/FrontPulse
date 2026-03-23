@@ -22,11 +22,10 @@ Usage:
 
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-import warnings
+from typing import Any, Dict, List, Optional
 
+import yaml
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "multisignal_config.yaml"
 
@@ -56,7 +55,7 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         raise ConfigurationError(f"Configuration file not found: {config_path}")
 
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path) as f:
             config = yaml.safe_load(f)
         return config
     except yaml.YAMLError as e:

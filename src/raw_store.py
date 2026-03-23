@@ -6,9 +6,10 @@ import gzip
 import json
 import pathlib
 import shutil
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -32,20 +33,20 @@ class RawStore:
         self._index = index
         self._fh = ndjson_path.open("rb")
 
-    def __enter__(self) -> "RawStore":
+    def __enter__(self) -> RawStore:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
 
     @classmethod
-    def from_basepath(cls, base: pathlib.Path) -> "RawStore":
+    def from_basepath(cls, base: pathlib.Path) -> RawStore:
         ndjson_path, index_path = cls._resolve_paths(base)
         index = cls._load_index(index_path)
         return cls(ndjson_path, index)
 
     @classmethod
-    def from_paths(cls, ndjson_path: pathlib.Path, index_path: pathlib.Path) -> "RawStore":
+    def from_paths(cls, ndjson_path: pathlib.Path, index_path: pathlib.Path) -> RawStore:
         index = cls._load_index(index_path)
         return cls(ndjson_path, index)
 

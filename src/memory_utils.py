@@ -5,9 +5,10 @@ Provides functions and decorators for tracking memory usage and
 issuing warnings when system memory is low.
 """
 from __future__ import annotations
+
 import functools
 import logging
-from typing import Callable, Optional, Any
+from typing import Any, Callable, Optional
 
 try:
     import psutil

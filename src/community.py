@@ -1,8 +1,11 @@
 from __future__ import annotations
-from typing import Dict, Any, List, Tuple, Optional
-import networkx as nx
+
 import math
 from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
+
+import networkx as nx
+
 
 def _require_leiden():
     try:

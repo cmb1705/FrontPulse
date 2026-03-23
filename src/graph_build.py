@@ -29,31 +29,34 @@ Performance:
 """
 
 from __future__ import annotations
-import pathlib
-import json
-import math
-from collections import Counter, defaultdict
-from dataclasses import asdict, dataclass
-from itertools import combinations
-from typing import Dict, Iterable, List, Any, Optional, Tuple
-import logging
 
+import json
+import logging
+import math
+import pathlib
+from collections import Counter, defaultdict
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
 from tqdm import tqdm
 
 # PERF-3: Import memory monitoring utilities
 try:
     from src.memory_utils import (
-        log_memory_usage,
         check_memory_availability,
         get_memory_info,
+        log_memory_usage,
         suggest_worker_count_for_memory,
     )
     MEMORY_UTILS_AVAILABLE = True
 except ImportError:
     MEMORY_UTILS_AVAILABLE = False
+
+from src.trusted_io import save_trusted_pickle
 
 
 # Global default for parallel workers (matches run.py default)
@@ -261,7 +264,7 @@ def strip_referenced_works(G: nx.DiGraph) -> None:
 
     This function strips the referenced_works list from node attributes after
     bibliographic coupling calculation completes. This achieves ~91% memory
-    reduction (377MB → 33MB per graph) while preserving all graph structure,
+    reduction (377MB -> 33MB per graph) while preserving all graph structure,
     edges, and weights.
 
     The referenced_works metadata is only needed during coupling calculation.
@@ -427,7 +430,7 @@ def build_direct_citation_graph(
                 ref_id = str(ref).split("/")[-1] if isinstance(ref, str) else str(ref)
                 if ref_id in present:
                     G.add_edge(wid, ref_id)
-    # 🚨 remove self-loops
+    # remove self-loops
     G.remove_edges_from(nx.selfloop_edges(G))
 
     # Log graph statistics before coupling
@@ -448,7 +451,7 @@ def build_direct_citation_graph(
 
     # Log memory usage at end of graph building
     if MEMORY_UTILS_AVAILABLE:
-        log_memory_usage(logger, f"Completed graph build")
+        log_memory_usage(logger, "Completed graph build")
 
     return G
 
@@ -596,7 +599,7 @@ def _augment_with_coupling(
         if effective_workers == 1:
             logger.info("Running coupling calculation in single-worker mode (as configured or adjusted)")
         else:
-            logger.info(f"Running coupling calculation in single-worker mode (insufficient work for parallel processing)")
+            logger.info("Running coupling calculation in single-worker mode (insufficient work for parallel processing)")
         pair_shared = _shared_counts_worker((ref_lists, new_nodes_serialized, restrict_to_new))
 
     rows: List[Dict[str, Any]] = []
@@ -814,7 +817,7 @@ def save_graph(
 
     Exports the graph with proper attribute sanitization for GraphML compatibility.
     Self-loops are removed as a safety measure. Attributes are type-cast to ensure
-    GraphML XML compatibility (timestamps → strings, numpy types → Python types, etc.).
+    GraphML XML compatibility (timestamps -> strings, numpy types -> Python types, etc.).
 
     The function creates two files (when both formats enabled):
     - {basepath}.pkl: Binary NetworkX pickle (fast, Python-only)
@@ -842,7 +845,9 @@ def save_graph(
         >>> save_graph(G, Path('data/graphs/test_full'), graphml_compression='gzip')
         # Creates: data/graphs/test_full.pkl and data/graphs/test_full.graphml.gz
     """
-    import math, datetime as dt
+    import datetime as dt
+    import math
+
     import numpy as np
     import pandas as pd
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import re
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
-import copy
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import pyarrow as pa
@@ -323,7 +324,7 @@ def load_manifest(manifest_path: Path) -> Dict[str, Any]:
         Manifest dictionary
     """
     if manifest_path.exists():
-        with open(manifest_path, "r") as f:
+        with open(manifest_path) as f:
             return json.load(f)
     else:
         return {

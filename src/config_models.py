@@ -1,5 +1,6 @@
 """Pydantic models for YAML configuration validation."""
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 

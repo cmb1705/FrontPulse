@@ -23,10 +23,11 @@ Stage 4 worker processes can mount the cache instead of rebuilding the global in
 """
 
 from __future__ import annotations
+
 import json
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Set
-import time
 
 from .trusted_io import load_trusted_pickle
 
@@ -93,7 +94,7 @@ class LineageTextStore:
             print(f"[LineageTextStore] Loading registry from {registry_path}...")
             t0 = time.time()
 
-        with open(registry_path, 'r') as f:
+        with open(registry_path) as f:
             self.registry = json.load(f)
 
         if verbose:
@@ -101,7 +102,7 @@ class LineageTextStore:
 
         # Build inverted index: {lineage_id: {quarter: data}}
         if verbose:
-            print(f"[LineageTextStore] Building lineage index...")
+            print("[LineageTextStore] Building lineage index...")
             t0 = time.time()
 
         self.registry_by_lineage = self._build_lineage_index()
@@ -114,7 +115,7 @@ class LineageTextStore:
 
         # Initialize abstract extractor
         if verbose:
-            print(f"[LineageTextStore] Initializing abstract extractor...")
+            print("[LineageTextStore] Initializing abstract extractor...")
             t0 = time.time()
 
         AbstractExtractor = get_abstract_extractor()

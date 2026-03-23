@@ -13,9 +13,9 @@ All functions are **pure** -- no side effects, no file I/O.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence
-
+from typing import Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # NAB profile weights

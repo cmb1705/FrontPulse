@@ -37,25 +37,23 @@ Example Usage:
 
 from __future__ import annotations
 
-import logging
 import pathlib
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import networkx as nx
 
-from src.ingest import ingest
-from src.transform import add_time_vars, enforce_schema
-from src.slicing import slice_dataframe
 from src.graph_build import (
     CouplingConfig,
+    build_direct_citation_graph,
     export_annual_full,
     export_quarter_delta,
     save_graph,
-    build_direct_citation_graph,
 )
+from src.ingest import ingest
 from src.logging_config import get_logger
+from src.slicing import apply_slices
+from src.transform import add_time_vars, enforce_schema
 
 
 @dataclass
@@ -297,7 +295,7 @@ class Pipeline:
             df = self.results.df
 
         self.logger.info(f"Slicing {len(df)} records...")
-        slices = slice_dataframe(df, str(self.config.slices_path))
+        slices = apply_slices(df, str(self.config.slices_path))
 
         self.results.slices = slices
         self.logger.info(f"Created {len(slices)} slices")
@@ -405,8 +403,8 @@ class Pipeline:
         mode = mode or self.config.graph_mode
 
         # Import here to avoid circular dependency
-        import subprocess
         import json
+        import subprocess
 
         # Call scripts/communities.py as subprocess
         cmd = [
@@ -434,7 +432,7 @@ class Pipeline:
             with open(registry_path) as f:
                 communities = json.load(f)
                 self.results.communities = communities
-                self.logger.info(f"Community detection complete")
+                self.logger.info("Community detection complete")
                 return communities
 
         return {}

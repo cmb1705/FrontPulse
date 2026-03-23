@@ -1,9 +1,11 @@
 """Schema validation and type coercion for DataFrames."""
 from __future__ import annotations
-import pandas as pd
-import yaml
+
 from pathlib import Path
 from typing import Any, Dict, List
+
+import pandas as pd
+import yaml
 
 
 def enforce_schema(df: pd.DataFrame, schema_yaml: str | Path) -> pd.DataFrame:
@@ -32,7 +34,7 @@ def enforce_schema(df: pd.DataFrame, schema_yaml: str | Path) -> pd.DataFrame:
     req: Dict[str, Any] = sch.get("required", {})
 
     # add missing required columns
-    for col in req.keys():
+    for col in req:
         if col not in df.columns:
             df[col] = pd.NA
 
