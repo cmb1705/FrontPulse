@@ -1,42 +1,54 @@
 from __future__ import annotations
-import argparse, pathlib, json, sys
-import shutil
-from datetime import datetime
-import pandas as pd
-from typing import Dict, Any, List, Optional, Tuple
-import numpy as np
-import yaml
-import subprocess
+
+import argparse
+import json
 import logging
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+import yaml
+
 try:
     import pyarrow as pa
 except Exception:
     pa = None
 
-from src.ingest import apply_source_overrides, ingest
-from src.openalex import results_to_df
-from src.validate import enforce_schema
-from src.slicing import apply_slices
-from src.transform import add_time_vars
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed; rely on environment variables
+
 from src.graph_build import (
     CouplingConfig,
+    build_direct_citation_graph,
     export_annual_full,
     export_quarter_delta,
-    build_direct_citation_graph,
     save_graph,
 )
-from src.settings import load_settings, redact_mailto, save_settings, summary
-from src.raw_store import write_raw_chunks
-from src.logging_config import setup_logging, get_logger, log_section
+from src.ingest import apply_source_overrides, ingest
+from src.logging_config import log_section, setup_logging
 from src.memory_utils import (
     check_memory_availability,
     log_memory_usage,
     memory_monitor,
     suggest_chunking_strategy,
     suggest_graph_worker_count,
-    get_memory_info,
 )
+from src.openalex import results_to_df
+from src.raw_store import write_raw_chunks
+from src.settings import load_settings, redact_mailto, save_settings, summary
+from src.slicing import apply_slices
+from src.transform import add_time_vars
+from src.validate import enforce_schema
 
 # ============================================================================
 # Global Configuration (Performance)
@@ -156,7 +168,7 @@ def ask_yes_no(prompt: str, default: str = "N") -> bool:
 
 def build_source_overrides(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Build runtime datasource overrides without rewriting tracked YAML."""
-    return {
+    overrides: Dict[str, Any] = {
         "per_page": int(cfg["per_page"]),
         "max_records": None if cfg["max_records"] in (None, "", "None") else int(cfg["max_records"]),
         "mailto": cfg.get("mailto"),
@@ -166,6 +178,10 @@ def build_source_overrides(cfg: Dict[str, Any]) -> Dict[str, Any]:
             "to_publication_date": cfg["to_date"],
         },
     }
+    api_key = cfg.get("api_key")
+    if api_key:
+        overrides["api_key"] = api_key
+    return overrides
 
 def validate_configs(args, logger: logging.Logger) -> bool:
     """
@@ -182,7 +198,7 @@ def validate_configs(args, logger: logging.Logger) -> bool:
         ValueError: If validation fails
     """
     try:
-        from src.config_models import validate_all_configs, PYDANTIC_AVAILABLE
+        from src.config_models import PYDANTIC_AVAILABLE, validate_all_configs
 
         if not PYDANTIC_AVAILABLE:
             logger.debug("Pydantic not installed; skipping config validation")
@@ -209,8 +225,9 @@ def preflight_check(args, settings: Dict[str, Any]) -> None:
     3) Tiny GraphML smoke test
     Abort unless user confirms.
     """
-    from src.openalex import fetch_openalex, results_to_df
     import yaml
+
+    from src.openalex import fetch_openalex, results_to_df
 
     # load config and build minimal request
     y = yaml.safe_load(pathlib.Path(args.config).read_text())
@@ -441,7 +458,7 @@ def parse_args():
     ap.add_argument("--graph-workers", type=int, default=DEFAULT_PARALLEL_WORKERS,
                     help=f"Parallel workers for graph building (PERF-1, default {DEFAULT_PARALLEL_WORKERS})")
     return ap.parse_args()
-    
+
 def _iter_refs_cell(x):
     if x is None: return []
     if pa is not None and isinstance(x, pa.lib.ListScalar):
@@ -654,17 +671,25 @@ def handle_settings_flow(args, logger: logging.Logger) -> Optional[Dict[str, Any
         # Non-interactive mode: use saved settings or CLI args
         logger.info(f"Using saved settings: {summary(settings)}")
 
-    # Validate mailto
+    # Validate authentication (mailto or API key)
     mailto_effective = args.mailto.strip() if args.mailto else (settings.get("mailto") or "")
-    if not mailto_effective:
-        logger.error("Contact email (mailto) is required for OpenAlex API compliance.")
-        logger.error("Please provide via: --mailto YOUR_EMAIL")
-        logger.error("Or run interactive setup: python run.py --configure")
+    api_key = os.environ.get("OPENALEX_API_KEY", "").strip()
+
+    if not mailto_effective and not api_key:
+        logger.error("Authentication required for OpenAlex API.")
+        logger.error("Provide one of:")
+        logger.error("  - OPENALEX_API_KEY in .env file or environment")
+        logger.error("  - --mailto YOUR_EMAIL")
+        logger.error("  - Interactive setup: python run.py --configure")
         return None
 
-    settings["mailto"] = mailto_effective
-    if args.mailto:
-        save_settings(settings)
+    if mailto_effective:
+        settings["mailto"] = mailto_effective
+        if args.mailto:
+            save_settings(settings)
+
+    if api_key:
+        settings["api_key"] = api_key
 
     settings["source_overrides"] = build_source_overrides(settings)
 

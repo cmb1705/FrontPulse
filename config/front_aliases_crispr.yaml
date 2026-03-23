@@ -1,0 +1,26 @@
+# Research Front Definitions for CRISPR Gene Editing
+# Placeholder -- will be refined after inspecting Leiden clustering output.
+# Not consumed by the pipeline until front-mapping is implemented (Phase 2+).
+
+fronts:
+  cas9_methodology:
+    canonical: "Cas9 Editing Methodology"
+    aliases: ["CRISPR-Cas9", "RNA-guided endonuclease"]
+  eukaryotic_applications:
+    canonical: "Eukaryotic/Mammalian Applications"
+    aliases: []
+  in_vivo_editing:
+    canonical: "In Vivo Therapeutic Editing"
+    aliases: []
+  base_editing:
+    canonical: "Base Editing"
+    aliases: ["cytosine base editor", "adenine base editor", "CBE", "ABE"]
+  prime_editing:
+    canonical: "Prime Editing"
+    aliases: []
+  diagnostics:
+    canonical: "CRISPR Diagnostics"
+    aliases: ["SHERLOCK", "DETECTR", "Cas13"]
+  clinical_therapeutics:
+    canonical: "Clinical/FDA-Approved Therapies"
+    aliases: ["Casgevy", "exa-cel", "sickle cell"]

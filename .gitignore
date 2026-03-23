@@ -74,6 +74,7 @@ outputs/
 # Environment / secrets
 .env
 .env.*
+!.env.template
 *.pem
 *.key
 .2yp*
@@ -91,3 +92,7 @@ _local/
 github_issues.json
 slice_validation.json
 threshold_curve.png
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

@@ -36,7 +36,7 @@ def _read_one(src: Dict[str, Any]) -> Tuple[pd.DataFrame, Optional[List[Dict[str
     Args:
         src: Source configuration dictionary with:
             - kind: "openalex", "csv", or "parquet"
-            - For OpenAlex: entity, mailto, filters, select, etc.
+            - For OpenAlex: entity, mailto or api_key, filters, select, etc.
             - For CSV: path, dtypes, date_cols
             - For Parquet: path
 
@@ -50,14 +50,16 @@ def _read_one(src: Dict[str, Any]) -> Tuple[pd.DataFrame, Optional[List[Dict[str
     kind = src.get("kind", "csv").lower()
     if kind == "openalex":
         mailto = src.get("mailto")
-        if not mailto:
+        api_key = src.get("api_key")
+        if not mailto and not api_key:
             raise ValueError(
-                "OpenAlex source requires a contact email. Provide it via --mailto "
-                "or config/settings.yaml instead of committing it to datasources.yaml."
+                "OpenAlex source requires either an API key (OPENALEX_API_KEY in .env) "
+                "or a contact email (--mailto / config/settings.yaml)."
             )
         results = fetch_openalex(
             entity=src.get("entity", "works"),
             mailto=mailto,
+            api_key=api_key,
             filters=src.get("filters"),
             search=src.get("search"),
             select=src.get("select"),

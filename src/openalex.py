@@ -1,9 +1,11 @@
 """OpenAlex API client for fetching and parsing bibliometric data."""
 from __future__ import annotations
+
 import time
-from typing import Dict, Any, Optional, List
-import requests
+from typing import Any, Dict, List, Optional
+
 import pandas as pd
+import requests
 from tqdm import tqdm
 
 BASE: str = "https://api.openalex.org"
@@ -24,7 +26,8 @@ def _kv_to_filter(filters: Dict[str, Any]) -> str:
 def fetch_openalex(
     entity: str,
     *,
-    mailto: str,
+    mailto: str | None = None,
+    api_key: str | None = None,
     filters: Optional[Dict[str, Any]] = None,
     search: Optional[str] = None,
     select: Optional[List[str]] = None,
@@ -38,7 +41,8 @@ def fetch_openalex(
 
     Args:
         entity: OpenAlex entity type (e.g., "works", "authors", "institutions")
-        mailto: Contact email for polite pool access
+        mailto: Contact email for polite pool access (optional if api_key provided)
+        api_key: OpenAlex API key (optional if mailto provided)
         filters: Dictionary of filter parameters (e.g., {"topics.id": "T10247"})
         search: Search query string
         select: List of fields to return (reduces response size)
@@ -51,18 +55,29 @@ def fetch_openalex(
         List of entity dictionaries from OpenAlex
 
     Raises:
+        ValueError: If neither api_key nor mailto is provided
         RuntimeError: If API returns 403 Forbidden
         requests.HTTPError: For other HTTP errors
 
     Example:
         >>> results = fetch_openalex(
         ...     entity="works",
-        ...     mailto="researcher@university.edu",
-        ...     filters={"topics.id": "T10247"},
+        ...     api_key="your_key_here",
+        ...     filters={"topics.id": "T10878"},
         ...     max_records=1000
         ... )
     """
-    params = {"per-page": per_page, "cursor": "*", "mailto": mailto}
+    if not api_key and not mailto:
+        raise ValueError(
+            "Either api_key or mailto is required. Set OPENALEX_API_KEY in your "
+            ".env file or pass --mailto."
+        )
+
+    params: Dict[str, Any] = {"per-page": per_page, "cursor": "*"}
+    if api_key:
+        params["api_key"] = api_key
+    if mailto:
+        params["mailto"] = mailto
     if search:
         params["search"] = search
     filt = _kv_to_filter(filters or {})
@@ -76,8 +91,11 @@ def fetch_openalex(
     url = f"{BASE}/{entity}"
     out: List[Dict[str, Any]] = []
     sess = requests.Session()
+    ua = "FrontPulse/1.0"
+    if mailto:
+        ua += f" (+mailto:{mailto})"
     headers = {
-        "User-Agent": f"2YP-RF-Ingest/0.1 (+mailto:{mailto})",
+        "User-Agent": ua,
         "Accept": "application/json",
     }
 

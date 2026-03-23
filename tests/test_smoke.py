@@ -37,10 +37,12 @@ pytestmark = pytest.mark.smoke
 
 _CONFIG_FILES = [
     "config/datasources.yaml",
+    "config/datasources_crispr.yaml",
     "config/schema.yaml",
     "config/slices.yaml",
     "config/defaults.yaml",
     "config/multisignal_config.yaml",
+    "config/front_aliases_crispr.yaml",
 ]
 
 
@@ -109,7 +111,7 @@ def test_core_module_imports(module_name: str) -> None:
 
 def test_trusted_io_save_load_roundtrip(tmp_path: Path) -> None:
     """save/load round-trip through trusted_io."""
-    from src.trusted_io import save_trusted_pickle, load_trusted_pickle
+    from src.trusted_io import load_trusted_pickle, save_trusted_pickle
 
     obj = {"key": "value", "numbers": [1, 2, 3]}
     artifact = tmp_path / "test.pkl"
@@ -229,3 +231,46 @@ def test_leakage_audit_doc_exists() -> None:
     """Leakage audit document must exist for experiment guidance."""
     path = PROJECT_ROOT / "docs" / "implementation" / "leakage_audit.md"
     assert path.exists(), "Leakage audit document missing"
+
+
+def test_env_template_exists() -> None:
+    """Env template must exist with API key placeholder."""
+    path = PROJECT_ROOT / ".env.template"
+    assert path.exists(), ".env.template missing from project root"
+    text = path.read_text()
+    assert "OPENALEX_API_KEY" in text, "OPENALEX_API_KEY placeholder missing"
+
+
+def test_crispr_datasource_topic_id() -> None:
+    """CRISPR config requires OpenAlex topic T10878."""
+    path = PROJECT_ROOT / "config" / "datasources_crispr.yaml"
+    assert path.exists(), "datasources_crispr.yaml missing"
+    raw = path.read_text()
+    assert "T10878" in raw, "CRISPR topic ID T10878 missing"
+
+
+def test_crispr_front_aliases_structure() -> None:
+    """CRISPR front aliases must define canonical names for known fronts."""
+    path = PROJECT_ROOT / "config" / "front_aliases_crispr.yaml"
+    assert path.exists(), "front_aliases_crispr.yaml missing"
+    with path.open() as fh:
+        data = yaml.safe_load(fh)
+    assert isinstance(data, dict), "front_aliases_crispr.yaml must be a dict"
+    assert "fronts" in data, "Must have a 'fronts' key"
+    assert len(data["fronts"]) >= 5, "Should define at least 5 known CRISPR fronts"
+
+
+def test_crispr_config_structural_parity() -> None:
+    """CRISPR datasource config must have same keys as PSC config."""
+    psc = yaml.safe_load((PROJECT_ROOT / "config/datasources.yaml").read_text())
+    crispr = yaml.safe_load(
+        (PROJECT_ROOT / "config/datasources_crispr.yaml").read_text()
+    )
+    psc_keys = set(psc.keys())
+    crispr_keys = set(crispr.keys())
+    assert psc_keys == crispr_keys, (
+        f"Key mismatch: {psc_keys.symmetric_difference(crispr_keys)}"
+    )
+    psc_primary_keys = set(psc["sources"]["primary"].keys())
+    crispr_primary_keys = set(crispr["sources"]["primary"].keys())
+    assert psc_primary_keys == crispr_primary_keys
