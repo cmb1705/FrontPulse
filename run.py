@@ -233,7 +233,7 @@ def preflight_check(args, settings: Dict[str, Any]) -> None:
     y = yaml.safe_load(pathlib.Path(args.config).read_text())
     primary = apply_source_overrides(
         y["sources"]["primary"],
-        build_source_overrides(settings),
+        settings.get("source_overrides") or build_source_overrides(settings),
     )
     primary["per_page"] = 20
     primary["max_records"] = 40
@@ -242,7 +242,8 @@ def preflight_check(args, settings: Dict[str, Any]) -> None:
     print("[Preflight] API ping...")
     raw = fetch_openalex(
         entity=primary.get("entity", "works"),
-        mailto=primary["mailto"],
+        mailto=primary.get("mailto"),
+        api_key=primary.get("api_key"),
         filters=primary.get("filters"),
         search=primary.get("search"),
         select=primary.get("select"),
@@ -693,6 +694,13 @@ def handle_settings_flow(args, logger: logging.Logger) -> Optional[Dict[str, Any
 
     settings["source_overrides"] = build_source_overrides(settings)
 
+    # Let datasource config filters take precedence over saved settings.
+    # This enables multi-domain support (e.g., CRISPR config overrides PSC topic ID).
+    ds_cfg = yaml.safe_load(pathlib.Path(args.config).read_text())
+    ds_filters = ds_cfg.get("sources", {}).get("primary", {}).get("filters", {})
+    if ds_filters:
+        settings["source_overrides"]["filters"].update(ds_filters)
+
     # Set effective graph mode
     if args.graph_mode is None:
         args.graph_mode = settings.get("graph_mode", "cumulative")
@@ -707,7 +715,8 @@ def run_ingest_phase(
     logger: logging.Logger,
     ingest_dir: pathlib.Path,
     raw_dir: pathlib.Path,
-    cache_path: pathlib.Path
+    cache_path: pathlib.Path,
+    settings: Dict[str, Any],
 ) -> Optional[Tuple[pd.DataFrame, Optional[Dict[str, Any]], Dict[str, Any]]]:
     """
     Execute ingest phase: rebuild from raw, skip ingest, or fresh fetch.
@@ -718,6 +727,7 @@ def run_ingest_phase(
         ingest_dir: Ingest directory path
         raw_dir: Raw data directory path
         cache_path: Path to cached ingest.parquet
+        settings: Pipeline settings dictionary (source_overrides, mailto, etc.)
 
     Returns:
         Tuple of (DataFrame, raw_manifest_rel, dedup_stats) or None if error
@@ -1448,7 +1458,7 @@ def main():
 
     # Phase 1: Ingest
     cache_path = ingest_dir / "ingest.parquet"
-    result = run_ingest_phase(args, logger, ingest_dir, raw_dir, cache_path)
+    result = run_ingest_phase(args, logger, ingest_dir, raw_dir, cache_path, settings)
     if result is None:
         return  # Ingest failed
     df, raw_manifest_rel, dedup_stats = result

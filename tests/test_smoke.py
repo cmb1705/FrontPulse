@@ -274,3 +274,41 @@ def test_crispr_config_structural_parity() -> None:
     psc_primary_keys = set(psc["sources"]["primary"].keys())
     crispr_primary_keys = set(crispr["sources"]["primary"].keys())
     assert psc_primary_keys == crispr_primary_keys
+
+
+@pytest.mark.smoke
+def test_datasource_filters_override_saved_settings() -> None:
+    """Datasource config filters must take precedence over saved settings.
+
+    This validates the multi-domain fix: when --config points to the CRISPR
+    datasource, its topics.id (T10878) should override the default/saved
+    PSC topic ID in build_source_overrides output.
+    """
+    from run import build_source_overrides
+    from src.ingest import apply_source_overrides
+
+    # Simulate saved settings with PSC topic
+    settings = {
+        "topics_id": "T10247",
+        "from_date": "2000-01-01",
+        "to_date": "2025-08-30",
+        "max_records": None,
+        "per_page": 200,
+    }
+    overrides = build_source_overrides(settings)
+
+    # Load CRISPR datasource config
+    crispr_cfg = yaml.safe_load(
+        (PROJECT_ROOT / "config" / "datasources_crispr.yaml").read_text(),
+    )
+    ds_filters = crispr_cfg["sources"]["primary"]["filters"]
+
+    # Apply the override fix: datasource filters win
+    overrides["filters"].update(ds_filters)
+
+    merged = apply_source_overrides(
+        crispr_cfg["sources"]["primary"], overrides,
+    )
+    assert merged["filters"]["topics.id"] == "T10878", (
+        "CRISPR topic ID must override saved PSC settings"
+    )
