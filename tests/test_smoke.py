@@ -155,6 +155,7 @@ _KEY_SCRIPTS = [
     "scripts/prototype_hybrid_alerting.py",
     "scripts/retrain_msd.py",
     "scripts/update_assessment_history.py",
+    "scripts/generate_horizon_estimates.py",
 ]
 
 
@@ -483,3 +484,28 @@ class TestAssessmentHistorySmoke:
         df = create_empty_history()
         assert list(df.columns) == ASSESSMENT_COLUMNS
         assert df.empty
+
+
+class TestHorizonEstimatesSmoke:
+    """Smoke tests for horizon estimate generation."""
+
+    def test_horizon_estimates_module_imports(self):
+        """src.horizon_estimates must import without error."""
+        mod = importlib.import_module("src.horizon_estimates")
+        assert hasattr(mod, "generate_horizon_estimates")
+        assert hasattr(mod, "compute_nonconformity_scores")
+        assert hasattr(mod, "conformal_interval_width")
+        assert hasattr(mod, "HORIZON_COLUMNS")
+
+    def test_horizon_script_syntax(self):
+        """generate_horizon_estimates.py must have valid Python syntax."""
+        source = (
+            PROJECT_ROOT / "scripts" / "generate_horizon_estimates.py"
+        ).read_text(encoding="utf-8")
+        ast.parse(source, filename="scripts/generate_horizon_estimates.py")
+
+    def test_quarter_arithmetic(self):
+        """Quarter arithmetic must handle year boundaries."""
+        from src.horizon_estimates import next_quarter
+        assert next_quarter("2025Q4", 1) == "2026Q1"
+        assert next_quarter("2025Q1", -1) == "2024Q4"
