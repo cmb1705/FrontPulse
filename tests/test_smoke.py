@@ -153,6 +153,7 @@ _KEY_SCRIPTS = [
     "scripts/calibrate_bocpd.py",
     "scripts/benchmark_bocpd_vs_msd.py",
     "scripts/prototype_hybrid_alerting.py",
+    "scripts/retrain_msd.py",
 ]
 
 
@@ -424,3 +425,33 @@ class TestIncrementalIngestSmoke:
             assert args.since is None
         finally:
             _sys.argv = old_argv
+
+
+class TestModelRegistrySmoke:
+    """Smoke tests for model versioning registry."""
+
+    def test_model_registry_module_imports(self):
+        """src.model_registry must import without error."""
+        mod = importlib.import_module("src.model_registry")
+        assert hasattr(mod, "ModelVersion")
+        assert hasattr(mod, "save_versioned_model")
+        assert hasattr(mod, "load_model_version")
+        assert hasattr(mod, "compare_versions")
+
+    def test_model_version_dataclass_fields(self):
+        """ModelVersion must have required fields."""
+        from src.model_registry import ModelVersion
+        v = ModelVersion(
+            version_id="v_test",
+            created_at="2026-03-23",
+            model_type="catboost",
+        )
+        assert v.retrain_mode == "full"
+        assert v.parent_version is None
+        assert v.feature_names == []
+        assert v.metrics == {}
+
+    def test_retrain_script_syntax(self):
+        """retrain_msd.py must have valid Python syntax."""
+        source = (PROJECT_ROOT / "scripts" / "retrain_msd.py").read_text(encoding="utf-8")
+        ast.parse(source, filename="scripts/retrain_msd.py")
