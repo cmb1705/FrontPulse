@@ -312,3 +312,39 @@ def test_datasource_filters_override_saved_settings() -> None:
     assert merged["filters"]["topics.id"] == "T10878", (
         "CRISPR topic ID must override saved PSC settings"
     )
+
+
+# ---------------------------------------------------------------------------
+# Convergence detection smoke tests
+# ---------------------------------------------------------------------------
+
+
+class TestConvergenceSmoke:
+    """Smoke tests for convergence detection configuration and imports."""
+
+    def test_convergence_feature_group_in_yaml(self):
+        """feature_groups.yaml should parse and contain a lifecycle group."""
+        cfg = yaml.safe_load(
+            (PROJECT_ROOT / "config" / "features" / "feature_groups.yaml").read_text(),
+        )
+        groups = cfg.get("groups", {})
+        assert "lifecycle" in groups, "lifecycle group must exist in feature_groups.yaml"
+        cols = groups["lifecycle"]["columns"]
+        assert "is_matured" in cols
+        assert "quarters_since_maturation" in cols
+
+    def test_convergence_features_in_leakage_safe_extended(self):
+        """leakage_safe_extended should include the lifecycle group."""
+        cfg = yaml.safe_load(
+            (PROJECT_ROOT / "config" / "features" / "feature_subset_configs.yaml").read_text(),
+        )
+        lse = cfg["configs"]["leakage_safe_extended"]
+        groups = lse.get("include_groups", [])
+        assert "lifecycle" in groups
+
+    def test_convergence_module_imports(self):
+        """src.convergence should import without error."""
+        mod = importlib.import_module("src.convergence")
+        assert hasattr(mod, "compute_pairwise_semantic_similarity")
+        assert hasattr(mod, "aggregate_convergence_features")
+        assert hasattr(mod, "CONVERGENCE_FEATURE_DEFAULTS")
