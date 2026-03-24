@@ -143,6 +143,7 @@ _KEY_SCRIPTS = [
     "scripts/label_inflection_points.py",
     "scripts/compute_lineage_multisignal_features.py",
     "scripts/compute_convergence_features.py",
+    "scripts/compute_front_level_features.py",
     "scripts/stage5_ensemble_mapping.py",
     "scripts/aggregate_lineages_to_fronts.py",
 ]
@@ -232,6 +233,18 @@ def test_leakage_audit_doc_exists() -> None:
     """Leakage audit document must exist for experiment guidance."""
     path = PROJECT_ROOT / "docs" / "implementation" / "leakage_audit.md"
     assert path.exists(), "Leakage audit document missing"
+
+
+def test_front_level_series_contract_exists() -> None:
+    """Front-level series contract must exist for detector consumers."""
+    path = (
+        PROJECT_ROOT
+        / "docs"
+        / "implementation"
+        / "frontpulse_program"
+        / "front_level_series_contract.md"
+    )
+    assert path.exists(), "Front-level series contract document missing"
 
 
 def test_env_template_exists() -> None:

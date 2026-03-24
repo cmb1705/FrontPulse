@@ -208,7 +208,60 @@ The timeliness scoring utilities (`src/timeliness_scoring.py`) require:
 - A prediction series with detector-specific alarm indicators.
 - Both series keyed by `(front_id, quarter)`.
 
-## 11. Versioning
+## 11. Feature Aggregation Semantics
+
+When lineage-level features are aggregated to front level, the reduction
+operation depends on the feature type.
+
+### 11.1 Sum Aggregation (Additive Quantities)
+
+These features represent absolute counts that are meaningful when summed
+across lineages within a front.
+
+| Lineage Feature | Front Column | Notes |
+|-----------------|-------------|-------|
+| `new_works` | `new_works` | Total new papers across all lineages in the front. |
+| `novel_terms` | `novel_terms` | Total novel terms introduced. |
+| `cross_domain_refs` | `cross_domain_refs` | Total cross-domain references. |
+| `within_lineage_refs` | `within_lineage_refs` | Total within-lineage references. |
+| `n_new_papers` | `n_new_papers` | Total new papers (may differ from new_works due to counting). |
+
+### 11.2 Mean Aggregation (Rates and Scores)
+
+These features represent rates or intensities where averaging across
+lineages is semantically appropriate.
+
+| Lineage Feature | Front Column | Notes |
+|-----------------|-------------|-------|
+| `novelty_rate` | `novelty_rate` | Mean novelty rate across lineages. |
+| `novelty_momentum` | `novelty_momentum` | Mean novelty momentum. |
+| `cross_domain_share` | `cross_domain_share` | Mean cross-domain citation share. |
+| `citation_balance` | `citation_balance` | Mean citation balance. |
+| `semantic_velocity` | `semantic_velocity` | Mean semantic drift velocity. |
+| `velocity_acceleration` | `velocity_acceleration` | Mean velocity acceleration. |
+| `dormancy_length` | `dormancy_length` | Mean dormancy length (informational). |
+| `awakening_intensity` | `awakening_intensity` | Mean awakening intensity. |
+
+Context features (`*_z`, `*_roll_2q`, `*_roll_4q`) and convergence features
+(`conv_*`) are also averaged.
+
+### 11.3 Features That Do Not Survive Aggregation
+
+| Feature | Reason |
+|---------|--------|
+| `logistic_*` (4 features) | S-curve fit is per-lineage; no meaningful front-level analog. Also leakage-unsafe. |
+| `cd_index`, `cd_min`, `cd_max` | Disruption index is per-paper; aggregation would dilute signal. Also leakage-unsafe. |
+| `is_awakening` | Binary per-lineage flag; front-level awakening needs different definition. |
+| `dormancy_length` (as count) | Included as mean but loses per-lineage dormancy semantics. |
+
+### 11.4 Recomputed at Front Level
+
+Growth and acceleration columns are recomputed on the front-level aggregated
+`new_works` series rather than averaged from lineage-level growth rates.
+This avoids the statistical pitfall of averaging ratios with different
+denominators.
+
+## 12. Versioning
 
 The contract version is tracked in this document's header.  Schema changes
 that add required columns or change column semantics require a version bump
