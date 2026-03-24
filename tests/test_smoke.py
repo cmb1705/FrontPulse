@@ -157,6 +157,7 @@ _KEY_SCRIPTS = [
     "scripts/update_assessment_history.py",
     "scripts/generate_horizon_estimates.py",
     "scripts/generate_quarterly_report.py",
+    "scripts/refine_calibration.py",
 ]
 
 
@@ -538,3 +539,22 @@ class TestQuarterlyReportSmoke:
         )
         assert WATCH_LIST_THRESHOLD == 0.15
         assert EXTENDED_MONITORING_THRESHOLD == 0.07
+
+
+class TestCalibrationTrackerSmoke:
+    """Smoke tests for calibration tracker."""
+
+    def test_calibration_tracker_module_imports(self):
+        """src.calibration_tracker must import without error."""
+        mod = importlib.import_module("src.calibration_tracker")
+        assert hasattr(mod, "fit_isotonic_calibrator")
+        assert hasattr(mod, "check_degradation")
+        assert hasattr(mod, "CalibrationSnapshot")
+        assert hasattr(mod, "CalibrationHistory")
+
+    def test_refine_calibration_script_syntax(self):
+        """refine_calibration.py must have valid Python syntax."""
+        source = (
+            PROJECT_ROOT / "scripts" / "refine_calibration.py"
+        ).read_text(encoding="utf-8")
+        ast.parse(source, filename="scripts/refine_calibration.py")
