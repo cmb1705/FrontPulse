@@ -900,6 +900,117 @@ def compute_cd_index(
 
 
 # ---------------------------------------------------------------------------
+# Lifecycle stage features (onset + maturation labels)
+# ---------------------------------------------------------------------------
+
+
+def build_lifecycle_features(
+    onset_labels_path: Optional[str],
+    maturation_labels_path: Optional[str],
+    all_quarters_sorted: List[str],
+) -> Dict[Tuple[int, str], Dict[str, object]]:
+    """Compute lifecycle stage features from onset and maturation labels.
+
+    For each (lineage_id, quarter) key, produces:
+    - ``lifecycle_stage``: categorical (pre_onset, growth, post_maturation, never_grew)
+    - ``lifecycle_pre_onset``, ``lifecycle_growth``, ``lifecycle_post_maturation``,
+      ``lifecycle_never_grew``: one-hot encoding of lifecycle_stage
+    - ``is_matured``: binary flag (1 if lineage has a maturation label)
+    - ``quarters_since_maturation``: count of quarters after maturation (0 before)
+
+    All features are leakage-safe (derived from trailing-only onset/maturation
+    detection).
+
+    Args:
+        onset_labels_path: Path to onset_labels.csv, or None.
+        maturation_labels_path: Path to maturation_labels.csv, or None.
+        all_quarters_sorted: All quarter labels in chronological order.
+
+    Returns:
+        (lineage_id, quarter) -> feature dict.
+    """
+    # Build quarter index for distance computation
+    quarter_index = {q: i for i, q in enumerate(all_quarters_sorted)}
+
+    # Load onset labels: lineage_id -> onset_quarter
+    onset_lookup: Dict[int, str] = {}
+    if onset_labels_path:
+        path = Path(onset_labels_path)
+        if path.exists():
+            odf = pd.read_csv(path)
+            for _, row in odf.iterrows():
+                if int(row.get("onset_detected", 0)) == 1:
+                    lid = int(row["lineage_id"])
+                    oq = str(row["onset_quarter"])
+                    if oq:
+                        onset_lookup[lid] = oq
+            LOG.info("Loaded %d onset labels from %s", len(onset_lookup), path)
+        else:
+            LOG.warning("Onset labels file %s not found; skipping.", path)
+
+    # Load maturation labels: lineage_id -> maturation_quarter
+    mat_lookup: Dict[int, str] = {}
+    if maturation_labels_path:
+        path = Path(maturation_labels_path)
+        if path.exists():
+            mdf = pd.read_csv(path)
+            for _, row in mdf.iterrows():
+                if int(row.get("maturation_detected", 0)) == 1:
+                    lid = int(row["lineage_id"])
+                    mq = str(row["maturation_quarter"])
+                    if mq:
+                        mat_lookup[lid] = mq
+            LOG.info("Loaded %d maturation labels from %s", len(mat_lookup), path)
+        else:
+            LOG.warning("Maturation labels file %s not found; skipping.", path)
+
+    if not onset_lookup and not mat_lookup:
+        return {}
+
+    all_lineages = set(onset_lookup.keys()) | set(mat_lookup.keys())
+    result: Dict[Tuple[int, str], Dict[str, object]] = {}
+
+    for lid in all_lineages:
+        onset_q = onset_lookup.get(lid)
+        mat_q = mat_lookup.get(lid)
+        onset_idx = quarter_index.get(onset_q, -1) if onset_q else -1
+        mat_idx = quarter_index.get(mat_q, -1) if mat_q else -1
+        has_onset = onset_idx >= 0
+        has_mat = mat_idx >= 0
+
+        for q in all_quarters_sorted:
+            qi = quarter_index[q]
+
+            # Determine lifecycle stage
+            if not has_onset and not has_mat:
+                stage = "never_grew"
+            elif has_mat and qi >= mat_idx:
+                stage = "post_maturation"
+            elif has_onset and qi >= onset_idx:
+                stage = "growth"
+            else:
+                stage = "pre_onset"
+
+            # Quarters since maturation (0 before, count after)
+            if has_mat and qi >= mat_idx:
+                q_since = qi - mat_idx
+            else:
+                q_since = 0
+
+            result[(lid, q)] = {
+                "lifecycle_stage": stage,
+                "lifecycle_pre_onset": 1 if stage == "pre_onset" else 0,
+                "lifecycle_growth": 1 if stage == "growth" else 0,
+                "lifecycle_post_maturation": 1 if stage == "post_maturation" else 0,
+                "lifecycle_never_grew": 1 if stage == "never_grew" else 0,
+                "is_matured": 1 if has_mat else 0,
+                "quarters_since_maturation": q_since,
+            }
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Pipeline
 
 
@@ -931,6 +1042,18 @@ def parse_args() -> argparse.Namespace:
         "--enable-milestone-proximity",
         action="store_true",
         help="Compute quarters-since/quarters-until milestone features per lineage.",
+    )
+    ap.add_argument(
+        "--onset-labels",
+        default=None,
+        help="Onset labels CSV (from label_inflection_points.py --mode onset). "
+             "Used for lifecycle stage features.",
+    )
+    ap.add_argument(
+        "--maturation-labels",
+        default=None,
+        help="Maturation labels CSV (from label_inflection_points.py --mode maturation). "
+             "Used for lifecycle stage and maturation proximity features.",
     )
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--force-cache-refresh", action="store_true", help="Recompute reference cache even if present.")
@@ -1078,6 +1201,18 @@ def main() -> None:
                 "n_papers_cd": 0.0,
             }
 
+    # Lifecycle stage features (from onset + maturation labels)
+    lifecycle_features: Dict[Tuple[int, str], Dict[str, object]] = {}
+    if args.onset_labels or args.maturation_labels:
+        all_quarters_sorted = sorted(
+            timeseries_df["quarter"].unique(), key=quarter_to_int,
+        )
+        lifecycle_features = build_lifecycle_features(
+            args.onset_labels, args.maturation_labels, all_quarters_sorted,
+        )
+        if lifecycle_features:
+            LOG.info("Computed lifecycle features for %d entries", len(lifecycle_features))
+
     LOG.info("Assembling feature table...")
     records = []
     for row in timeseries_df.itertuples():
@@ -1136,6 +1271,17 @@ def main() -> None:
         # Add context features if enabled
         if context_features:
             record.update(context_features.get(key, {}))
+        # Add lifecycle stage features if labels provided
+        if lifecycle_features:
+            record.update(lifecycle_features.get(key, {
+                "lifecycle_stage": "unknown",
+                "lifecycle_pre_onset": 0,
+                "lifecycle_growth": 0,
+                "lifecycle_post_maturation": 0,
+                "lifecycle_never_grew": 0,
+                "is_matured": 0,
+                "quarters_since_maturation": 0,
+            }))
         records.append(record)
 
     features_df = pd.DataFrame.from_records(records)

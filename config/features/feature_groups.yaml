@@ -142,6 +142,17 @@ groups:
       - cross_cluster_bridging_max_dev_4q
       - cross_cluster_bridging_min_dev_4q
 
+  lifecycle:
+    description: Lifecycle stage features derived from onset + maturation labels.
+    leakage_status: safe  # Both detectors use trailing-only data
+    columns:
+      - lifecycle_pre_onset
+      - lifecycle_growth
+      - lifecycle_post_maturation
+      - lifecycle_never_grew
+      - is_matured
+      - quarters_since_maturation
+
   field_baseline:
     description: Absolute field-wide metrics for each quarter.
     leakage_status: unsafe  # Computed once on full corpus without temporal split
@@ -189,6 +200,7 @@ groups:
       - reference_vitality
       - topic_diversity
       - cross_cluster_bridging
+      - lifecycle
 
   context_all:
     description: Aggregate for all Task 2.1 context groups.
@@ -646,6 +658,51 @@ features:
     <<: *context_metric_template
     description: "Minimum deviation from the four-quarter rolling cross-cluster bridging."
     groups: [cross_cluster_bridging]
+
+  lifecycle_pre_onset:
+    description: "Binary indicator: lineage is before onset quarter."
+    groups: [lifecycle]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: trailing (onset + maturation detectors)
+    caveats:
+      - "Requires --onset-labels and/or --maturation-labels."
+  lifecycle_growth:
+    description: "Binary indicator: lineage is between onset and maturation quarters."
+    groups: [lifecycle]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: trailing (onset + maturation detectors)
+    caveats: []
+  lifecycle_post_maturation:
+    description: "Binary indicator: lineage is past maturation quarter."
+    groups: [lifecycle]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: trailing (onset + maturation detectors)
+    caveats: []
+  lifecycle_never_grew:
+    description: "Binary indicator: lineage has neither onset nor maturation detected."
+    groups: [lifecycle]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: trailing (onset + maturation detectors)
+    caveats: []
+  is_matured:
+    description: "Binary flag indicating whether the lineage has a maturation label."
+    groups: [lifecycle]
+    source: compute_lineage_multisignal_features.py
+    units: binary
+    causal_window: trailing (maturation detector)
+    caveats: []
+  quarters_since_maturation:
+    description: "Number of quarters elapsed since lineage maturation (0 if before or no maturation)."
+    groups: [lifecycle]
+    source: compute_lineage_multisignal_features.py
+    units: quarters
+    causal_window: trailing (maturation detector)
+    caveats:
+      - "Zero for lineages without maturation labels."
 
   field_total_new_works:
     <<: *field_baseline_template

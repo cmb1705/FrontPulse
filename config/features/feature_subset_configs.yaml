@@ -111,11 +111,12 @@ configs:
       - is_quarter_4
 
   leakage_safe_extended:
-    label: "Leakage-safe core + context metrics"
+    label: "Leakage-safe core + context metrics + lifecycle"
     description: >
       Extends leakage_safe with Task 2.1 context metrics (author flow,
       citation velocity, reference vitality, topic diversity, cross-cluster
-      bridging).  These use trailing rolling windows and are considered safe
+      bridging) and lifecycle stage features (onset + maturation labels).
+      These use trailing rolling windows and are considered safe
       if the underlying metrics are computed without future data.
     include_groups:
       - quarter_flags
@@ -125,6 +126,7 @@ configs:
       - reference_vitality
       - topic_diversity
       - cross_cluster_bridging
+      - lifecycle
     include_columns:
       # Core features minus CD/disruption (not in a separate group)
       - semantic_velocity
