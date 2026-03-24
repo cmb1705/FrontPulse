@@ -16,6 +16,7 @@ memory_profiler==0.61.0
 # Note: On Windows, these may require conda installation
 python-igraph==0.11.8
 leidenalg==0.10.2
+partition-igraph>=0.0.7  # ECG ensemble clustering (optional, for --use-ecg flag)
 
 # NLP and Machine Learning dependencies (Phase 2: SciBERT embeddings)
 # NOTE: PyTorch CUDA versions must be installed separately:

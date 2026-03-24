@@ -93,6 +93,98 @@ def run_leiden(
         "modularity": float(part.modularity),
     }
 
+def _require_ecg():
+    """Check that partition-igraph is installed for ECG support."""
+    try:
+        import partition_igraph  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError(
+            "ECG requires 'partition-igraph'. Install: pip install partition-igraph>=0.0.7"
+        ) from exc
+
+
+def run_ecg(
+    G: nx.Graph,
+    resolution: float = _COMMUNITY_DEFAULTS.get("default_resolution", 1.0),
+    min_size: int = _COMMUNITY_DEFAULTS.get("min_size", 50),
+    max_size: int = _COMMUNITY_DEFAULTS.get("max_size", 5000),
+    *,
+    ens_size: int = 16,
+    min_weight: float = 0.05,
+    final: str = "leiden",
+) -> Dict[str, Any]:
+    """Run ECG ensemble clustering on a NetworkX graph.
+
+    ECG (Ensemble Clustering for Graphs) runs an ensemble of randomized
+    single-level Louvain partitions, aggregates co-membership votes into
+    edge weights, then runs a final Leiden/Louvain on the re-weighted graph.
+
+    This produces more stable partitions than single-run Leiden because
+    the ensemble smooths out stochastic variation.
+
+    Args:
+        G: NetworkX citation graph with ``weight_total`` edge attribute.
+        resolution: Resolution parameter for the final partition.
+        min_size: Minimum community size to retain.
+        max_size: Maximum community size to retain.
+        ens_size: Number of ensemble members (default 16).
+        min_weight: ECG weight for edges with zero ensemble votes.
+        final: Algorithm for the final partition ('leiden' or 'louvain').
+
+    Returns:
+        Dict with same structure as ``run_leiden`` plus ECG-specific fields:
+        partition, communities, raw_n_communities, modularity,
+        original_modularity, community_strength_index.
+    """
+    _require_leiden()
+    _require_ecg()
+    import partition_igraph  # noqa: F401
+
+    g = _nx_to_igraph(G, weight_attr="weight_total")
+    weights = g.es["weight"] if "weight" in g.es.attributes() else None
+
+    part = g.community_ecg(
+        weights=weights,
+        ens_size=ens_size,
+        min_weight=min_weight,
+        final=final,
+        resolution=resolution,
+    )
+
+    labels = part.membership
+    nodes = g.vs["name"]
+    pairs = list(zip(nodes, labels))
+
+    from collections import Counter
+
+    cnt = Counter(labels)
+    keep = {cid for cid, sz in cnt.items() if min_size <= sz <= max_size}
+    kept_pairs = [(n, c) for (n, c) in pairs if c in keep]
+
+    comm_nodes: Dict[int, List[str]] = defaultdict(list)
+    for n, c in kept_pairs:
+        comm_nodes[c].append(n)
+    communities = [
+        {"id": int(cid), "size": len(v), "nodes": v}
+        for cid, v in comm_nodes.items()
+    ]
+
+    result: Dict[str, Any] = {
+        "partition": kept_pairs,
+        "communities": communities,
+        "raw_n_communities": int(len(cnt)),
+        "modularity": float(part.modularity),
+    }
+
+    # ECG-specific outputs
+    if hasattr(part, "original_modularity"):
+        result["original_modularity"] = float(part.original_modularity)
+    if hasattr(part, "CSI"):
+        result["community_strength_index"] = [float(x) for x in part.CSI]
+
+    return result
+
+
 def adaptive_cluster_bounds(
     n_nodes: int,
     n_edges: int,

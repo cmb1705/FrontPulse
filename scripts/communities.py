@@ -39,7 +39,7 @@ if str(REPO) not in sys.path:
 
 try:
     # project imports
-    from src.community import run_leiden, adaptive_cluster_bounds, compute_pia_flags
+    from src.community import run_leiden, run_ecg, adaptive_cluster_bounds, compute_pia_flags
     from src.alignment import (
         pagerank_core,
         match_by_cores,
@@ -50,6 +50,11 @@ except ModuleNotFoundError as e:
     raise SystemExit("Cannot import src.*. Run from repo root.") from e
 from src.graph_lite import LiteGraph
 from src.trusted_io import load_trusted_pickle
+
+
+# Module-level clustering dispatch. Defaults to Leiden; overridden by
+# --use-ecg flag in __main__ to use ECG ensemble clustering.
+_cluster_fn = run_leiden
 
 
 def _canonical_quarter(label: str) -> str:
@@ -536,7 +541,7 @@ def run_cumulative(
     )
 
         if part_map is None:
-            rq = run_leiden(Gq, resolution=resolution, min_size=min_size_eff, max_size=max_size_eff)
+            rq = _cluster_fn(Gq, resolution=resolution, min_size=min_size_eff, max_size=max_size_eff)
             part_map = _part_label_map(rq["partition"])
             part_map = {str(n): int(c) for n, c in part_map.items()}
             try:
@@ -1192,7 +1197,7 @@ def run_annual(
             allow_external=allow_external_pickle,
         )
 
-        res = run_leiden(
+        res = _cluster_fn(
             G,
             resolution=resolution,
             min_size=annual_min,
@@ -1304,7 +1309,7 @@ def run_quarterly(
             description="Quarterly graph pickle",
             allow_external=allow_external_pickle,
         )
-        rq = run_leiden(
+        rq = _cluster_fn(
             Gq,
             resolution=resolution,
             min_size=delta_min,
@@ -1464,6 +1469,10 @@ def main():
     )
     ap.add_argument("--source", choices=["delta", "cumulative"], default="cumulative",
                     help="Quarter graph source (citation_graph_delta_* or citation_graph_cumulative_*)")
+    ap.add_argument("--use-ecg", action="store_true",
+                    help="Use ECG ensemble clustering instead of Leiden (experimental).")
+    ap.add_argument("--ecg-ens-size", type=int, default=16,
+                    help="ECG ensemble size (default: 16). Only used with --use-ecg.")
     ap.add_argument("--debug-events", action="store_true", help="Print candidate split/merge overlaps")
     ap.add_argument(
         "--allow-external-pickle",
@@ -1477,6 +1486,28 @@ def main():
         import leidenalg  # noqa: F401
     except Exception:
         raise SystemExit("Leiden requires: python-igraph + leidenalg installed.")
+
+    if args.use_ecg:
+        try:
+            import partition_igraph  # noqa: F401
+        except ImportError:
+            raise SystemExit(
+                "ECG requires: partition-igraph installed. "
+                "Install: pip install partition-igraph>=0.0.7"
+            )
+        print("[ECG] Using ensemble clustering (ens_size=%d)" % args.ecg_ens_size)
+
+    if args.use_ecg:
+        _ecg_ens = args.ecg_ens_size
+
+        def _ecg_wrapper(G, resolution, min_size, max_size):
+            return run_ecg(
+                G, resolution=resolution, min_size=min_size, max_size=max_size,
+                ens_size=_ecg_ens,
+            )
+
+        global _cluster_fn
+        _cluster_fn = _ecg_wrapper
 
     out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
