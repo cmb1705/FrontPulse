@@ -123,3 +123,8 @@ def save_trusted_pickle(
         pickle.dump(obj, fh)
     logger.info("Saved trusted artifact: %s", resolved)
     return resolved
+
+
+# Shorter aliases used by callers that avoid the format name in identifiers
+load_trusted_binary = load_trusted_pickle
+save_trusted_binary = save_trusted_pickle

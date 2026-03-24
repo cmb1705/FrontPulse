@@ -23,12 +23,12 @@ need to rebuild the index for every process.
 from __future__ import annotations
 import hashlib
 import json
-import pickle
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from collections import defaultdict
 
 from src.raw_store import RawStore
+from src import trusted_io
 
 _CACHE_VERSION = 1
 
@@ -130,8 +130,9 @@ class AbstractExtractor:
         if not self.cache_path:
             return False
         try:
-            with self.cache_path.open('rb') as fh:
-                data: Dict[str, Any] = pickle.load(fh)
+            data: Dict[str, Any] = trusted_io.load_trusted_pickle(
+                self.cache_path, description="abstract index cache",
+            )
         except FileNotFoundError:
             return False
         except Exception as exc:
@@ -162,7 +163,6 @@ class AbstractExtractor:
         if not self.cache_path:
             return
         try:
-            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
                 'version': _CACHE_VERSION,
                 'raw_dir': str(self.raw_dir.resolve()),
@@ -170,8 +170,10 @@ class AbstractExtractor:
                 'work_to_store': self._work_to_store,
                 'doi_to_work': self._doi_to_work,
             }
-            with self.cache_path.open('wb') as fh:
-                pickle.dump(payload, fh, protocol=pickle.HIGHEST_PROTOCOL)
+            trusted_io.save_trusted_pickle(
+                payload, self.cache_path,
+                description="abstract index cache",
+            )
             print(f"[AbstractExtractor] Cached index written to {self.cache_path}")
         except Exception as exc:
             print(f"[AbstractExtractor] Warning: failed to write cache {self.cache_path}: {exc}")

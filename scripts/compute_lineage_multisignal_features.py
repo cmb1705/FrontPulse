@@ -17,7 +17,6 @@ import argparse
 import json
 import logging
 import multiprocessing as mp
-import pickle
 import sys
 import time
 from collections import defaultdict
@@ -39,6 +38,8 @@ if str(REPO_ROOT) not in sys.path:
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+
+from src.trusted_io import load_trusted_pickle, save_trusted_pickle  # type: ignore
 
 from scripts.compute_lineage_ctfidf import (  # type: ignore
     TECHNICAL_BIGRAMS,
@@ -565,8 +566,9 @@ def load_references(
     """
     if cache_path and cache_path.exists() and not force_refresh:
         LOG.info("Loading reference cache from %s", cache_path)
-        with cache_path.open("rb") as fh:
-            cached = pickle.load(fh)
+        cached = load_trusted_pickle(
+            cache_path, description="reference cache",
+        )
         return cached["references"], cached["pub_years"]
 
     LOG.info("Parsing raw OpenAlex records for references (this may take a while)...")
@@ -590,16 +592,11 @@ def load_references(
     )
 
     if cache_path:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with cache_path.open("wb") as fh:
-            pickle.dump(
-                {
-                    "references": references_by_work,
-                    "pub_years": pub_year_by_work,
-                },
-                fh,
-            )
-        LOG.info("Reference cache written to %s", cache_path)
+        save_trusted_pickle(
+            {"references": references_by_work, "pub_years": pub_year_by_work},
+            cache_path,
+            description="reference cache",
+        )
 
     return references_by_work, pub_year_by_work
 

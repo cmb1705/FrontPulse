@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import itertools
 import math
-import pickle
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +12,12 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 import networkx as nx
+
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+
+from src import trusted_io
 
 
 @dataclass(frozen=True)
@@ -80,8 +85,9 @@ def _collect_graphs(args: argparse.Namespace) -> List[Path]:
 
 
 def _load_graph(path: Path) -> nx.DiGraph:
-    with path.open("rb") as fh:
-        G = pickle.load(fh)
+    G = trusted_io.load_trusted_binary(
+        path, description="citation graph",
+    )
     if not isinstance(G, nx.DiGraph):
         raise SystemExit(f"Graph at {path} is not a directed NetworkX graph.")
     return G

@@ -9,10 +9,16 @@ switches would activate.
 
 from __future__ import annotations
 
-import pickle
+import sys
 from pathlib import Path
 
 import pandas as pd
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src import trusted_io
 
 GRAPHS_DIR = Path("data/current_graphs")
 
@@ -33,8 +39,9 @@ def load_quarter_stats(graph_dir: Path) -> pd.DataFrame:
     rows = []
     for path in files:
         q = _quarter_from_path(path)
-        with path.open("rb") as fh:
-            G = pickle.load(fh)
+        G = trusted_io.load_trusted_binary(
+            path, description="citation graph",
+        )
         n_nodes = G.number_of_nodes()
         n_edges = G.number_of_edges()
         if n_nodes > 1:

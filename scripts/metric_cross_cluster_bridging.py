@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import pickle
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from src.community import run_leiden
+from src import trusted_io
 from src.metrics.common import (
     ensure_dir,
     list_quarter_files,
@@ -107,8 +107,9 @@ def analyze_quarter(
     args: argparse.Namespace,
     registry: Dict[str, Dict[str, int]],
 ) -> Dict[str, object]:
-    with graph_path.open("rb") as fh:
-        Gfull: nx.DiGraph = pickle.load(fh)
+    Gfull: nx.DiGraph = trusted_io.load_trusted_binary(
+        graph_path, description="citation graph",
+    )
 
     # Load metadata lookup table (graphs now use minimal attributes for memory efficiency)
     ingest_path = REPO_ROOT / "data" / "current_ingest" / "ingest.parquet"

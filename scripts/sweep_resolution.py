@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import pickle
 import sys
 from pathlib import Path
 from typing import List
@@ -23,6 +22,7 @@ except Exception:  # pragma: no cover
     make_subplots = None  # type: ignore
     go = None  # type: ignore
 
+from src import trusted_io
 from src.community import run_leiden, compute_pia_flags
 from src.alignment import variation_of_information
 
@@ -216,8 +216,9 @@ def main() -> None:
     if not graph_path.exists():
         raise SystemExit(f"Graph not found: {graph_path}")
 
-    with graph_path.open("rb") as f:
-        G = pickle.load(f)
+    G = trusted_io.load_trusted_binary(
+        graph_path, description="citation graph",
+    )
 
     resolutions = _parse_resolutions(args.res)
     results = []
