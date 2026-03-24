@@ -31,6 +31,7 @@ _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in __import__("sys").path:
     __import__("sys").path.insert(0, str(_REPO))
 from src.onset_detector import OnsetResult, detect_onset
+from src.maturation_detector import MaturationResult, detect_maturation
 
 LOG = logging.getLogger("inflection_labels")
 
@@ -157,10 +158,11 @@ def parse_args() -> argparse.Namespace:
     # Detection mode (Phase 1 onset support)
     parser.add_argument(
         "--mode",
-        choices=["retrospective", "onset", "comparison"],
+        choices=["retrospective", "onset", "maturation", "comparison"],
         default="retrospective",
         help="Detection mode: 'retrospective' (logistic/derivative), "
-             "'onset' (prospective-safe onset detection), or "
+             "'onset' (prospective-safe onset detection), "
+             "'maturation' (upper-elbow deceleration detection), or "
              "'comparison' (both side-by-side). Default: retrospective.",
     )
     # Onset-specific parameters (see onset_label_specification.md)
@@ -187,6 +189,37 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=3,
         help="Minimum smoothed count to avoid noise triggers (default: 3).",
+    )
+    # Maturation-specific parameters (see maturation_label_specification.md)
+    parser.add_argument(
+        "--maturation-smoothing-window",
+        type=int,
+        default=3,
+        help="Trailing rolling-mean window for maturation detection (default: 3).",
+    )
+    parser.add_argument(
+        "--maturation-growth-threshold",
+        type=float,
+        default=0.10,
+        help="Growth rate magnitude threshold for maturation subtypes (default: 0.10).",
+    )
+    parser.add_argument(
+        "--maturation-confirmation-quarters",
+        type=int,
+        default=3,
+        help="Consecutive quarters of deceleration required for confirmation (default: 3).",
+    )
+    parser.add_argument(
+        "--maturation-min-count",
+        type=int,
+        default=3,
+        help="Minimum smoothed count for meaningful growth phase (default: 3).",
+    )
+    parser.add_argument(
+        "--maturation-activity-floor",
+        type=int,
+        default=1,
+        help="Below this smoothed count the lineage is dormant (default: 1).",
     )
 
     return parser.parse_args()
@@ -494,6 +527,55 @@ def detect_onset_for_lineage(
     }
 
 
+# ---------------------------------------------------------------------------
+# Maturation detection mode
+# ---------------------------------------------------------------------------
+
+
+def detect_maturation_for_lineage(
+    lineage_id: int,
+    lineage_df: pd.DataFrame,
+    args: argparse.Namespace,
+) -> Dict[str, object]:
+    """Run maturation detection on a single lineage and return a result dict.
+
+    Always returns a dict (one row per lineage), even when maturation is
+    not detected, matching the output schema in
+    maturation_label_specification.md.
+    """
+    sorted_df = lineage_df.sort_values("quarter_int")
+    quarters = sorted_df["quarter"].tolist()
+    counts = sorted_df["new_works"].astype(int).tolist()
+
+    result: MaturationResult = detect_maturation(
+        quarters,
+        counts,
+        smoothing_window=args.maturation_smoothing_window,
+        growth_threshold=args.maturation_growth_threshold,
+        confirmation_quarters=args.maturation_confirmation_quarters,
+        min_count=args.maturation_min_count,
+        activity_floor=args.maturation_activity_floor,
+    )
+
+    return {
+        "lineage_id": lineage_id,
+        "maturation_quarter": result.quarter or "",
+        "maturation_detected": int(result.detected),
+        "maturation_type": result.maturation_type or "",
+        "maturation_reason": result.reason,
+        "maturation_growth_rate": result.growth_rate,
+        "maturation_smoothed_count": result.smoothed_count,
+        "maturation_peak_quarter": result.peak_quarter or "",
+        "maturation_peak_count": result.peak_count,
+        "maturation_confirmation_length": result.confirmation_length,
+        "late_maturation": result.late_maturation,
+        "smoothing_window": args.maturation_smoothing_window,
+        "growth_threshold": args.maturation_growth_threshold,
+        "confirmation_window": args.maturation_confirmation_quarters,
+        "activity_floor": args.maturation_activity_floor,
+    }
+
+
 def prepare_timeseries(ts_path: Path) -> pd.DataFrame:
     df = pd.read_csv(ts_path)
     required_cols = {"lineage_id", "quarter", "new_works"}
@@ -661,6 +743,68 @@ def main() -> None:
         msd_df.to_csv(msd_path, index=False)
         LOG.info(
             "Wrote MSD-compatible onset labels to %s (%d rows)", msd_path, len(msd_df),
+        )
+        return
+
+    # ── Maturation-only mode ──────────────────────────────────────────
+    if mode == "maturation":
+        mat_rows: List[Dict[str, object]] = []
+        for lineage_id, group in ts_df.groupby("lineage_id"):
+            mat_rows.append(
+                detect_maturation_for_lineage(int(lineage_id), group, args)
+            )
+
+        mat_df = pd.DataFrame(mat_rows)
+        ensure_directory(out_path)
+        mat_df.to_csv(out_path, index=False)
+
+        n_detected = int(mat_df["maturation_detected"].sum())
+        LOG.info(
+            "Wrote %d maturation labels (%d detected, %.1f%%) to %s",
+            len(mat_df), n_detected,
+            100 * n_detected / max(len(mat_df), 1), out_path,
+        )
+
+        # Breakdown by subtype
+        if n_detected > 0:
+            subtype_counts = (
+                mat_df.loc[mat_df["maturation_detected"] == 1, "maturation_type"]
+                .value_counts()
+                .to_dict()
+            )
+            LOG.info("Subtype breakdown: %s", subtype_counts)
+
+        metadata = {
+            "timeseries": str(ts_path),
+            "output": str(out_path),
+            "mode": "maturation",
+            "total_lineages": total_lineages,
+            "maturation_detected": n_detected,
+            "maturation_pct": round(
+                100 * n_detected / max(total_lineages, 1), 2
+            ),
+            "parameters": {
+                "smoothing_window": args.maturation_smoothing_window,
+                "growth_threshold": args.maturation_growth_threshold,
+                "confirmation_quarters": args.maturation_confirmation_quarters,
+                "min_count": args.maturation_min_count,
+                "activity_floor": args.maturation_activity_floor,
+            },
+        }
+        save_metadata(out_path, metadata)
+
+        # Emit MSD-compatible maturation labels
+        msd_path = out_path.parent / (out_path.stem + "_msd" + out_path.suffix)
+        msd_df = mat_df.loc[
+            mat_df["maturation_detected"] == 1,
+            ["lineage_id", "maturation_quarter", "maturation_type"],
+        ].copy()
+        msd_df = msd_df.rename(columns={"maturation_quarter": "quarter"})
+        msd_df["is_maturation"] = 1
+        msd_df.to_csv(msd_path, index=False)
+        LOG.info(
+            "Wrote MSD-compatible maturation labels to %s (%d rows)",
+            msd_path, len(msd_df),
         )
         return
 
