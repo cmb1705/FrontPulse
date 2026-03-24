@@ -365,3 +365,15 @@ class TestConvergenceSmoke:
         assert hasattr(mod, "compute_pairwise_semantic_similarity")
         assert hasattr(mod, "aggregate_convergence_features")
         assert hasattr(mod, "CONVERGENCE_FEATURE_DEFAULTS")
+
+
+class TestBOCPDSmoke:
+    """Smoke tests for BOCPD module."""
+
+    def test_bocpd_module_imports(self):
+        """src.bocpd should import without error."""
+        mod = importlib.import_module("src.bocpd")
+        assert hasattr(mod, "detect_changepoints")
+        assert hasattr(mod, "run_bocpd_on_fronts")
+        assert hasattr(mod, "BOCPDConfig")
+        assert hasattr(mod, "BOCPDResult")
