@@ -134,6 +134,40 @@ The model catches 76.7% of onset events in data it was never trained on.
 Precision is low (7.8%) at this aggressive threshold, reflecting the
 early-warning tradeoff: we accept false alarms to avoid missing real onsets.
 
+### 4.2.1 Threshold sweep (holdout)
+
+The following sweep across calibrated probability thresholds reveals the
+precision-recall tradeoff and informs operational threshold selection.
+Note: no calibrated probability exceeds 0.43, reflecting appropriate
+uncertainty at 1.37% base rate.
+
+| Threshold | TP | FP | FN | Precision | Recall | F1 | FP:TP | Alerts |
+| --------- | --- | ----- | --- | --------- | ------ | ----- | ----- | ----- |
+| 0.01 | 113 | 4,219 | 3 | 0.026 | 0.974 | 0.051 | 37.3 | 4,332 |
+| 0.02 | 103 | 2,980 | 13 | 0.033 | 0.888 | 0.064 | 28.9 | 3,083 |
+| 0.03 | 101 | 1,982 | 15 | 0.048 | 0.871 | 0.092 | 19.6 | 2,083 |
+| 0.05 | 95 | 1,427 | 21 | 0.062 | 0.819 | 0.116 | 15.0 | 1,522 |
+| **0.07** | **89** | **1,059** | **27** | **0.078** | **0.767** | **0.141** | **11.9** | **1,148** |
+| 0.10 | 84 | 909 | 32 | 0.085 | 0.724 | 0.151 | 10.8 | 993 |
+| **0.15** | **64** | **400** | **52** | **0.138** | **0.552** | **0.221** | **6.2** | **464** |
+| 0.20 | 43 | 214 | 73 | 0.167 | 0.371 | 0.231 | 5.0 | 257 |
+| 0.25 | 27 | 108 | 89 | 0.200 | 0.233 | 0.215 | 4.0 | 135 |
+| 0.30 | 21 | 83 | 95 | 0.202 | 0.181 | 0.191 | 4.0 | 104 |
+| 0.40 | 13 | 40 | 103 | 0.245 | 0.112 | 0.154 | 3.1 | 53 |
+
+There is a clear elbow at t=0.15: alerts drop 60% (1,148 to 464) while
+recall decreases 22 percentage points (76.7% to 55.2%). F1 peaks at 0.231
+(t=0.20), but the best operational tradeoff is at t=0.15.
+
+**Recommended operating mode: two-tier alerting.**
+
+- **High-confidence watch list (t=0.15):** 464 alerts, 6:1 FP:TP ratio,
+  55% recall. Surfaced prominently in quarterly briefing.
+- **Extended monitoring (t=0.07):** 1,148 alerts, 12:1 ratio, 77% recall.
+  Logged for background tracking. Onsets missed at the high tier are
+  caught here and will likely escalate in subsequent quarters as growth
+  continues.
+
 ### 4.3 Detection timing (holdout)
 
 | Metric | Holdout value |
@@ -196,10 +230,14 @@ forest based on:
 3. **Detection timing is appropriate for horizon scanning.** 92% of
    detections occur at or before onset, with 2.3Q average lead time.
 
-4. **Precision remains the limiting factor.** At the operating threshold
-   (0.07), precision is 7.8% on the holdout -- roughly 1 in 13 alerts is
-   a true onset. This is acceptable for an early warning system but will
-   improve with quarterly retraining and calibration refinement.
+4. **Precision remains the limiting factor; two-tier alerting mitigates
+   it.** A threshold sweep reveals a clear elbow at t=0.15 where alerts
+   drop 60% (1,148 to 464) for a 22pp recall cost. The recommended
+   operating mode is two-tier: a high-confidence watch list at t=0.15
+   (6:1 FP:TP, 55% recall) for the quarterly briefing, and extended
+   monitoring at t=0.07 (12:1 ratio, 77% recall) for background tracking.
+   Precision will further improve with quarterly retraining, maturation
+   filtering, and convergence features.
 
 5. **CatBoost is the recommended production model.** It resolves the
    overfitting problem, provides the best ranking performance, and its
