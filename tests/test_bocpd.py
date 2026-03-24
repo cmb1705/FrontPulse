@@ -138,6 +138,7 @@ class TestRunBOCPDOnFronts:
         assert "quarter" in result.columns
         assert "bocpd_changepoint_prob" in result.columns
         assert "bocpd_alert" in result.columns
+        assert "bocpd_map_run_length" in result.columns
 
     def test_output_length_matches_input(self) -> None:
         df = pd.DataFrame({

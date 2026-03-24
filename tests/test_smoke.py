@@ -149,6 +149,7 @@ _KEY_SCRIPTS = [
     "scripts/aggregate_lineages_to_fronts.py",
     "scripts/generate_stability_report.py",
     "scripts/benchmark_detection_units.py",
+    "scripts/run_bocpd_detector.py",
 ]
 
 

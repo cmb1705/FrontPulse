@@ -213,7 +213,7 @@ def run_bocpd_on_fronts(
 
     Returns:
         DataFrame with columns: front_id, quarter, bocpd_changepoint_prob,
-        bocpd_alert.
+        bocpd_alert, bocpd_map_run_length.
     """
     if config is None:
         config = BOCPDConfig()
@@ -232,6 +232,7 @@ def run_bocpd_on_fronts(
                 "quarter": q,
                 "bocpd_changepoint_prob": float(result.changepoint_prob[i]),
                 "bocpd_alert": int(result.alert[i]),
+                "bocpd_map_run_length": int(result.map_run_length[i]),
             })
 
     return pd.DataFrame(results)
