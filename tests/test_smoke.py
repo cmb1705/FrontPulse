@@ -408,8 +408,9 @@ class TestIncrementalIngestSmoke:
 
     def test_parse_args_has_incremental_flag(self):
         """run.py argparser must accept --incremental flag."""
-        from run import parse_args
         import sys as _sys
+
+        from run import parse_args
         old_argv = _sys.argv
         _sys.argv = [
             "run.py",

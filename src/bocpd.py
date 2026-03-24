@@ -18,7 +18,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -70,7 +69,7 @@ class BOCPDResult:
     alert: np.ndarray
     map_run_length: np.ndarray
     n_alerts: int
-    alert_indices: List[int]
+    alert_indices: list[int]
 
 
 def _log_neg_binomial_pmf(x: int, alpha: np.ndarray, beta: np.ndarray) -> np.ndarray:
@@ -99,7 +98,7 @@ def _log_neg_binomial_pmf(x: int, alpha: np.ndarray, beta: np.ndarray) -> np.nda
 
 def detect_changepoints(
     counts: np.ndarray,
-    config: Optional[BOCPDConfig] = None,
+    config: BOCPDConfig | None = None,
 ) -> BOCPDResult:
     """Run BOCPD on a 1-d count series.
 
@@ -202,7 +201,7 @@ def detect_changepoints(
 
 def run_bocpd_on_fronts(
     series_df: pd.DataFrame,
-    config: Optional[BOCPDConfig] = None,
+    config: BOCPDConfig | None = None,
 ) -> pd.DataFrame:
     """Run BOCPD on all fronts in a front-level series DataFrame.
 
@@ -218,7 +217,7 @@ def run_bocpd_on_fronts(
     if config is None:
         config = BOCPDConfig()
 
-    results: List[Dict] = []
+    results: list[dict] = []
     for front_id, group in series_df.groupby("front_id"):
         group = group.sort_values("quarter")
         counts = group["new_works"].values.astype(float)

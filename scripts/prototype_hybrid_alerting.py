@@ -23,7 +23,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -80,7 +80,7 @@ def compute_lineage_signals(
     Returns DataFrame with lineage_id, quarter, bocpd_prob, growth_rate,
     new_works.
     """
-    records: List[Dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
 
     for lineage_id, group in timeseries.groupby("lineage_id"):
         group = group.sort_values("quarter")
@@ -112,7 +112,7 @@ def evaluate_detector(
     signals: pd.DataFrame,
     alert_mask: np.ndarray,
     onset_labels: pd.DataFrame,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Evaluate a binary alert mask against onset labels.
 
     Args:
@@ -129,9 +129,9 @@ def evaluate_detector(
         for q in signals["quarter"].unique()
     }
 
-    true_onset_qints: List[int] = []
-    detection_qints: List[Optional[int]] = []
-    alert_qints: List[int] = []
+    true_onset_qints: list[int] = []
+    detection_qints: list[int | None] = []
+    alert_qints: list[int] = []
 
     # Collect alerts
     alert_rows = signals.loc[alert_mask]
@@ -185,7 +185,7 @@ def evaluate_detector(
     }
 
 
-def format_report(results: Dict[str, Dict[str, Any]]) -> str:
+def format_report(results: dict[str, dict[str, Any]]) -> str:
     """Format hybrid alerting results as markdown."""
     lines = [
         "# Hybrid Alerting Prototype Results",
@@ -304,7 +304,7 @@ def main() -> None:
     bocpd_prob = signals["bocpd_prob"].values
     growth = signals["growth_rate"].values
 
-    results: Dict[str, Dict[str, Any]] = {}
+    results: dict[str, dict[str, Any]] = {}
 
     # 1. BOCPD standalone
     logger.info("Evaluating: BOCPD standalone...")
@@ -321,7 +321,7 @@ def main() -> None:
     # 3. Sequential: BOCPD fires, then growth confirms within 2 quarters
     logger.info("Evaluating: Sequential...")
     seq_alerts = np.zeros(len(signals), dtype=bool)
-    for lineage_id, group_idx in signals.groupby("lineage_id").groups.items():
+    for _lineage_id, group_idx in signals.groupby("lineage_id").groups.items():
         idx = group_idx.values
         bp = bocpd_prob[idx]
         gr = growth[idx]

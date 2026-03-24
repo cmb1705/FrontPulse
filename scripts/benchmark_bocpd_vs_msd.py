@@ -17,7 +17,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -88,7 +88,7 @@ def run_bocpd_detector(
     onset_labels: pd.DataFrame,
     config: BOCPDConfig,
     threshold: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run BOCPD on all lineages and evaluate against onset labels.
 
     Args:
@@ -104,9 +104,9 @@ def run_bocpd_detector(
     all_quarters_sorted = sorted(timeseries["quarter"].unique())
     q_to_int = {q: quarter_to_int(q) for q in all_quarters_sorted}
 
-    true_onset_qints: List[int] = []
-    detection_qints: List[Optional[int]] = []
-    alert_qints: List[int] = []
+    true_onset_qints: list[int] = []
+    detection_qints: list[int | None] = []
+    alert_qints: list[int] = []
     total_quarters = len(timeseries)
     n_alerts = 0
 
@@ -169,7 +169,7 @@ def run_growth_rate_baseline(
     timeseries: pd.DataFrame,
     onset_labels: pd.DataFrame,
     growth_threshold: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Simple baseline: alert when QoQ growth rate exceeds threshold.
 
     This baseline detects quarters where the growth rate in new_works
@@ -180,9 +180,9 @@ def run_growth_rate_baseline(
     all_quarters_sorted = sorted(timeseries["quarter"].unique())
     q_to_int = {q: quarter_to_int(q) for q in all_quarters_sorted}
 
-    true_onset_qints: List[int] = []
-    detection_qints: List[Optional[int]] = []
-    alert_qints: List[int] = []
+    true_onset_qints: list[int] = []
+    detection_qints: list[int | None] = []
+    alert_qints: list[int] = []
     total_quarters = len(timeseries)
 
     for lineage_id, group in timeseries.groupby("lineage_id"):
@@ -244,7 +244,7 @@ def run_random_baseline(
     onset_labels: pd.DataFrame,
     alert_probability: float,
     seed: int = 42,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Random baseline: alert each quarter with fixed probability.
 
     Establishes the floor performance that any detector must exceed
@@ -255,9 +255,9 @@ def run_random_baseline(
     all_quarters_sorted = sorted(timeseries["quarter"].unique())
     q_to_int = {q: quarter_to_int(q) for q in all_quarters_sorted}
 
-    true_onset_qints: List[int] = []
-    detection_qints: List[Optional[int]] = []
-    alert_qints: List[int] = []
+    true_onset_qints: list[int] = []
+    detection_qints: list[int | None] = []
+    alert_qints: list[int] = []
     total_quarters = len(timeseries)
 
     for lineage_id, group in timeseries.groupby("lineage_id"):
@@ -307,7 +307,7 @@ def run_random_baseline(
     }
 
 
-def load_msd_metrics(path: str) -> Optional[Dict[str, Any]]:
+def load_msd_metrics(path: str) -> dict[str, Any] | None:
     """Load MSD evaluation metrics from JSON.
 
     Returns None if file doesn't exist.
@@ -320,9 +320,9 @@ def load_msd_metrics(path: str) -> Optional[Dict[str, Any]]:
 
 
 def format_comparison_report(
-    results: Dict[str, Dict[str, Any]],
-    msd_cv: Optional[Dict[str, Any]],
-    msd_holdout: Optional[Dict[str, Any]],
+    results: dict[str, dict[str, Any]],
+    msd_cv: dict[str, Any] | None,
+    msd_holdout: dict[str, Any] | None,
 ) -> str:
     """Format the benchmark comparison as a markdown report."""
     lines = [
@@ -453,7 +453,7 @@ def format_comparison_report(
     return "\n".join(lines)
 
 
-def _add_msd_row(lines: List[str], name: str, metrics: Dict[str, Any]) -> None:
+def _add_msd_row(lines: list[str], name: str, metrics: dict[str, Any]) -> None:
     """Add an MSD row to the comparison table from loaded metrics."""
     # Extract what we can from MSD metrics format
     cv_metrics = metrics.get("cv_metrics", metrics.get("metrics", {}))
@@ -504,7 +504,7 @@ def main() -> None:
         len(onset_labels),
     )
 
-    results: Dict[str, Dict[str, Any]] = {}
+    results: dict[str, dict[str, Any]] = {}
 
     # BOCPD default
     logger.info("Running BOCPD (default)...")

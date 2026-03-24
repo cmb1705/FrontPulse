@@ -17,7 +17,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -63,14 +63,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_parameter_grid() -> List[Tuple[str, BOCPDConfig]]:
+def build_parameter_grid() -> list[tuple[str, BOCPDConfig]]:
     """Build the parameter grid for calibration.
 
     Returns:
         List of (config_name, BOCPDConfig) tuples. Includes the default
         configuration plus systematic variations on each parameter axis.
     """
-    configs: List[Tuple[str, BOCPDConfig]] = []
+    configs: list[tuple[str, BOCPDConfig]] = []
 
     # Default configuration
     configs.append(("default", BOCPDConfig()))
@@ -126,8 +126,8 @@ def evaluate_config(
     config: BOCPDConfig,
     timeseries: pd.DataFrame,
     onset_labels: pd.DataFrame,
-    thresholds: List[float],
-) -> Dict[str, Any]:
+    thresholds: list[float],
+) -> dict[str, Any]:
     """Evaluate a BOCPD configuration against known onset labels.
 
     For each lineage with a known onset, checks whether BOCPD produces
@@ -148,10 +148,10 @@ def evaluate_config(
     onset_lineages = set(onset_map.keys())
 
     # Run BOCPD per lineage, collect results
-    all_probs: List[float] = []
-    onset_probs: List[float] = []
-    non_onset_probs: List[float] = []
-    detection_lags: Dict[float, List[int]] = {t: [] for t in thresholds}
+    all_probs: list[float] = []
+    onset_probs: list[float] = []
+    non_onset_probs: list[float] = []
+    detection_lags: dict[float, list[int]] = {t: [] for t in thresholds}
 
     for lineage_id, group in timeseries.groupby("lineage_id"):
         group = group.sort_values("quarter")
@@ -240,8 +240,8 @@ def evaluate_config(
 
 
 def format_calibration_report(
-    results: Dict[str, Dict[str, Any]],
-    configs: List[Tuple[str, BOCPDConfig]],
+    results: dict[str, dict[str, Any]],
+    configs: list[tuple[str, BOCPDConfig]],
 ) -> str:
     """Format calibration results as a markdown report.
 
@@ -274,7 +274,7 @@ def format_calibration_report(
         "|--------|--------|-------|-------------|--------|------------|-----------|",
     ]
 
-    config_map = {name: cfg for name, cfg in configs}
+    config_map = dict(configs)
     for name in results:
         cfg = config_map[name]
         lines.append(

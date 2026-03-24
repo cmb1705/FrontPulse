@@ -29,16 +29,16 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-import numpy as np
-import pandas as pd
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
-from src.model_registry import (
+from src.model_registry import (  # noqa: E402
     ModelVersion,
     _next_version_id,
     compare_versions,
@@ -201,13 +201,12 @@ def _train_and_evaluate(
     features_df: pd.DataFrame,
     args: argparse.Namespace,
     init_model: Any = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Train model and compute evaluation metrics.
 
     Returns dict with 'pipeline', 'metrics', 'feature_names'.
     """
     from multi_signal_detector import select_features
-
     from sklearn.preprocessing import StandardScaler
 
     X, feature_names = select_features(
@@ -243,10 +242,10 @@ def _train_and_evaluate(
     ])
 
     # Evaluate
-    metrics: Dict[str, Any] = {}
+    metrics: dict[str, Any] = {}
     if args.use_cv:
+        from sklearn.metrics import average_precision_score, make_scorer
         from sklearn.model_selection import StratifiedKFold, cross_validate
-        from sklearn.metrics import make_scorer, average_precision_score
 
         cv = StratifiedKFold(n_splits=args.cv_folds, shuffle=True, random_state=42)
         pr_auc_scorer = make_scorer(
@@ -279,11 +278,11 @@ def _train_and_evaluate(
     else:
         # Simple holdout evaluation
         from sklearn.metrics import (
+            average_precision_score,
+            f1_score,
             precision_score,
             recall_score,
-            f1_score,
             roc_auc_score,
-            average_precision_score,
         )
 
         y_prob = pipeline.predict_proba(X.values)[:, 1]
@@ -303,7 +302,7 @@ def _train_and_evaluate(
     }
 
 
-def _format_comparison(comparison: Dict[str, Any]) -> str:
+def _format_comparison(comparison: dict[str, Any]) -> str:
     """Format a version comparison as a readable table."""
     lines = [
         f"Comparison: {comparison['current_version']} vs {comparison['previous_version']}",
@@ -346,7 +345,7 @@ def main() -> None:
 
     # Load previous model for incremental mode
     init_model = None
-    parent_version_id: Optional[str] = None
+    parent_version_id: str | None = None
 
     if args.mode == "incremental":
         prev_id = args.previous_version or get_latest_version_id(registry_dir)
@@ -376,7 +375,7 @@ def main() -> None:
         q_sorted = sorted(features_df["quarter"].unique())
         train_q_range = f"{q_sorted[0]}-{q_sorted[-1]}"
 
-    config: Dict[str, Any] = {
+    config: dict[str, Any] = {
         "model": args.model,
         "leakage_safe": args.leakage_safe,
         "use_cv": args.use_cv,

@@ -29,7 +29,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.trusted_io import load_trusted_pickle, save_trusted_pickle
 
@@ -45,18 +45,18 @@ class ModelVersion:
     version_id: str
     created_at: str
     model_type: str
-    train_quarters: Optional[str] = None
-    predict_quarters: Optional[str] = None
+    train_quarters: str | None = None
+    predict_quarters: str | None = None
     n_train_samples: int = 0
     n_features: int = 0
-    feature_names: List[str] = field(default_factory=list)
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    config: Dict[str, Any] = field(default_factory=dict)
-    parent_version: Optional[str] = None
+    feature_names: list[str] = field(default_factory=list)
+    metrics: dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
+    parent_version: str | None = None
     retrain_mode: str = "full"
     notes: str = ""
 
-    def summary_metrics(self) -> Dict[str, float]:
+    def summary_metrics(self) -> dict[str, float]:
         """Return key metrics for registry index comparison."""
         keys = [
             "cv_pr_auc_mean", "cv_roc_auc_mean", "cv_recall_mean",
@@ -67,7 +67,7 @@ class ModelVersion:
         return {k: self.metrics[k] for k in keys if k in self.metrics}
 
 
-def _next_version_id(registry_dir: Path, date_str: Optional[str] = None) -> str:
+def _next_version_id(registry_dir: Path, date_str: str | None = None) -> str:
     """Generate the next version ID for today (or *date_str*).
 
     Format: ``v_YYYYMMDD_NNN`` where NNN is a zero-padded sequence
@@ -137,7 +137,7 @@ def save_versioned_model(
 
 def load_model_version(
     registry_dir: Path,
-    version_id: Optional[str] = None,
+    version_id: str | None = None,
     *,
     allow_external: bool = False,
 ) -> tuple[Any, ModelVersion]:
@@ -182,7 +182,7 @@ def load_model_version(
     return pipeline, version
 
 
-def list_versions(registry_dir: Path) -> List[ModelVersion]:
+def list_versions(registry_dir: Path) -> list[ModelVersion]:
     """List all model versions in chronological order.
 
     Args:
@@ -205,7 +205,7 @@ def list_versions(registry_dir: Path) -> List[ModelVersion]:
     return versions
 
 
-def get_latest_version_id(registry_dir: Path) -> Optional[str]:
+def get_latest_version_id(registry_dir: Path) -> str | None:
     """Return the most recent version ID, or ``None`` if no versions exist."""
     index_path = registry_dir / "registry.json"
     if not index_path.exists():
@@ -220,7 +220,7 @@ def get_latest_version_id(registry_dir: Path) -> Optional[str]:
 def compare_versions(
     current: ModelVersion,
     previous: ModelVersion,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare metrics between two model versions.
 
     Args:
@@ -233,7 +233,7 @@ def compare_versions(
     cur_metrics = current.summary_metrics()
     prev_metrics = previous.summary_metrics()
 
-    deltas: Dict[str, float] = {}
+    deltas: dict[str, float] = {}
     for key in sorted(set(cur_metrics) | set(prev_metrics)):
         cur_val = cur_metrics.get(key)
         prev_val = prev_metrics.get(key)
@@ -267,10 +267,7 @@ def _update_registry_index(
 ) -> None:
     """Append or update a version entry in the registry index."""
     index_path = registry_dir / "registry.json"
-    if index_path.exists():
-        index = json.loads(index_path.read_text())
-    else:
-        index = {"versions": []}
+    index = json.loads(index_path.read_text()) if index_path.exists() else {"versions": []}
 
     entry = {
         "version_id": version.version_id,

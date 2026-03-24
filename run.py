@@ -10,7 +10,7 @@ import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,8 @@ try:
     load_dotenv()
 except ImportError:
     pass  # python-dotenv not installed; rely on environment variables
+
+import contextlib
 
 from src.graph_build import (
     CouplingConfig,
@@ -84,7 +86,7 @@ DEFAULT_PARALLEL_WORKERS = _GRAPH_CFG.get("default_workers", 12)
 # Performance Helpers (PERF-2)
 # ============================================================================
 
-def deduplicate_efficiently(df: pd.DataFrame, key: str, logger: logging.Logger) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def deduplicate_efficiently(df: pd.DataFrame, key: str, logger: logging.Logger) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Efficiently deduplicate DataFrame with progress logging and statistics.
     PERF-2: Optimized deduplication with chunking for large DataFrames.
@@ -154,7 +156,7 @@ def deduplicate_efficiently(df: pd.DataFrame, key: str, logger: logging.Logger) 
 
 
 # --- interactive helpers ---
-def ask(prompt: str, default: Optional[str] = None) -> str:
+def ask(prompt: str, default: str | None = None) -> str:
     sfx = f" [{default}]" if default is not None else ""
     val = input(f"{prompt}{sfx}: ").strip()
     return val if val else (default if default is not None else "")
@@ -166,9 +168,9 @@ def ask_yes_no(prompt: str, default: str = "N") -> bool:
         val = d
     return val.startswith("Y")
 
-def build_source_overrides(cfg: Dict[str, Any]) -> Dict[str, Any]:
+def build_source_overrides(cfg: dict[str, Any]) -> dict[str, Any]:
     """Build runtime datasource overrides without rewriting tracked YAML."""
-    overrides: Dict[str, Any] = {
+    overrides: dict[str, Any] = {
         "per_page": int(cfg["per_page"]),
         "max_records": None if cfg["max_records"] in (None, "", "None") else int(cfg["max_records"]),
         "mailto": cfg.get("mailto"),
@@ -215,10 +217,10 @@ def validate_configs(args, logger: logging.Logger) -> bool:
 
     except Exception as e:
         logger.error(f"Configuration validation failed: {e}")
-        raise ValueError(f"Invalid configuration: {e}")
+        raise ValueError(f"Invalid configuration: {e}") from e
 
 
-def preflight_check(args, settings: Dict[str, Any]) -> None:
+def preflight_check(args, settings: dict[str, Any]) -> None:
     """
     1) API field check on 1 record
     2) 20-record mini ingest -> schema coerce
@@ -294,9 +296,9 @@ def preflight_check(args, settings: Dict[str, Any]) -> None:
             pass
 def collect_raw_metadata(
     config_path: pathlib.Path,
-    source_overrides: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    meta: Dict[str, Any] = {"config_path": str(config_path)}
+    source_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    meta: dict[str, Any] = {"config_path": str(config_path)}
     try:
         data = yaml.safe_load(config_path.read_text())
         primary = apply_source_overrides(
@@ -314,8 +316,8 @@ def collect_raw_metadata(
         pass
     return meta
 
-def relativize_raw_manifest(raw_manifest: Dict[str, Any], base: pathlib.Path) -> Dict[str, Any]:
-    def _rel(path_str: Optional[str]) -> Optional[str]:
+def relativize_raw_manifest(raw_manifest: dict[str, Any], base: pathlib.Path) -> dict[str, Any]:
+    def _rel(path_str: str | None) -> str | None:
         if not path_str:
             return path_str
         try:
@@ -327,7 +329,7 @@ def relativize_raw_manifest(raw_manifest: Dict[str, Any], base: pathlib.Path) ->
     normalized["outdir"] = _rel(normalized.get("outdir"))
     normalized["manifest_path"] = _rel(normalized.get("manifest_path"))
 
-    chunks: List[Dict[str, Any]] = []
+    chunks: list[dict[str, Any]] = []
     for chunk in raw_manifest.get("chunks", []):
         chunk_copy = dict(chunk)
         for key in ("basepath", "ndjson_path", "index_path", "compressed_path"):
@@ -338,7 +340,7 @@ def relativize_raw_manifest(raw_manifest: Dict[str, Any], base: pathlib.Path) ->
     return normalized
 
 
-def load_latest_raw_manifest(raw_dir: pathlib.Path) -> Optional[Dict[str, Any]]:
+def load_latest_raw_manifest(raw_dir: pathlib.Path) -> dict[str, Any] | None:
     manifests = sorted(raw_dir.glob("*_manifest.json"))
     if not manifests:
         return None
@@ -350,7 +352,7 @@ def load_latest_raw_manifest(raw_dir: pathlib.Path) -> Optional[Dict[str, Any]]:
     except Exception:
         return None
 
-def _load_raw_manifest(raw_dir: pathlib.Path, manifest_arg: Optional[str]) -> Dict[str, Any]:
+def _load_raw_manifest(raw_dir: pathlib.Path, manifest_arg: str | None) -> dict[str, Any]:
     if manifest_arg:
         manifest_path = pathlib.Path(manifest_arg)
         if not manifest_path.exists():
@@ -363,13 +365,13 @@ def _load_raw_manifest(raw_dir: pathlib.Path, manifest_arg: Optional[str]) -> Di
         raise FileNotFoundError(f"[Raw] No manifest found under {raw_dir}")
     return manifest
 
-def rebuild_ingest_from_raw(raw_dir: pathlib.Path, manifest_arg: Optional[str]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def rebuild_ingest_from_raw(raw_dir: pathlib.Path, manifest_arg: str | None) -> tuple[pd.DataFrame, dict[str, Any]]:
     manifest = _load_raw_manifest(raw_dir, manifest_arg)
     chunks = manifest.get("chunks") or []
     if not chunks:
         raise ValueError("[Raw] Manifest contains no chunk metadata.")
 
-    records: List[Dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
     for chunk in chunks:
         raw_path_str = chunk.get("ndjson_path", "")
         ndjson_path = pathlib.Path(raw_path_str)
@@ -465,14 +467,16 @@ def parse_args():
     return ap.parse_args()
 
 def _iter_refs_cell(x):
-    if x is None: return []
+    if x is None:
+        return []
     if pa is not None and isinstance(x, pa.lib.ListScalar):
         x = x.as_py()
     if isinstance(x, (list, tuple, set, np.ndarray)):
         return [str(t).split("/")[-1] for t in list(x)]
     if isinstance(x, str):
         s = x.strip()
-        if not s: return []
+        if not s:
+            return []
         if s[0] == "[" and s[-1] == "]":
             inner = [t.strip(" '\"") for t in s[1:-1].split(",") if t.strip()]
             return [i.split("/")[-1] for i in inner]
@@ -510,7 +514,7 @@ def archive_current(ingest_dir: pathlib.Path, graphs_dir: pathlib.Path, out_dir:
 # PIPELINE PHASE FUNCTIONS
 # ============================================================================
 
-def setup_directories(args) -> Tuple[pathlib.Path, pathlib.Path, pathlib.Path, pathlib.Path]:
+def setup_directories(args) -> tuple[pathlib.Path, pathlib.Path, pathlib.Path, pathlib.Path]:
     """
     Create and return pipeline directories.
 
@@ -589,7 +593,7 @@ def clear_coupling_cache(cache_dir: pathlib.Path, logger: logging.Logger) -> Non
     logger.info(f"Cleared {cache_stats['file_count']} files ({cache_stats['size_mb']} MB) from coupling cache")
 
 
-def setup_coupling_config(args, logger: logging.Logger) -> Optional[CouplingConfig]:
+def setup_coupling_config(args, logger: logging.Logger) -> CouplingConfig | None:
     """
     Create coupling configuration if enabled.
 
@@ -641,7 +645,7 @@ def setup_coupling_config(args, logger: logging.Logger) -> Optional[CouplingConf
     return coupling_cfg
 
 
-def handle_settings_flow(args, logger: logging.Logger) -> Optional[Dict[str, Any]]:
+def handle_settings_flow(args, logger: logging.Logger) -> dict[str, Any] | None:
     """
     Handle interactive or automated settings configuration.
 
@@ -741,8 +745,8 @@ def run_ingest_phase(
     ingest_dir: pathlib.Path,
     raw_dir: pathlib.Path,
     cache_path: pathlib.Path,
-    settings: Dict[str, Any],
-) -> Optional[Tuple[pd.DataFrame, Optional[Dict[str, Any]], Dict[str, Any]]]:
+    settings: dict[str, Any],
+) -> tuple[pd.DataFrame, dict[str, Any] | None, dict[str, Any]] | None:
     """
     Execute ingest phase: rebuild from raw, skip ingest, or fresh fetch.
 
@@ -758,9 +762,9 @@ def run_ingest_phase(
         Tuple of (DataFrame, raw_manifest_rel, dedup_stats) or None if error
         where dedup_stats contains deduplication statistics for the manifest
     """
-    raw_manifest_abs: Optional[Dict[str, Any]] = None
-    raw_manifest_rel: Optional[Dict[str, Any]] = None
-    dedup_stats: Dict[str, Any] = {}
+    raw_manifest_abs: dict[str, Any] | None = None
+    raw_manifest_rel: dict[str, Any] | None = None
+    dedup_stats: dict[str, Any] = {}
 
     # Mode 1: Rebuild from raw snapshot
     if args.rebuild_ingest_from_raw:
@@ -876,7 +880,7 @@ def run_ingest_phase(
     return df, raw_manifest_rel, dedup_stats
 
 
-def run_slicing_phase(df: pd.DataFrame, args, logger: logging.Logger) -> Dict[str, pd.DataFrame]:
+def run_slicing_phase(df: pd.DataFrame, args, logger: logging.Logger) -> dict[str, pd.DataFrame]:
     """
     Apply temporal/categorical slicing to DataFrame.
 
@@ -896,7 +900,7 @@ def run_slicing_phase(df: pd.DataFrame, args, logger: logging.Logger) -> Dict[st
     return sliced
 
 
-def extract_time_periods(df: pd.DataFrame) -> Tuple[List[int], List[str]]:
+def extract_time_periods(df: pd.DataFrame) -> tuple[list[int], list[str]]:
     """
     Extract sorted lists of years and quarters from DataFrame.
 
@@ -908,7 +912,7 @@ def extract_time_periods(df: pd.DataFrame) -> Tuple[List[int], List[str]]:
     """
     if "pub_year" in df.columns and "pub_qtr" in df.columns:
         years = sorted([int(y) for y in df["pub_year"].dropna().unique()])
-        quarters = sorted([q for q in df["pub_qtr"].dropna().unique()])
+        quarters = sorted(df["pub_qtr"].dropna().unique())
     else:
         years, quarters = [], []
     return years, quarters
@@ -1011,12 +1015,12 @@ def _should_export_graphml(args, mode: str) -> bool:
 def build_graphs_phase(
     args,
     df: pd.DataFrame,
-    years: List[int],
-    quarters: List[str],
+    years: list[int],
+    quarters: list[str],
     graphs_dir: pathlib.Path,
-    coupling_cfg: Optional[CouplingConfig],
+    coupling_cfg: CouplingConfig | None,
     logger: logging.Logger
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Build annual, delta, and/or cumulative graphs based on graph_mode.
     Uses parallel processing when multiple graphs need to be built (PERF-1).
@@ -1046,7 +1050,7 @@ def build_graphs_phase(
         if strategy['should_chunk']:
             logger.info(f"Chunking suggestion: {strategy['reason']}")
 
-    manifest: Dict[str, Any] = {}
+    manifest: dict[str, Any] = {}
     max_workers = getattr(args, 'graph_workers', DEFAULT_PARALLEL_WORKERS)
 
     # Adaptive worker scaling for graph-level parallelization
@@ -1076,16 +1080,15 @@ def build_graphs_phase(
     # CRITICAL: Force sequential mode if coupling cache is enabled
     # Parallel graph building with shared coupling cache causes race conditions
     # where multiple workers overwrite each other's cache, corrupting incremental builds
-    if coupling_cfg and coupling_cfg.enabled and coupling_cfg.cache_dir is not None:
-        if max_workers > 1:
-            logger.warning(
-                "COUPLING CACHE SAFETY: Forcing graph_workers=1 (sequential mode) "
-                "to prevent cache corruption. Parallel graph building with shared coupling cache "
-                "causes race conditions where workers overwrite each other's cache. "
-                "To use parallel building: disable coupling cache (set cache_dir=null) or "
-                "disable coupling entirely. See GRAPH_PARALLELIZATION_ANALYSIS.md for details."
-            )
-            max_workers = 1
+    if coupling_cfg and coupling_cfg.enabled and coupling_cfg.cache_dir is not None and max_workers > 1:
+        logger.warning(
+            "COUPLING CACHE SAFETY: Forcing graph_workers=1 (sequential mode) "
+            "to prevent cache corruption. Parallel graph building with shared coupling cache "
+            "causes race conditions where workers overwrite each other's cache. "
+            "To use parallel building: disable coupling cache (set cache_dir=null) or "
+            "disable coupling entirely. See GRAPH_PARALLELIZATION_ANALYSIS.md for details."
+        )
+        max_workers = 1
 
     # Build annual graphs (parallelized)
     if args.graph_mode in ("annual", "both"):
@@ -1251,11 +1254,11 @@ def build_graphs_phase(
 
 
 def save_slices_with_stats(
-    sliced: Dict[str, pd.DataFrame],
+    sliced: dict[str, pd.DataFrame],
     slices_dir: pathlib.Path,
     ingest_dir: pathlib.Path,
     all_ids: set
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Save slices to parquet files with reference resolution statistics.
 
@@ -1268,7 +1271,7 @@ def save_slices_with_stats(
     Returns:
         Manifest dictionary with slice metadata
     """
-    manifest: Dict[str, Any] = {}
+    manifest: dict[str, Any] = {}
 
     for name, sdf in sliced.items():
         p = slices_dir / f"{name}.parquet"
@@ -1285,11 +1288,11 @@ def save_slices_with_stats(
 
 
 def handle_raw_manifest(
-    raw_manifest_rel: Optional[Dict[str, Any]],
-    prior_raw: Optional[Dict[str, Any]],
+    raw_manifest_rel: dict[str, Any] | None,
+    prior_raw: dict[str, Any] | None,
     raw_dir: pathlib.Path,
     ingest_dir: pathlib.Path
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Determine which raw manifest to use (current, prior, or fallback).
 
@@ -1318,7 +1321,7 @@ def run_community_detection(
     graphs_dir: pathlib.Path,
     outdir: pathlib.Path,
     logger: logging.Logger
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Run community detection (cumulative + optional additional modes).
 
@@ -1332,7 +1335,7 @@ def run_community_detection(
         Manifest dictionary with community detection outputs
     """
     communities_script = pathlib.Path(__file__).parent / "scripts" / "communities.py"
-    comm_manifest: Dict[str, str] = {}
+    comm_manifest: dict[str, str] = {}
 
     # Always run cumulative
     cumulative_cmd = [
@@ -1394,7 +1397,7 @@ def run_community_detection(
 
 def write_pipeline_manifest(
     manifest_path: pathlib.Path,
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     logger: logging.Logger
 ) -> None:
     """
@@ -1420,10 +1423,8 @@ def write_pipeline_manifest(
     graphs_meta = manifest.get("graphs", {})
     if isinstance(graphs_meta, dict):
         for key, entries in graphs_meta.items():
-            try:
+            with contextlib.suppress(Exception):
                 summary_bits.append(f"{key}={len(entries)}")
-            except Exception:
-                pass
 
     logger.info(f"Wrote manifest: {manifest_path} " + (" ".join(summary_bits) if summary_bits else ""))
 
@@ -1523,7 +1524,7 @@ def main():
     years, quarters = extract_time_periods(df)
 
     # Phase 4: Build graphs
-    manifest: Dict[str, Any] = {}
+    manifest: dict[str, Any] = {}
     if args.graph_mode in ("annual", "both", "cumulative", "delta"):
         graph_manifest = build_graphs_phase(args, df, years, quarters, graphs_dir, coupling_cfg, logger)
         manifest.update(graph_manifest)
@@ -1559,7 +1560,7 @@ def main():
         manifest["raw"] = raw_manifest_final
 
     # Phase 8: Run community detection
-    comm_manifest: Dict[str, Any] = {}
+    comm_manifest: dict[str, Any] = {}
     if args.skip_communities:
         logger.info("Skipping community detection (flag --skip-communities)")
     else:

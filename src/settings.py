@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import pathlib
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -14,7 +14,7 @@ YAML_SETTINGS_PATH: pathlib.Path = pathlib.Path("config/settings.yaml")
 LEGACY_JSON_PATH: pathlib.Path = pathlib.Path(".2yp_settings.json")
 SETTINGS_PATH = LEGACY_JSON_PATH  # Backward compatibility alias
 
-DEFAULTS: Dict[str, Any] = {
+DEFAULTS: dict[str, Any] = {
     "topics_id": "<PSC_TOPIC_ID>",
     "from_date": "2000-01-01",
     "to_date": "2025-08-30",
@@ -26,7 +26,7 @@ DEFAULTS: Dict[str, Any] = {
 }
 
 
-def _flatten_yaml_settings(yaml_data: Dict[str, Any]) -> Dict[str, Any]:
+def _flatten_yaml_settings(yaml_data: dict[str, Any]) -> dict[str, Any]:
     """
     Flatten nested YAML structure to flat dictionary for backward compatibility.
 
@@ -55,7 +55,7 @@ def _flatten_yaml_settings(yaml_data: Dict[str, Any]) -> Dict[str, Any]:
     return flat
 
 
-def load_settings() -> Dict[str, Any]:
+def load_settings() -> dict[str, Any]:
     """
     Load settings from config/settings.yaml or .2yp_settings.json (legacy).
 
@@ -87,7 +87,7 @@ def load_settings() -> Dict[str, Any]:
     return DEFAULTS.copy()
 
 
-def save_settings(cfg: Dict[str, Any]) -> None:
+def save_settings(cfg: dict[str, Any]) -> None:
     """
     Save settings to .2yp_settings.json.
 
@@ -97,7 +97,7 @@ def save_settings(cfg: Dict[str, Any]) -> None:
     SETTINGS_PATH.write_text(json.dumps(cfg, indent=2))
 
 
-def redact_mailto(mailto: Optional[str]) -> Optional[str]:
+def redact_mailto(mailto: str | None) -> str | None:
     """Mask an email address before writing it to logs or metadata."""
     if not mailto:
         return None
@@ -110,7 +110,7 @@ def redact_mailto(mailto: Optional[str]) -> Optional[str]:
     return f"{local_part[0]}***@{domain}"
 
 
-def summary(cfg: Dict[str, Any]) -> str:
+def summary(cfg: dict[str, Any]) -> str:
     """
     Generate a one-line summary of settings for logging.
 
