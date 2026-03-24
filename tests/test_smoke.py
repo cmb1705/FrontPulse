@@ -152,6 +152,7 @@ _KEY_SCRIPTS = [
     "scripts/run_bocpd_detector.py",
     "scripts/calibrate_bocpd.py",
     "scripts/benchmark_bocpd_vs_msd.py",
+    "scripts/prototype_hybrid_alerting.py",
 ]
 
 
