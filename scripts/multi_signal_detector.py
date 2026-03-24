@@ -793,7 +793,7 @@ def train_models(
             verbose=False,
             loss_function='Logloss',
             eval_metric='Logloss',
-            class_weights={0: 1.0, 1: (len(y) - y.sum()) / max(y.sum(), 1)},
+            auto_class_weights='Balanced',
             thread_count=cat_thread_count,
             task_type=cat_task_type
         )
@@ -810,7 +810,7 @@ def train_models(
             verbose=False,
             loss_function='Logloss',
             eval_metric='Logloss',
-            class_weights={0: 1.0, 1: (len(y) - y.sum()) / max(y.sum(), 1)},
+            auto_class_weights='Balanced',
             thread_count=cat_thread_count,
             task_type=cat_task_type
         )
@@ -982,7 +982,7 @@ def evaluate_with_cv(
             verbose=False,
             loss_function='Logloss',
             eval_metric='Logloss',
-            class_weights={0: 1.0, 1: (len(y) - y.sum()) / max(y.sum(), 1)},
+            auto_class_weights='Balanced',
             thread_count=cat_thread_count,
             task_type=cat_task_type
         )
@@ -1014,15 +1014,16 @@ def evaluate_with_cv(
     print(f"   Total samples: {len(X)} ({y.sum()} positive)")
     print(f"   Each test fold: ~{len(X)//cv_folds} samples (~{y.sum()//cv_folds} positive)")
 
-    # Run CV
+    # Run CV -- CatBoost conflicts with joblib cloning, so run single-threaded
     X_matrix = X.values if isinstance(X, pd.DataFrame) else X
+    n_jobs_cv = 1 if model_type == 'catboost' else -1
 
     cv_results = cross_validate(
         pipeline, X_matrix, y,
         cv=cv,
         scoring=scoring,
         return_train_score=True,
-        n_jobs=-1
+        n_jobs=n_jobs_cv
     )
 
     # Aggregate results
@@ -1343,8 +1344,6 @@ def main():
 
     # Model configuration
     model_choices = ['logistic', 'random_forest', 'gradient_boosting', 'lightgbm']
-    if CatBoostClassifier is not None:
-        model_choices.append('catboost')
     if CatBoostClassifier is not None:
         model_choices.append('catboost')
     parser.add_argument('--model', choices=model_choices,
