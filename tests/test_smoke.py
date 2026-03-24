@@ -150,6 +150,8 @@ _KEY_SCRIPTS = [
     "scripts/generate_stability_report.py",
     "scripts/benchmark_detection_units.py",
     "scripts/run_bocpd_detector.py",
+    "scripts/calibrate_bocpd.py",
+    "scripts/benchmark_bocpd_vs_msd.py",
 ]
 
 
