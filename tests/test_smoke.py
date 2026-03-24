@@ -144,6 +144,7 @@ _KEY_SCRIPTS = [
     "scripts/compute_lineage_multisignal_features.py",
     "scripts/compute_convergence_features.py",
     "scripts/compute_front_level_features.py",
+    "scripts/filter_stable_lineages.py",
     "scripts/stage5_ensemble_mapping.py",
     "scripts/aggregate_lineages_to_fronts.py",
 ]
