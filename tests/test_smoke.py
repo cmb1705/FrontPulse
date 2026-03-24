@@ -154,6 +154,7 @@ _KEY_SCRIPTS = [
     "scripts/benchmark_bocpd_vs_msd.py",
     "scripts/prototype_hybrid_alerting.py",
     "scripts/retrain_msd.py",
+    "scripts/update_assessment_history.py",
 ]
 
 
@@ -456,3 +457,29 @@ class TestModelRegistrySmoke:
         """retrain_msd.py must have valid Python syntax."""
         source = (PROJECT_ROOT / "scripts" / "retrain_msd.py").read_text(encoding="utf-8")
         ast.parse(source, filename="scripts/retrain_msd.py")
+
+
+class TestAssessmentHistorySmoke:
+    """Smoke tests for assessment history tracking."""
+
+    def test_assessment_history_module_imports(self):
+        """src.assessment_history must import without error."""
+        mod = importlib.import_module("src.assessment_history")
+        assert hasattr(mod, "record_assessments")
+        assert hasattr(mod, "backfill_outcomes")
+        assert hasattr(mod, "compute_calibration_stats")
+        assert hasattr(mod, "ASSESSMENT_COLUMNS")
+
+    def test_assessment_history_script_syntax(self):
+        """update_assessment_history.py must have valid Python syntax."""
+        source = (
+            PROJECT_ROOT / "scripts" / "update_assessment_history.py"
+        ).read_text(encoding="utf-8")
+        ast.parse(source, filename="scripts/update_assessment_history.py")
+
+    def test_empty_history_schema(self):
+        """create_empty_history must return DataFrame with canonical columns."""
+        from src.assessment_history import ASSESSMENT_COLUMNS, create_empty_history
+        df = create_empty_history()
+        assert list(df.columns) == ASSESSMENT_COLUMNS
+        assert df.empty
