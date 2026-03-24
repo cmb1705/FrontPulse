@@ -558,3 +558,31 @@ class TestCalibrationTrackerSmoke:
             PROJECT_ROOT / "scripts" / "refine_calibration.py"
         ).read_text(encoding="utf-8")
         ast.parse(source, filename="scripts/refine_calibration.py")
+
+
+class TestDomainRegistrySmoke:
+    """Smoke tests for research domain registry."""
+
+    def test_domain_registry_module_imports(self):
+        """src.domain_registry must import without error."""
+        mod = importlib.import_module("src.domain_registry")
+        assert hasattr(mod, "DOMAIN_REGISTRY")
+        assert hasattr(mod, "get_domain")
+        assert hasattr(mod, "resolve_domain_args")
+
+    def test_psc_config_exists(self):
+        """PSC domain config file must exist."""
+        from src.domain_registry import get_domain
+        d = get_domain("psc")
+        assert (PROJECT_ROOT / d.datasources_config).exists()
+
+    def test_crispr_config_exists(self):
+        """CRISPR domain config file must exist."""
+        from src.domain_registry import get_domain
+        d = get_domain("crispr")
+        assert (PROJECT_ROOT / d.datasources_config).exists()
+
+    def test_run_py_accepts_domain_flag(self):
+        """run.py parse_args must include --domain argument."""
+        source = (PROJECT_ROOT / "run.py").read_text(encoding="utf-8")
+        assert "--domain" in source

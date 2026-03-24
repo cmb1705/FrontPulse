@@ -393,7 +393,9 @@ def rebuild_ingest_from_raw(raw_dir: pathlib.Path, manifest_arg: str | None) -> 
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", required=True, help="config/datasources.yaml")
+    ap.add_argument("--domain", default=None, choices=["psc", "crispr"],
+                    help="Research domain shortcut (psc or crispr). Overrides --config.")
+    ap.add_argument("--config", default=None, help="config/datasources.yaml (or use --domain)")
     ap.add_argument("--schema", required=True, help="config/schema.yaml")
     ap.add_argument("--slices", required=True, help="config/slices.yaml")
     ap.add_argument("--outdir", required=True, help="output directory")
@@ -1450,6 +1452,18 @@ def main():
     """
     # Parse arguments and initialize output directory
     args = parse_args()
+
+    # Resolve --domain to --config if specified
+    if args.domain is not None:
+        from src.domain_registry import resolve_domain_args
+        args.config = resolve_domain_args(
+            args.domain, args.config,
+            project_root=pathlib.Path(__file__).resolve().parent,
+        )
+    elif args.config is None:
+        print("Error: either --domain or --config must be specified.")
+        sys.exit(1)
+
     outdir = pathlib.Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
