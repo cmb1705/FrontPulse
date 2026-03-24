@@ -142,6 +142,7 @@ _KEY_SCRIPTS = [
     "scripts/communities.py",
     "scripts/label_inflection_points.py",
     "scripts/compute_lineage_multisignal_features.py",
+    "scripts/compute_convergence_features.py",
     "scripts/stage5_ensemble_mapping.py",
     "scripts/aggregate_lineages_to_fronts.py",
 ]
