@@ -156,6 +156,7 @@ _KEY_SCRIPTS = [
     "scripts/retrain_msd.py",
     "scripts/update_assessment_history.py",
     "scripts/generate_horizon_estimates.py",
+    "scripts/generate_quarterly_report.py",
 ]
 
 
@@ -509,3 +510,31 @@ class TestHorizonEstimatesSmoke:
         from src.horizon_estimates import next_quarter
         assert next_quarter("2025Q4", 1) == "2026Q1"
         assert next_quarter("2025Q1", -1) == "2024Q4"
+
+
+class TestQuarterlyReportSmoke:
+    """Smoke tests for quarterly briefing report."""
+
+    def test_quarterly_report_module_imports(self):
+        """src.quarterly_report must import without error."""
+        mod = importlib.import_module("src.quarterly_report")
+        assert hasattr(mod, "generate_quarterly_report")
+        assert hasattr(mod, "classify_alerts")
+        assert hasattr(mod, "WATCH_LIST_THRESHOLD")
+        assert hasattr(mod, "EXTENDED_MONITORING_THRESHOLD")
+
+    def test_quarterly_report_script_syntax(self):
+        """generate_quarterly_report.py must have valid Python syntax."""
+        source = (
+            PROJECT_ROOT / "scripts" / "generate_quarterly_report.py"
+        ).read_text(encoding="utf-8")
+        ast.parse(source, filename="scripts/generate_quarterly_report.py")
+
+    def test_threshold_values(self):
+        """Two-tier thresholds must match project decision."""
+        from src.quarterly_report import (
+            EXTENDED_MONITORING_THRESHOLD,
+            WATCH_LIST_THRESHOLD,
+        )
+        assert WATCH_LIST_THRESHOLD == 0.15
+        assert EXTENDED_MONITORING_THRESHOLD == 0.07
