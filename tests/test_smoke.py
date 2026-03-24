@@ -148,6 +148,7 @@ _KEY_SCRIPTS = [
     "scripts/stage5_ensemble_mapping.py",
     "scripts/aggregate_lineages_to_fronts.py",
     "scripts/generate_stability_report.py",
+    "scripts/benchmark_detection_units.py",
 ]
 
 
