@@ -199,6 +199,11 @@ def load_history(path: Path) -> pd.DataFrame:
     for col in ASSESSMENT_COLUMNS:
         if col not in df.columns:
             df[col] = "" if col in {"outcome_source", "backfilled_at"} else OUTCOME_UNKNOWN
+    # String columns: fill NaN with "" and enforce object dtype to prevent
+    # FutureWarning when backfill_outcomes assigns string values.
+    for col in ("outcome_source", "backfilled_at"):
+        if col in df.columns:
+            df[col] = df[col].fillna("").astype(str)
     return df
 
 
