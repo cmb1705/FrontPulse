@@ -381,3 +381,46 @@ class TestBOCPDSmoke:
         assert hasattr(mod, "run_bocpd_on_fronts")
         assert hasattr(mod, "BOCPDConfig")
         assert hasattr(mod, "BOCPDResult")
+
+
+class TestIncrementalIngestSmoke:
+    """Smoke tests for incremental ingestion support."""
+
+    def test_settings_has_watermark_default(self):
+        """Settings DEFAULTS must include last_ingested_date."""
+        from src.settings import DEFAULTS
+        assert "last_ingested_date" in DEFAULTS
+        assert DEFAULTS["last_ingested_date"] is None
+
+    def test_build_source_overrides_uses_from_date(self):
+        """build_source_overrides must propagate from_date to filters."""
+        from run import build_source_overrides
+        settings = {
+            "topics_id": "T10247",
+            "from_date": "2025-01-01",
+            "to_date": "2025-08-30",
+            "max_records": None,
+            "per_page": 200,
+        }
+        overrides = build_source_overrides(settings)
+        assert overrides["filters"]["from_publication_date"] == "2025-01-01"
+
+    def test_parse_args_has_incremental_flag(self):
+        """run.py argparser must accept --incremental flag."""
+        from run import parse_args
+        import sys as _sys
+        old_argv = _sys.argv
+        _sys.argv = [
+            "run.py",
+            "--config", "config/datasources.yaml",
+            "--schema", "config/schema.yaml",
+            "--slices", "config/slices.yaml",
+            "--outdir", "data/out",
+            "--incremental",
+        ]
+        try:
+            args = parse_args()
+            assert args.incremental is True
+            assert args.since is None
+        finally:
+            _sys.argv = old_argv

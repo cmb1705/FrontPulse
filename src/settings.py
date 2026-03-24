@@ -22,6 +22,7 @@ DEFAULTS: Dict[str, Any] = {
     "per_page": 200,
     "graph_mode": "cumulative",   # none|annual|delta|both|cumulative
     "mailto": None,
+    "last_ingested_date": None,   # Watermark for incremental ingestion
 }
 
 
@@ -46,6 +47,8 @@ def _flatten_yaml_settings(yaml_data: Dict[str, Any]) -> Dict[str, Any]:
         dates = yaml_data["dates"]
         flat["from_date"] = dates.get("from_date", DEFAULTS["from_date"])
         flat["to_date"] = dates.get("to_date", DEFAULTS["to_date"])
+        if "last_ingested_date" in dates:
+            flat["last_ingested_date"] = dates["last_ingested_date"]
     if "graphs" in yaml_data:
         graphs = yaml_data["graphs"]
         flat["graph_mode"] = graphs.get("mode", DEFAULTS["graph_mode"])

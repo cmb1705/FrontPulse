@@ -431,6 +431,10 @@ def parse_args():
     ap.add_argument("--use-last", action="store_true", help="(Deprecated) Use last saved settings - now the default behavior")
     ap.add_argument("--skip-preflight", action="store_true", help="Skip preflight checks")
     ap.add_argument("--skip-ingest", action="store_true", help="Reuse cached ingest data from a previous run")
+    ap.add_argument("--incremental", action="store_true",
+                    help="Fetch only new works since last ingestion (uses last_ingested_date watermark)")
+    ap.add_argument("--since", default=None,
+                    help="Override incremental start date (YYYY-MM-DD). Implies --incremental.")
     ap.add_argument("--archive", action="store_true", help="Archive ingest/graphs/reports after successful run")
     ap.add_argument("--archive-only", action="store_true", help="Archive ingest/graphs/reports and exit")
     ap.add_argument("--communities", default="none",
@@ -692,6 +696,27 @@ def handle_settings_flow(args, logger: logging.Logger) -> Optional[Dict[str, Any
     if api_key:
         settings["api_key"] = api_key
 
+    # Handle incremental ingestion: adjust from_date to watermark
+    if getattr(args, "since", None):
+        args.incremental = True
+    if getattr(args, "incremental", False):
+        incremental_from = getattr(args, "since", None)
+        if not incremental_from:
+            incremental_from = settings.get("last_ingested_date")
+        if incremental_from:
+            logger.info(
+                "Incremental mode: fetching works since %s (was %s)",
+                incremental_from,
+                settings["from_date"],
+            )
+            settings["_original_from_date"] = settings["from_date"]
+            settings["from_date"] = incremental_from
+        else:
+            logger.warning(
+                "Incremental mode requested but no watermark found. "
+                "Running full ingestion."
+            )
+
     settings["source_overrides"] = build_source_overrides(settings)
 
     # Let datasource config filters take precedence over saved settings.
@@ -778,8 +803,13 @@ def run_ingest_phase(
 
     # Mode 3: Fresh fetch from OpenAlex
     else:
-        log_section(logger, "Ingest Phase: Fetching from OpenAlex")
-        df, raw_records = ingest(
+        is_incremental = getattr(args, "incremental", False)
+        if is_incremental:
+            log_section(logger, "Ingest Phase: Incremental Fetch from OpenAlex")
+        else:
+            log_section(logger, "Ingest Phase: Fetching from OpenAlex")
+
+        df_new, raw_records = ingest(
             args.config,
             source_overrides=settings.get("source_overrides"),
         )
@@ -806,8 +836,22 @@ def run_ingest_phase(
             )
 
         raw_records = None
-        df = add_time_vars(df)
-        df = enforce_schema(df, args.schema)
+        df_new = add_time_vars(df_new)
+        df_new = enforce_schema(df_new, args.schema)
+
+        # Incremental: merge new data with cached data
+        if is_incremental and cache_path.exists():
+            logger.info("Merging incremental data with cached dataset...")
+            df_cached = pd.read_parquet(cache_path)
+            n_cached = len(df_cached)
+            df = pd.concat([df_cached, df_new], ignore_index=True)
+            logger.info(
+                "Merged: %d cached + %d new = %d total (before dedup)",
+                n_cached, len(df_new), len(df),
+            )
+        else:
+            df = df_new
+
         # HP-5: Deduplicate with statistics tracking
         df, dedup_stats = deduplicate_efficiently(df, "work_id", logger)
 
@@ -816,6 +860,15 @@ def run_ingest_phase(
             logger.info(f"Cached dataset to {cache_path}")
         except Exception as e:
             logger.warning(f"Failed to cache dataset: {e}")
+
+        # Update watermark for incremental ingestion
+        if "publication_date" in df.columns:
+            max_date = df["publication_date"].max()
+            if pd.notna(max_date):
+                watermark = str(max_date)[:10]
+                settings["last_ingested_date"] = watermark
+                save_settings(settings)
+                logger.info("Updated ingestion watermark: %s", watermark)
 
         if raw_manifest_abs:
             raw_manifest_rel = relativize_raw_manifest(raw_manifest_abs, ingest_dir)
