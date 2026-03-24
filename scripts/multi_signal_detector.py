@@ -591,6 +591,19 @@ def select_features(
         else:
             print(f"   No context features found (baseline mode)")
 
+    # Convergence features (14 features from cross-front detection)
+    # Automatically include if present (backward compatible)
+    available_convergence = sorted([col for col in df.columns if col.startswith("conv_")])
+
+    convergence_included: List[str] = []
+    if field_feature_mode != "only":
+        if available_convergence:
+            print(f"   Found {len(available_convergence)} convergence features")
+            feature_columns.extend(available_convergence)
+            convergence_included = available_convergence
+        else:
+            print("   No convergence features found (single-lineage mode)")
+
     # Field-relative features
     field_feature_candidates = [
         'relative_new_works',
@@ -632,6 +645,8 @@ def select_features(
         print(f"      Core features: {core_count}")
     if context_included:
         print(f"      Context features: {len(context_included)}")
+    if convergence_included:
+        print(f"      Convergence features: {len(convergence_included)}")
     if field_included:
         print(f"      Field-relative features: {len(field_included)}")
 

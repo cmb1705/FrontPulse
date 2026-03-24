@@ -1055,6 +1055,12 @@ def parse_args() -> argparse.Namespace:
         help="Maturation labels CSV (from label_inflection_points.py --mode maturation). "
              "Used for lifecycle stage and maturation proximity features.",
     )
+    ap.add_argument(
+        "--convergence-features",
+        default=None,
+        help="Convergence features CSV (from compute_convergence_features.py). "
+             "Merged on (lineage_id, quarter) to add conv_* columns.",
+    )
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--force-cache-refresh", action="store_true", help="Recompute reference cache even if present.")
     return ap.parse_args()
@@ -1213,6 +1219,26 @@ def main() -> None:
         if lifecycle_features:
             LOG.info("Computed lifecycle features for %d entries", len(lifecycle_features))
 
+    # Convergence features (from compute_convergence_features.py)
+    convergence_features: Dict[Tuple[int, str], Dict[str, float]] = {}
+    if args.convergence_features:
+        conv_path = Path(args.convergence_features)
+        if conv_path.exists():
+            LOG.info("Loading convergence features from %s", conv_path)
+            conv_df = pd.read_csv(conv_path)
+            conv_cols = [c for c in conv_df.columns if c.startswith("conv_")]
+            for _row in conv_df.itertuples(index=False):
+                _key = (int(_row.lineage_id), str(_row.quarter))
+                convergence_features[_key] = {
+                    c: float(getattr(_row, c, 0.0)) for c in conv_cols
+                }
+            LOG.info(
+                "Loaded convergence features: %d entries, %d columns",
+                len(convergence_features), len(conv_cols),
+            )
+        else:
+            LOG.warning("Convergence features file not found: %s", conv_path)
+
     LOG.info("Assembling feature table...")
     records = []
     for row in timeseries_df.itertuples():
@@ -1282,6 +1308,9 @@ def main() -> None:
                 "is_matured": 0,
                 "quarters_since_maturation": 0,
             }))
+        # Add convergence features if provided
+        if convergence_features:
+            record.update(convergence_features.get(key, {}))
         records.append(record)
 
     features_df = pd.DataFrame.from_records(records)

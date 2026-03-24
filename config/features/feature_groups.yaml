@@ -7,6 +7,12 @@ templates:
     causal_window: rolling up to 4 quarters
     caveats:
       - "Requires context feature generation (--enable-context-features)."
+  convergence_metric_template: &convergence_metric_template
+    source: compute_convergence_features.py
+    units: dimensionless
+    causal_window: trailing (current quarter)
+    caveats:
+      - "Requires --convergence-features CSV from compute_convergence_features.py."
   field_baseline_template: &field_baseline_template
     source: data/out/04_front_aggregation/field_metrics.csv
     units: varies
@@ -142,6 +148,25 @@ groups:
       - cross_cluster_bridging_max_dev_4q
       - cross_cluster_bridging_min_dev_4q
 
+  convergence:
+    description: Cross-front convergence detection features (4 channels + rolling).
+    leakage_status: safe  # All channels use trailing-only data
+    columns:
+      - conv_max_semantic_sim
+      - conv_mean_top5_sim
+      - conv_semantic_velocity
+      - conv_author_migration_count
+      - conv_author_migration_rate
+      - conv_citation_bridge_count
+      - conv_citation_bridge_rate
+      - conv_terminology_overlap
+      - conv_composite_score
+      - conv_composite_score_roll_2q
+      - conv_composite_score_roll_4q
+      - conv_composite_score_max_dev_4q
+      - conv_max_semantic_sim_roll_2q
+      - conv_max_semantic_sim_roll_4q
+
   lifecycle:
     description: Lifecycle stage features derived from onset + maturation labels.
     leakage_status: safe  # Both detectors use trailing-only data
@@ -200,6 +225,7 @@ groups:
       - reference_vitality
       - topic_diversity
       - cross_cluster_bridging
+      - convergence
       - lifecycle
 
   context_all:
@@ -225,6 +251,7 @@ groups:
       - lineage_activity
       - logistic_fits
       - context_all
+      - convergence
       - field_all
 
 features:
@@ -703,6 +730,77 @@ features:
     causal_window: trailing (maturation detector)
     caveats:
       - "Zero for lineages without maturation labels."
+
+  conv_max_semantic_sim:
+    <<: *convergence_metric_template
+    description: "Maximum cosine similarity to any top-k semantic neighbor."
+    groups: [convergence]
+    units: similarity [0, 1]
+  conv_mean_top5_sim:
+    <<: *convergence_metric_template
+    description: "Mean cosine similarity of top-5 nearest semantic neighbors."
+    groups: [convergence]
+    units: similarity [0, 1]
+  conv_semantic_velocity:
+    <<: *convergence_metric_template
+    description: "Quarter-over-quarter change in max semantic similarity."
+    groups: [convergence]
+    units: delta [-1, 1]
+  conv_author_migration_count:
+    <<: *convergence_metric_template
+    description: "Count of authors shared with at least one other lineage."
+    groups: [convergence]
+    units: count
+  conv_author_migration_rate:
+    <<: *convergence_metric_template
+    description: "Fraction of authors shared with at least one other lineage."
+    groups: [convergence]
+    units: ratio [0, 1]
+  conv_citation_bridge_count:
+    <<: *convergence_metric_template
+    description: "Count of papers citing works from 2+ distinct lineages."
+    groups: [convergence]
+    units: count
+  conv_citation_bridge_rate:
+    <<: *convergence_metric_template
+    description: "Fraction of papers citing works from 2+ distinct lineages."
+    groups: [convergence]
+    units: ratio [0, 1]
+  conv_terminology_overlap:
+    <<: *convergence_metric_template
+    description: "Mean Jaccard similarity of term sets with top-5 semantic neighbors."
+    groups: [convergence]
+    units: similarity [0, 1]
+  conv_composite_score:
+    <<: *convergence_metric_template
+    description: "Equal-weighted mean of bounded [0,1] convergence signals."
+    groups: [convergence]
+    units: score [0, 1]
+  conv_composite_score_roll_2q:
+    <<: *convergence_metric_template
+    description: "Two-quarter trailing mean of composite convergence score."
+    groups: [convergence]
+    causal_window: rolling 2-quarter
+  conv_composite_score_roll_4q:
+    <<: *convergence_metric_template
+    description: "Four-quarter trailing mean of composite convergence score."
+    groups: [convergence]
+    causal_window: rolling 4-quarter
+  conv_composite_score_max_dev_4q:
+    <<: *convergence_metric_template
+    description: "Max deviation from 4-quarter trailing mean of composite score."
+    groups: [convergence]
+    causal_window: rolling 4-quarter
+  conv_max_semantic_sim_roll_2q:
+    <<: *convergence_metric_template
+    description: "Two-quarter trailing mean of max semantic similarity."
+    groups: [convergence]
+    causal_window: rolling 2-quarter
+  conv_max_semantic_sim_roll_4q:
+    <<: *convergence_metric_template
+    description: "Four-quarter trailing mean of max semantic similarity."
+    groups: [convergence]
+    causal_window: rolling 4-quarter
 
   field_total_new_works:
     <<: *field_baseline_template
