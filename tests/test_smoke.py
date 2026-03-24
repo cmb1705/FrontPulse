@@ -147,6 +147,7 @@ _KEY_SCRIPTS = [
     "scripts/filter_stable_lineages.py",
     "scripts/stage5_ensemble_mapping.py",
     "scripts/aggregate_lineages_to_fronts.py",
+    "scripts/generate_stability_report.py",
 ]
 
 
