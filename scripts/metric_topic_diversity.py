@@ -5,45 +5,46 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
-from src.metrics.common import (
-    ensure_dir,
-    iter_quarter_slices,
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.metrics.common import (  # noqa: E402
     create_metric_metadata,
-    write_metric_parquet,
-    write_metric_metadata,
+    ensure_dir,
     get_metric_output_paths,
+    iter_quarter_slices,
     update_manifest,
+    write_metric_metadata,
+    write_metric_parquet,
     write_placeholder_metric,
 )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Measure quarterly topic diversity.")
-    parser.add_argument("--slices-dir", default="data/current_ingest/slices", type=Path)
-    parser.add_argument("--out-dir", default="data/out/metrics", type=Path)
+    parser.add_argument("--slices-dir", default=None, type=Path)
+    parser.add_argument("--out-dir", default=None, type=Path)
     parser.add_argument("--pattern", default="by_quarter__*.parquet")
     parser.add_argument("--topic-column", default="primary_topic_name")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--json-name", default="topic_diversity.json")
     parser.add_argument("--figure-name", default="topic_diversity.png")
     parser.add_argument("--top-topics", type=int, default=5, help="Number of top topics to plot in the stack chart.")
+    add_domain_args(parser)
     return parser.parse_args()
 
 
-def compute_diversity(args: argparse.Namespace) -> Tuple[Dict[str, object], List[Path]]:
-    quarters: List[Dict[str, object]] = []
-    topic_shares: List[Dict[str, object]] = []
-    input_files: List[Path] = []  # Track input files for provenance
+def compute_diversity(args: argparse.Namespace) -> tuple[dict[str, object], list[Path]]:
+    quarters: list[dict[str, object]] = []
+    topic_shares: list[dict[str, object]] = []
+    input_files: list[Path] = []  # Track input files for provenance
     top_n = max(1, int(args.top_topics))
 
     for idx, (quarter, path) in enumerate(iter_quarter_slices(args.slices_dir, args.pattern)):
@@ -107,7 +108,7 @@ def compute_diversity(args: argparse.Namespace) -> Tuple[Dict[str, object], List
     return payload, input_files
 
 
-def render_plot(payload: Dict[str, object], out_path: Path, top_topics: int) -> None:
+def render_plot(payload: dict[str, object], out_path: Path, top_topics: int) -> None:
     quarters = [row["quarter"] for row in payload["quarters"]]
     effective = [row["effective_topics"] or 0 for row in payload["quarters"]]
     diversity = [row["diversity_index"] or 0 for row in payload["quarters"]]
@@ -180,8 +181,8 @@ def render_plot(payload: Dict[str, object], out_path: Path, top_topics: int) -> 
 
 
 def write_standardized_outputs(
-    payload: Dict[str, object],
-    input_files: List[Path],
+    payload: dict[str, object],
+    input_files: list[Path],
     args: argparse.Namespace,
 ) -> None:
     """
@@ -258,6 +259,9 @@ def write_standardized_outputs(
 
 def main() -> None:
     args = parse_args()
+    paths = resolve_script_paths(args, REPO_ROOT)
+    args.slices_dir = args.slices_dir or (paths.slices if paths else Path("data/current_ingest/slices"))
+    args.out_dir = args.out_dir or (paths.out / "metrics" if paths else Path("data/out/metrics"))
     ensure_dir(args.out_dir)
     payload, input_files = compute_diversity(args)
 

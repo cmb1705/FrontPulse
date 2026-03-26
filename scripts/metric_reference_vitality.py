@@ -3,35 +3,36 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
-from src.metrics.common import (
-    ensure_dir,
-    iter_quarter_slices,
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.metrics.common import (  # noqa: E402
     create_metric_metadata,
-    write_metric_parquet,
-    write_metric_metadata,
+    ensure_dir,
     get_metric_output_paths,
+    iter_quarter_slices,
     update_manifest,
+    write_metric_metadata,
+    write_metric_parquet,
     write_placeholder_metric,
 )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate quarterly reference vitality.")
-    parser.add_argument("--slices-dir", default="data/current_ingest/slices", type=Path)
-    parser.add_argument("--ingest-path", default="data/current_ingest/ingest.parquet", type=Path)
-    parser.add_argument("--out-dir", default="data/out/metrics", type=Path)
+    parser.add_argument("--slices-dir", default=None, type=Path)
+    parser.add_argument("--ingest-path", default=None, type=Path)
+    parser.add_argument("--out-dir", default=None, type=Path)
     parser.add_argument("--pattern", default="by_quarter__*.parquet")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--young-years", type=float, default=3.0, help="Threshold for recent references.")
@@ -39,10 +40,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-k", type=int, default=5, help="Top citing works by vitality per quarter.")
     parser.add_argument("--json-name", default="reference_vitality.json")
     parser.add_argument("--figure-name", default="reference_vitality.png")
+    add_domain_args(parser)
     return parser.parse_args()
 
 
-def normalize_date(raw_date: object, raw_year: object) -> Optional[pd.Timestamp]:
+def normalize_date(raw_date: object, raw_year: object) -> pd.Timestamp | None:
     ts = pd.to_datetime(raw_date, errors="coerce")
     if pd.isna(ts) and raw_year is not None and not pd.isna(raw_year):
         try:
@@ -69,14 +71,14 @@ def references_iter(raw_value: object) -> Iterable[str]:
     return []
 
 
-def load_reference_lookup(path: Path) -> Tuple[Dict[str, pd.Timestamp], Dict[str, int]]:
+def load_reference_lookup(path: Path) -> tuple[dict[str, pd.Timestamp], dict[str, int]]:
     df = pd.read_parquet(path, columns=["work_id", "publication_year", "publication_date"])
     df["publication_date"] = pd.to_datetime(df["publication_date"], errors="coerce")
     df["publication_date"] = df["publication_date"].apply(
         lambda ts: ts.tz_localize(None) if isinstance(ts, pd.Timestamp) and ts.tzinfo is not None else ts
     )
-    date_map: Dict[str, pd.Timestamp] = df.set_index("work_id")["publication_date"].to_dict()
-    year_map: Dict[str, int] = (
+    date_map: dict[str, pd.Timestamp] = df.set_index("work_id")["publication_date"].to_dict()
+    year_map: dict[str, int] = (
         df.set_index("work_id")["publication_year"]
         .dropna()
         .astype(int)
@@ -87,9 +89,9 @@ def load_reference_lookup(path: Path) -> Tuple[Dict[str, pd.Timestamp], Dict[str
 
 def resolve_reference_date(
     ref_id: str,
-    date_map: Dict[str, pd.Timestamp],
-    year_map: Dict[str, int],
-) -> Optional[pd.Timestamp]:
+    date_map: dict[str, pd.Timestamp],
+    year_map: dict[str, int],
+) -> pd.Timestamp | None:
     ts = date_map.get(ref_id)
     if ts is not None and not pd.isna(ts):
         return ts
@@ -102,10 +104,10 @@ def resolve_reference_date(
         return None
 
 
-def compute_reference_vitality(args: argparse.Namespace) -> Tuple[Dict[str, object], List[Path]]:
+def compute_reference_vitality(args: argparse.Namespace) -> tuple[dict[str, object], list[Path]]:
     ref_date_map, ref_year_map = load_reference_lookup(args.ingest_path)
-    quarters: List[Dict[str, object]] = []
-    input_files: List[Path] = []  # Track input files for provenance
+    quarters: list[dict[str, object]] = []
+    input_files: list[Path] = []  # Track input files for provenance
 
     for idx, (quarter, path) in enumerate(iter_quarter_slices(args.slices_dir, args.pattern)):
         if args.limit is not None and idx >= args.limit:
@@ -121,9 +123,9 @@ def compute_reference_vitality(args: argparse.Namespace) -> Tuple[Dict[str, obje
                 "referenced_works",
             ],
         )
-        vitality_scores: List[float] = []
-        ages_years: List[float] = []
-        per_work: List[Dict[str, object]] = []
+        vitality_scores: list[float] = []
+        ages_years: list[float] = []
+        per_work: list[dict[str, object]] = []
         works_processed = 0
         works_missing_refs = 0
 
@@ -137,8 +139,8 @@ def compute_reference_vitality(args: argparse.Namespace) -> Tuple[Dict[str, obje
                 works_missing_refs += 1
                 continue
 
-            local_scores: List[float] = []
-            local_ages: List[float] = []
+            local_scores: list[float] = []
+            local_ages: list[float] = []
             for ref in references:
                 ref_date = resolve_reference_date(ref, ref_date_map, ref_year_map)
                 if ref_date is None:
@@ -229,7 +231,7 @@ def compute_reference_vitality(args: argparse.Namespace) -> Tuple[Dict[str, obje
     return payload, input_files
 
 
-def render_plot(payload: Dict[str, object], out_path: Path) -> None:
+def render_plot(payload: dict[str, object], out_path: Path) -> None:
     quarters = [row["quarter"] for row in payload["quarters"]]
     vitality = [row["vitality"] or 0 for row in payload["quarters"]]
     median_age = [row["median_reference_age"] or 0 for row in payload["quarters"]]
@@ -296,8 +298,8 @@ def clean_for_json(obj):
 
 
 def write_standardized_outputs(
-    payload: Dict[str, object],
-    input_files: List[Path],
+    payload: dict[str, object],
+    input_files: list[Path],
     args: argparse.Namespace,
 ) -> None:
     """
@@ -379,6 +381,12 @@ def write_standardized_outputs(
 
 def main() -> None:
     args = parse_args()
+    paths = resolve_script_paths(args, REPO_ROOT)
+    args.slices_dir = args.slices_dir or (paths.slices if paths else Path("data/current_ingest/slices"))
+    args.ingest_path = args.ingest_path or (
+        paths.ingest / "ingest.parquet" if paths else Path("data/current_ingest/ingest.parquet")
+    )
+    args.out_dir = args.out_dir or (paths.out / "metrics" if paths else Path("data/out/metrics"))
     ensure_dir(args.out_dir)
     payload, input_files = compute_reference_vitality(args)
     # Clean NA types before JSON serialization

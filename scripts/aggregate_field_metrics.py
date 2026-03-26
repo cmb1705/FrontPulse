@@ -9,34 +9,41 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 
-from utils.quarter_utils import normalize_quarter, quarter_key, quarter_to_int
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from utils.quarter_utils import normalize_quarter, quarter_to_int  # noqa: E402
+
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Aggregate field-wide PSC metrics.")
+    parser = argparse.ArgumentParser(description="Aggregate field-wide metrics.")
     parser.add_argument(
         "--timeseries",
-        default="data/out/02_lineage_tracking/lineage_timeseries.csv",
+        default=None,
         help="Lineage timeseries CSV (must contain quarter + new_works).",
     )
     parser.add_argument(
         "--out-csv",
-        default="data/out/04_front_aggregation/field_metrics.csv",
+        default=None,
         help="CSV destination for field metrics.",
     )
     parser.add_argument(
         "--out-parquet",
-        default="data/out/04_front_aggregation/field_metrics.parquet",
+        default=None,
         help="Parquet destination for field metrics.",
     )
     parser.add_argument(
         "--metadata",
-        default="data/out/04_front_aggregation/field_metrics_metadata.json",
+        default=None,
         help="JSON file recording metadata about the run.",
     )
     parser.add_argument(
@@ -45,6 +52,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional limit on number of quarters (useful for smoke tests).",
     )
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -118,13 +126,24 @@ def save_outputs(metrics: pd.DataFrame, out_csv: Path, out_parquet: Path) -> Non
     metrics.to_parquet(out_parquet, index=False)
 
 
-def write_metadata(path: Path, payload: Dict[str, Any]) -> None:
+def write_metadata(path: Path, payload: dict[str, Any]) -> None:
     ensure_parent(path)
     path.write_text(json.dumps(payload, indent=2))
 
 
 def main() -> None:
     args = parse_args()
+
+    paths = resolve_script_paths(args, REPO_ROOT)
+    if args.timeseries is None:
+        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
+    if args.out_csv is None:
+        args.out_csv = str(paths.front_aggregation / "field_metrics.csv") if paths else "data/out/04_front_aggregation/field_metrics.csv"
+    if args.out_parquet is None:
+        args.out_parquet = str(paths.front_aggregation / "field_metrics.parquet") if paths else "data/out/04_front_aggregation/field_metrics.parquet"
+    if args.metadata is None:
+        args.metadata = str(paths.front_aggregation / "field_metrics_metadata.json") if paths else "data/out/04_front_aggregation/field_metrics_metadata.json"
+
     ts_path = Path(args.timeseries)
     out_csv = Path(args.out_csv)
     out_parquet = Path(args.out_parquet)

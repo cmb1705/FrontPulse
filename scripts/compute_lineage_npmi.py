@@ -32,18 +32,16 @@ Notes:
 
 import json
 import math
+import multiprocessing as mp
 import sys
 import time
-from collections import Counter, defaultdict
-from concurrent.futures import ProcessPoolExecutor, FIRST_COMPLETED, wait
+from collections import Counter
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from itertools import combinations
-import multiprocessing as mp
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
 
 import numpy as np
 import pandas as pd
-import yaml
 from tqdm import tqdm
 
 try:
@@ -53,7 +51,7 @@ except ImportError:
 
 # Language detection and lemmatization
 try:
-    from langdetect import detect, LangDetectException
+    from langdetect import LangDetectException, detect
     LANGDETECT_AVAILABLE = True
 except ImportError:
     LANGDETECT_AVAILABLE = False
@@ -72,12 +70,13 @@ except ImportError:
     print("[WARNING] spaCy not installed. Run: pip install spacy")
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 # Import from previous stages
-from scripts.extract_abstracts import AbstractExtractor
-from scripts.compute_lineage_ctfidf import LineageTermExtractor
-
+from scripts.compute_lineage_ctfidf import LineageTermExtractor  # noqa: E402
+from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 # Markup/formatting artifacts to filter out (XML, HTML, math markup, LaTeX)
 MARKUP_TERMS = {
@@ -132,7 +131,7 @@ EXTENDED_STOPWORDS = {
     'high', 'low', 'large', 'small', 'good', 'bad', 'new', 'old', 'important',
     'significant', 'different', 'various', 'several', 'many', 'few', 'first',
     'second', 'third', 'last', 'next', 'previous', 'following', 'above', 'below',
-    'similar', 'different', 'various', 'multiple', 'single', 'double', 'triple',
+    'similar', 'multiple', 'single', 'double', 'triple',
     'better', 'worse', 'higher', 'lower', 'larger', 'smaller', 'greater', 'lesser',
     'strong', 'weak', 'effective', 'efficient', 'successful', 'excellent', 'poor',
 
@@ -140,17 +139,14 @@ EXTENDED_STOPWORDS = {
     'results', 'result', 'conclusion', 'conclusions', 'abstract', 'introduction',
     'discussion', 'method', 'methods', 'methodology', 'experimental', 'theory',
     'theoretical', 'analysis', 'synthesis', 'data', 'figure', 'figures', 'table',
-    'tables', 'section', 'sections', 'chapter', 'reference', 'references', 'cited',
+    'tables', 'section', 'sections', 'reference', 'references', 'cited',
     'citation', 'citations', 'published', 'journal', 'journals', 'paper', 'papers',
     'article', 'articles', 'author', 'authors', 'copyright', 'rights', 'reserved',
     'publisher', 'publication', 'elsevier', 'springer', 'wiley', 'elsewhere',
     'extracted', 'glance', 'option', 'original', 'select', 'service', 'trackable',
-    'weekly', 'recently', 'currently', 'previously', 'reported', 'described',
-    'observed', 'obtained', 'measured', 'calculated', 'determined', 'shown',
-
-    # Publisher names and metadata
+    'weekly', 'recently', 'currently', 'previously', # Publisher names and metadata
     'gmbh', 'kgaa', 'verlag', 'weinheim', 'wiley-vch', 'wiley-blackwell',
-    'elsevier', 'springer', 'nature', 'acs', 'rsc', 'iop', 'aip', 'ieee',
+    'nature', 'acs', 'rsc', 'iop', 'aip', 'ieee',
     'functionality', 'missing', 'queries', 'supplied', 'ltd', 'inc', 'llc',
     'amp', 'vch', 'co', 'corp', 'press', 'john', 'sons', 'american',
 
@@ -165,9 +161,7 @@ EXTENDED_STOPWORDS = {
     # Social media and web interface artifacts
     'inredditemail', 'publicationscopyright', 'pubs', 'reuse', 'november',
     'onfacebooktwitterwechatlinked', 'referenceadd', 'referencesmore', 'score',
-    'social', 'toview', 'optionsget', 'media', 'metrics', 'options', 'page',
-    'permissionsarticle', 'permissions', 'copyright', 'rights',
-    # Creative Commons and licensing
+    'social', 'toview', 'optionsget', 'media', 'metrics', 'options', 'permissionsarticle', 'permissions', # Creative Commons and licensing
     'commons', 'license', 'licensed', 'attribution', 'creativecommons',
     # Supporting information boilerplate
     'available', 'note', 'please', 'information', 'see', 'supporting',
@@ -195,7 +189,7 @@ EXTENDED_STOPWORDS = {
 
     # Time/quantity words
     'time', 'times', 'year', 'years', 'month', 'months', 'day', 'days', 'hour',
-    'hours', 'minute', 'minutes', 'second', 'seconds', 'number', 'numbers',
+    'hours', 'minute', 'minutes', 'seconds', 'number', 'numbers',
     'amount', 'amounts', 'value', 'values', 'level', 'levels', 'rate', 'rates',
 
     # Generic qualifiers
@@ -205,8 +199,7 @@ EXTENDED_STOPWORDS = {
 
     # Generic nouns and adjectives (for filtering collocations)
     'environmentally', 'friendly', 'attention', 'received', 'building', 'blocks',
-    'potential', 'applications', 'promising', 'candidate', 'excellent', 'good',
-    'approach', 'strategy', 'technique', 'process', 'system', 'systems', 'device',
+    'potential', 'applications', 'promising', 'candidate', 'approach', 'strategy', 'technique', 'process', 'system', 'systems', 'device',
     'devices', 'material', 'materials', 'property', 'properties', 'performance',
     'efficiency', 'improvement', 'improvements', 'enhancement', 'enhancements',
     'wide', 'broad', 'narrow', 'range', 'variety', 'types', 'type', 'kind',
@@ -219,13 +212,13 @@ EXTENDED_STOPWORDS = {
     'parameters', 'parameter', 'aspects', 'aspect', 'issues', 'issue', 'problems',
     'problem', 'challenges', 'challenge', 'opportunities', 'opportunity', 'advantages',
     'advantage', 'disadvantages', 'disadvantage', 'limitations', 'limitation',
-    'approaches', 'techniques', 'methods', 'procedures', 'procedure', 'processes',
+    'approaches', 'techniques', 'procedures', 'procedure', 'processes',
 
     # Common verbs (gerunds and past participles)
     'increasing', 'decreasing', 'improving', 'enhancing', 'reducing', 'controlling',
     'modifying', 'changing', 'varying', 'adjusting', 'optimizing', 'maximizing',
     'minimizing', 'achieving', 'obtaining', 'providing', 'producing', 'generating',
-    'creating', 'forming', 'making', 'developing', 'preparing', 'fabricating',
+    'creating', 'forming', 'developing', 'preparing', 'fabricating',
     'synthesizing', 'growing', 'depositing', 'coating', 'covering', 'protecting',
 
     # Generic degree/extent modifiers
@@ -365,7 +358,7 @@ def lemmatize_token(token: str) -> str:
     return token
 
 
-def load_stage3_vocabulary(ctfidf_path: Path, top_k: int = 100) -> Dict[int, Set[str]]:
+def load_stage3_vocabulary(ctfidf_path: Path, top_k: int = 100) -> dict[int, set[str]]:
     """
     Load Stage 3 c-TF-IDF curated vocabulary for each lineage.
 
@@ -380,7 +373,7 @@ def load_stage3_vocabulary(ctfidf_path: Path, top_k: int = 100) -> Dict[int, Set
 
     if not ctfidf_path.exists():
         print(f"      [WARNING] Stage 3 vocabulary not found at {ctfidf_path}")
-        print(f"      Falling back to raw text tokenization (may include junk terms)")
+        print("      Falling back to raw text tokenization (may include junk terms)")
         return {}
 
     df = pd.read_csv(ctfidf_path)
@@ -402,11 +395,11 @@ def _compute_npmi_for_lineage(
     lineage_id: int,
     term_extractor,
     text_extractor,
-    stage3_vocabulary: Dict[int, Set[str]],
-    uninformative_terms: Set[str],
+    stage3_vocabulary: dict[int, set[str]],
+    uninformative_terms: set[str],
     min_pair_count: int,
     min_npmi: float
-) -> Tuple[Dict[Tuple[str, str], float], Dict[str, int]]:
+) -> tuple[dict[tuple[str, str], float], dict[str, int]]:
     """Shared implementation for extracting NPMI term pairs for a lineage."""
     stats = {
         'texts_filtered_non_english': 0,
@@ -463,7 +456,7 @@ def _compute_npmi_for_lineage(
         for term1, term2 in combinations(sorted(unique_terms), 2):
             pair_paper_counts[(term1, term2)] += 1
 
-    npmi_scores: Dict[Tuple[str, str], float] = {}
+    npmi_scores: dict[tuple[str, str], float] = {}
 
     for (term1, term2), pair_count in pair_paper_counts.items():
         if pair_count < min_pair_count:
@@ -481,10 +474,7 @@ def _compute_npmi_for_lineage(
 
         pmi = math.log(p_xy / (p_x * p_y))
         denom = -math.log(p_xy)
-        if denom == 0.0:
-            npmi = 0.0
-        else:
-            npmi = pmi / denom
+        npmi = 0.0 if denom == 0.0 else pmi / denom
 
         npmi = max(-1.0, min(1.0, npmi))
 
@@ -518,7 +508,7 @@ _WORKER_CONTEXT = None
 class _NPMIWorkerContext:
     """Holds per-process resources for multiprocessing execution."""
 
-    def __init__(self, config: Dict):
+    def __init__(self, config: dict):
         registry_path = config.get('registry_path')
         partitions_path = config.get('partitions_dir')
         raw_path = config.get('raw_dir')
@@ -552,7 +542,7 @@ class _NPMIWorkerContext:
         )
 
 
-def _npmi_worker_init(config: Dict):
+def _npmi_worker_init(config: dict):
     global _WORKER_CONTEXT
     _WORKER_CONTEXT = _NPMIWorkerContext(config)
 
@@ -569,7 +559,7 @@ class LineageNPMIAnalyzer:
         self,
         term_extractor: LineageTermExtractor,
         text_extractor: AbstractExtractor,
-        stage3_vocabulary: Dict[int, Set[str]] = None,
+        stage3_vocabulary: dict[int, set[str]] = None,
         min_npmi: float = 0.2,
         min_pair_count: int = 5,
         informativeness_threshold: float = 0.5,
@@ -631,7 +621,7 @@ class LineageNPMIAnalyzer:
             'tokens_lemmatized': 0
         }
 
-    def _accumulate_stats(self, stats: Dict[str, int]):
+    def _accumulate_stats(self, stats: dict[str, int]):
         for key, value in stats.items():
             self.stats[key] = self.stats.get(key, 0) + value
 
@@ -650,14 +640,14 @@ class LineageNPMIAnalyzer:
         available_gb = psutil.virtual_memory().available / (1024 ** 3)
         return available_gb - self.memory_reserve_gb >= self.worker_memory_gb
 
-    def compute_term_document_frequencies(self, lineage_ids: List[int]):
+    def compute_term_document_frequencies(self, lineage_ids: list[int]):
         """
         IMPROVEMENT: Compute document frequency for all terms to enable informativeness filtering.
 
         Pre-process all lineages to count how many lineages each term appears in.
         Terms appearing in >80% of lineages are marked as uninformative.
         """
-        print(f"\n[Pre-processing] Computing term document frequencies for informativeness filtering...")
+        print("\n[Pre-processing] Computing term document frequencies for informativeness filtering...")
 
         self.total_lineages = len(lineage_ids)
 
@@ -696,7 +686,7 @@ class LineageNPMIAnalyzer:
             sample = list(self.uninformative_terms)[:10]
             print(f"      Sample: {sample}")
 
-    def extract_lineage_term_pairs(self, lineage_id: int) -> Dict[Tuple[str, str], float]:
+    def extract_lineage_term_pairs(self, lineage_id: int) -> dict[tuple[str, str], float]:
         """
         Extract co-occurring term pairs from a lineage and compute NPMI scores.
 
@@ -720,7 +710,7 @@ class LineageNPMIAnalyzer:
         self._accumulate_stats(stats)
         return pairs
 
-    def extract_all_lineage_pairs(self, lineage_ids: List[int]):
+    def extract_all_lineage_pairs(self, lineage_ids: list[int]):
         """Extract NPMI pairs for all lineages."""
         # IMPROVEMENT: First compute document frequencies for informativeness filtering
         self.compute_term_document_frequencies(lineage_ids)
@@ -763,7 +753,7 @@ class LineageNPMIAnalyzer:
     def compute_front_npmi_similarity(
         self,
         lineage_id: int,
-        front_terms: Set[str]
+        front_terms: set[str]
     ) -> float:
         """
         Compute NPMI-based similarity between lineage and front.
@@ -791,7 +781,7 @@ class LineageNPMIAnalyzer:
 
         return matching_score / match_count
 
-    def _extract_pairs_parallel(self, lineage_ids: List[int], max_workers: int):
+    def _extract_pairs_parallel(self, lineage_ids: list[int], max_workers: int):
         if not (self.registry_path and self.raw_dir and self.partitions_dir):
             raise ValueError("registry_path, raw_dir, and partitions_dir are required for parallel execution.")
 
@@ -848,8 +838,8 @@ class LineageNPMIAnalyzer:
 
     def generate_outputs(
         self,
-        front_config: Dict,
-        output_threshold: float = 0.8,
+        front_config: dict,
+        _output_threshold: float = 0.8,
         output_dir_lineage: Path = Path("data/out/02_lineage_tracking"),
         output_dir_mapping: Path = Path("data/out/03_milestone_mapping")
     ):
@@ -868,7 +858,7 @@ class LineageNPMIAnalyzer:
         output_dir_lineage.mkdir(parents=True, exist_ok=True)
         output_dir_mapping.mkdir(parents=True, exist_ok=True)
 
-        print(f"\n[Output 1/2] Writing strong NPMI pairs per lineage (ADAPTIVE threshold = 90th percentile)...")
+        print("\n[Output 1/2] Writing strong NPMI pairs per lineage (ADAPTIVE threshold = 90th percentile)...")
 
         # Output 1: Strong pairs per lineage (adaptive by quality)
         rows = []
@@ -1023,9 +1013,9 @@ def run_npmi(
     stage3_vocab = load_stage3_vocabulary(ctfidf_vocab_path, top_k=vocab_size)
     if stage3_vocab:
         print(f"      OK in {time.time()-start:.3f}s")
-        print(f"      IMPROVEMENT: Restricting NPMI to Stage 3 curated terms only")
+        print("      IMPROVEMENT: Restricting NPMI to Stage 3 curated terms only")
     else:
-        print(f"      WARNING: Stage 3 vocabulary not found, using raw tokenization")
+        print("      WARNING: Stage 3 vocabulary not found, using raw tokenization")
 
     # Initialize NPMI analyzer
     print("[3/6] Initializing NPMI analyzer...")
@@ -1047,7 +1037,7 @@ def run_npmi(
     )
     print(f"      OK in {time.time()-start:.3f}s")
 
-    print(f"[4/6] Configuration:")
+    print("[4/6] Configuration:")
     print(f"      - Min NPMI threshold: {min_npmi}")
     print(f"      - Min pair count: {min_pair_count} (tightened from 3)")
     print(f"      - Informativeness threshold: {npmi_analyzer.informativeness_threshold} (tightened from 0.8)")
@@ -1123,7 +1113,7 @@ def run_phase4_validation(
     pairs_df: pd.DataFrame,
     similarity_df: pd.DataFrame,
     validation_dir: Path = Path('data/out/06_validation/stage4')
-) -> Dict:
+) -> dict:
     """
     Run Stage 4 validation checks and generate outputs.
 
@@ -1135,9 +1125,6 @@ def run_phase4_validation(
         Dictionary with validation results
     """
     # Lazy imports to avoid overhead when validation disabled
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    from datetime import datetime
 
     # Create output directory
     output_dir = Path(validation_dir)
@@ -1171,7 +1158,7 @@ def run_phase4_validation(
     return checks
 
 
-def _validate_stage4_integrity(pairs_df: pd.DataFrame, similarity_df: pd.DataFrame) -> Dict:
+def _validate_stage4_integrity(pairs_df: pd.DataFrame, similarity_df: pd.DataFrame) -> dict:
     """Run data integrity checks on Stage 4 outputs."""
     checks = {}
 
@@ -1365,7 +1352,7 @@ def _generate_phase4_distributions(pairs_df: pd.DataFrame, similarity_df: pd.Dat
     plt.close()
 
 
-def _generate_phase4_report(checks: Dict, pairs_df: pd.DataFrame, similarity_df: pd.DataFrame, output_path: Path):
+def _generate_phase4_report(checks: dict, pairs_df: pd.DataFrame, similarity_df: pd.DataFrame, output_path: Path):
     """Generate markdown validation report."""
     from datetime import datetime
 
@@ -1470,19 +1457,19 @@ def main():
     parser.add_argument(
         '--registry',
         type=Path,
-        default=Path('data/out/02_lineage_tracking/lineage_registry.json'),
+        default=None,
         help='Path to lineage registry JSON'
     )
     parser.add_argument(
         '--partitions',
         type=Path,
-        default=Path('data/out/cache_cum/partitions_cum'),
+        default=None,
         help='Path to cached partition JSONs'
     )
     parser.add_argument(
         '--raw',
         type=Path,
-        default=Path('data/current_ingest/raw'),
+        default=None,
         help='Path to raw JSONL data'
     )
     parser.add_argument(
@@ -1500,7 +1487,7 @@ def main():
     parser.add_argument(
         '--ctfidf-vocab',
         type=Path,
-        default=Path('data/out/02_lineage_tracking/lineage_ctfidf_terms.csv'),
+        default=None,
         help='Path to Stage 3 c-TF-IDF vocabulary (recommended for quality)'
     )
     parser.add_argument(
@@ -1542,11 +1529,24 @@ def main():
     parser.add_argument(
         '--output-root',
         type=Path,
-        default=Path('data/out'),
+        default=None,
         help='Base directory for outputs (default: data/out)'
     )
+    add_domain_args(parser)
 
     args = parser.parse_args()
+
+    paths = resolve_script_paths(args, REPO_ROOT)
+    if args.registry is None:
+        args.registry = paths.lineage_tracking / "lineage_registry.json" if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
+    if args.partitions is None:
+        args.partitions = paths.cache_cum / "partitions_cum" if paths else Path("data/out/cache_cum/partitions_cum")
+    if args.raw is None:
+        args.raw = paths.raw if paths else Path("data/current_ingest/raw")
+    if args.ctfidf_vocab is None:
+        args.ctfidf_vocab = paths.lineage_tracking / "lineage_ctfidf_terms.csv" if paths else Path("data/out/02_lineage_tracking/lineage_ctfidf_terms.csv")
+    if args.output_root is None:
+        args.output_root = paths.out if paths else Path("data/out")
 
     # Call the refactored function (standalone mode, store=None)
     run_npmi(

@@ -22,30 +22,29 @@ Output:
 """
 
 from __future__ import annotations
+
 import argparse
 import json
-import pickle
-import yaml
-from pathlib import Path
-from collections import defaultdict
-from typing import Dict, List, Set, Tuple
 import sys
 import time
+from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+import torch
+import yaml
+from sklearn.preprocessing import normalize
 from tqdm import tqdm
 
 # NLP and transformer imports
-from transformers import AutoTokenizer, AutoModel
-import torch
-from sklearn.preprocessing import normalize
+from transformers import AutoModel, AutoTokenizer
 
 # Custom imports
 repo_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(repo_root))
 
-from scripts.extract_abstracts import AbstractExtractor
+from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 # English stopwords - common words to filter out
 STOPWORDS = {
@@ -105,13 +104,13 @@ class LineageEmbedder:
 
         # Use provided extractor or create new one
         if extractor is not None:
-            print(f"[EMBEDDER] Using shared abstract extractor")
+            print("[EMBEDDER] Using shared abstract extractor")
             self.extractor = extractor
         else:
             print(f"[EMBEDDER] Loading abstract extractor from {raw_dir}")
             self.extractor = AbstractExtractor(raw_dir)
 
-        print(f"[EMBEDDER] Ready")
+        print("[EMBEDDER] Ready")
 
     def filter_stopwords(self, text: str) -> str:
         """
@@ -133,7 +132,7 @@ class LineageEmbedder:
 
     def embed_texts_batch(
         self,
-        texts: List[str],
+        texts: list[str],
         batch_size: int = 32,
         max_length: int = 512
     ) -> np.ndarray:
@@ -217,12 +216,12 @@ class LineageEmbedder:
 
     def compute_lineage_embedding(
         self,
-        work_ids: List[str],
-        quarters: List[str] = None,
+        work_ids: list[str],
+        quarters: list[str] = None,
         recency_weight: bool = True,
         batch_size: int = 32,
         profile: bool = False
-    ) -> Tuple[np.ndarray, Dict]:
+    ) -> tuple[np.ndarray, dict]:
         """
         Compute aggregated embedding for a lineage from its papers (batched for speed).
 
@@ -308,9 +307,9 @@ _PARTITION_CACHE = {}
 
 def load_lineage_papers_fast(
     lineage_id: int,
-    lineage_registry: Dict[str, Dict[int, int]],
+    lineage_registry: dict[str, dict[int, int]],
     partitions_dir: Path = Path("data/out/cache_cum/partitions_cum")
-) -> List[str]:
+) -> list[str]:
     """
     Extract all paper IDs belonging to a specific lineage using cached JSON partitions.
 
@@ -350,7 +349,7 @@ def load_lineage_papers_fast(
                 continue
 
             try:
-                with open(partition_path, 'r') as f:
+                with open(partition_path) as f:
                     data = json.load(f)
 
                 labels = data.get('labels', {})
@@ -388,9 +387,9 @@ def load_lineage_papers_fast(
 # Keep old function for backward compatibility
 def load_lineage_papers(
     lineage_id: int,
-    lineage_registry: Dict[str, Dict[int, int]],
-    graphs_dir: Path
-) -> List[str]:
+    lineage_registry: dict[str, dict[int, int]],
+    _graphs_dir: Path
+) -> list[str]:
     """
     DEPRECATED: Use load_lineage_papers_fast() instead.
 
@@ -412,7 +411,7 @@ def run_embeddings(
     output_root: Path = Path('data/out'),
     registry_path: Path = None,  # For standalone mode
     raw_dir: Path = None,  # For standalone mode
-    graphs_dir: Path = None,  # For standalone mode (optional)
+    _graphs_dir: Path = None,  # For standalone mode (optional)
     store=None,
     validate: bool = True
 ) -> tuple:
@@ -447,7 +446,7 @@ def run_embeddings(
 
     # Get resources from shared store or load fresh
     if store is not None:
-        print(f"[LOAD] Using shared store (pipeline mode)")
+        print("[LOAD] Using shared store (pipeline mode)")
         persistent_lineages = store.get_persistent_lineages(min_quarters)
         lineage_registry = store.registry
         embedder = LineageEmbedder(device=device, extractor=store.extractor)
@@ -467,7 +466,7 @@ def run_embeddings(
         # Load lineage registry
         lineage_registry_path = registry_path or Path("data/out/02_lineage_tracking/lineage_registry.json")
         print(f"[LOAD] Loading lineage registry from {lineage_registry_path}")
-        with open(lineage_registry_path, 'r') as f:
+        with open(lineage_registry_path) as f:
             lineage_registry = json.load(f)
 
         # Initialize embedder
@@ -575,7 +574,7 @@ def run_embeddings(
     print(f"Embedding dimensions: {embeddings_array.shape[1]}")
     print(f"Average papers per lineage: {metadata_output['summary']['avg_papers_per_lineage']:.1f}")
     print(f"Average text coverage: {metadata_output['summary']['avg_coverage']*100:.1f}%")
-    print(f"\nOutputs:")
+    print("\nOutputs:")
     print(f"  - Embeddings: {output_path}")
     print(f"  - Metadata: {metadata_path}")
 
@@ -586,14 +585,14 @@ def run_embeddings(
 
     # Load front definitions
     print(f"[FRONT] Loading front definitions from {front_config_path}")
-    with open(front_config_path, 'r') as f:
+    with open(front_config_path) as f:
         fronts_config = yaml.safe_load(f)
 
     front_names = sorted(fronts_config.keys())
     print(f"[FRONT] Loaded {len(front_names)} research fronts")
 
     # Compute front centroids from anchor DOI abstracts
-    print(f"[FRONT] Computing front centroids from anchor DOI abstracts...")
+    print("[FRONT] Computing front centroids from anchor DOI abstracts...")
     front_centroids = {}
 
     for front_name in tqdm(front_names, desc="Front centroids"):
@@ -635,7 +634,7 @@ def run_embeddings(
     # FIXED: Use contrastive similarity to amplify differences in narrow domains
     # Standard cosine similarity saturates at 0.87-0.95 for perovskite documents.
     # Centering embeddings by subtracting the mean amplifies discriminative features.
-    print(f"[SIMILARITY] Computing contrastive similarity matrix...")
+    print("[SIMILARITY] Computing contrastive similarity matrix...")
 
     # Compute mean embedding across all lineages and fronts
     all_embeddings = np.vstack([embeddings_array] + [front_centroids[f].reshape(1, -1) for f in front_names])
@@ -652,7 +651,7 @@ def run_embeddings(
     for f in front_names:
         centered_front_embs[f] = normalize(centered_front_embs[f].reshape(1, -1))[0]
 
-    print(f"  Embeddings centered and re-normalized")
+    print("  Embeddings centered and re-normalized")
 
     # Compute cosine similarity on centered embeddings
     similarity_matrix = []
@@ -678,7 +677,7 @@ def run_embeddings(
     similarity_df.to_csv(similarity_path, index=False)
     print(f"[SIMILARITY] Saved {len(lineage_ids)} x {len(front_names)} similarity matrix to {similarity_path}")
 
-    print(f"\nOutputs:")
+    print("\nOutputs:")
     print(f"  - Embeddings: {output_path}")
     print(f"  - Metadata: {metadata_path}")
     print(f"  - Similarity Matrix: {similarity_path}")
@@ -713,10 +712,10 @@ def run_embeddings(
 def run_phase2_validation(
     embeddings_array: np.ndarray,
     lineage_ids: np.ndarray,
-    metadata_list: List[Dict],
+    metadata_list: list[dict],
     similarity_path: Path,
     output_root: Path = Path('data/out')
-) -> Dict:
+) -> dict:
     """
     Run Stage 2 validation checks and generate outputs.
 
@@ -730,9 +729,6 @@ def run_phase2_validation(
         Dictionary with validation results
     """
     # Lazy imports to avoid overhead when validation disabled
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    from sklearn.manifold import TSNE
 
     # Create output directory
     output_dir = Path(output_root) / '06_validation' / 'stage2'
@@ -778,7 +774,7 @@ def _validate_stage2_integrity(
     embeddings_array: np.ndarray,
     metadata: pd.DataFrame,
     similarity_df: pd.DataFrame
-) -> Dict:
+) -> dict:
     """Run data integrity checks on Stage 2 outputs."""
     checks = {}
 
@@ -880,7 +876,7 @@ def _generate_phase2_tsne(embeddings_array: np.ndarray, similarity_df: pd.DataFr
     embeddings_2d = tsne.fit_transform(embeddings_array)
 
     # Get best matching front
-    front_names = similarity_df.columns[1:].tolist()
+    similarity_df.columns[1:].tolist()
     best_fronts = similarity_df.iloc[:, 1:].idxmax(axis=1).values
 
     # Create color map
@@ -973,7 +969,7 @@ def _generate_phase2_distributions(embeddings_array: np.ndarray, similarity_df: 
     plt.close()
 
 
-def _generate_phase2_report(checks: Dict, output_path: Path):
+def _generate_phase2_report(checks: dict, output_path: Path):
     """Generate markdown validation report."""
     report = []
     report.append("# Stage 2 Validation Report")
@@ -1042,37 +1038,37 @@ def main():
     parser.add_argument(
         "--lineage-metrics",
         type=Path,
-        default=Path("data/out/02_lineage_tracking/lineage_metrics.csv"),
+        default=None,
         help="Path to lineage metrics CSV"
     )
     parser.add_argument(
         "--lineage-registry",
         type=Path,
-        default=Path("data/out/02_lineage_tracking/lineage_registry.json"),
+        default=None,
         help="Path to lineage registry JSON"
     )
     parser.add_argument(
         "--graphs-dir",
         type=Path,
-        default=Path("data/current_graphs"),
+        default=None,
         help="Directory containing citation graph PKL files"
     )
     parser.add_argument(
         "--raw-dir",
         type=Path,
-        default=Path("data/current_ingest/raw"),
+        default=None,
         help="Directory containing raw JSONL files"
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/out/02_lineage_tracking/lineage_embeddings.npz"),
+        default=None,
         help="Output path for embeddings (compressed numpy)"
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("data/out"),
+        default=None,
         help="Base directory for Stage 2 artifacts (default: data/out)"
     )
     parser.add_argument(
@@ -1104,10 +1100,27 @@ def main():
         action="store_false",
         help="Skip validation checks"
     )
+    add_domain_args(parser)
 
     args = parser.parse_args()
 
+    paths = resolve_script_paths(args, repo_root)
+    if args.lineage_metrics is None:
+        args.lineage_metrics = paths.lineage_tracking / "lineage_metrics.csv" if paths else Path("data/out/02_lineage_tracking/lineage_metrics.csv")
+    if args.lineage_registry is None:
+        args.lineage_registry = paths.lineage_tracking / "lineage_registry.json" if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
+    if args.graphs_dir is None:
+        args.graphs_dir = paths.graphs if paths else Path("data/current_graphs")
+    if args.raw_dir is None:
+        args.raw_dir = paths.raw if paths else Path("data/current_ingest/raw")
+    if args.output is None:
+        args.output = paths.lineage_tracking / "lineage_embeddings.npz" if paths else Path("data/out/02_lineage_tracking/lineage_embeddings.npz")
+    if args.output_root is None:
+        args.output_root = paths.out if paths else Path("data/out")
+
     device = None if args.device == "auto" else args.device
+
+    partitions_dir = paths.cache_cum / "partitions_cum" if paths else Path("data/out/cache_cum/partitions_cum")
 
     # Call run_embeddings() with standalone mode
     run_embeddings(
@@ -1117,7 +1130,7 @@ def main():
         output_path=args.output,
         lineage_metrics_path=args.lineage_metrics,
         front_config_path=Path('config/front_aliases.yaml'),
-        partitions_dir=Path('data/out/cache_cum/partitions_cum'),
+        partitions_dir=partitions_dir,
         output_root=args.output_root,
         registry_path=args.lineage_registry,  # Pass CLI argument
         raw_dir=args.raw_dir,  # Pass CLI argument

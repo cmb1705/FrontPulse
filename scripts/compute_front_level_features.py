@@ -27,7 +27,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -36,7 +35,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from utils.quarter_utils import quarter_key  # type: ignore
+from utils.quarter_utils import quarter_key  # type: ignore  # noqa: E402
+
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 LOG = logging.getLogger("front_level_features")
 
@@ -114,7 +115,7 @@ def configure_logging(verbose: bool) -> None:
 def load_mapping(
     mapping_path: Path,
     min_similarity: float = 0.65,
-) -> Dict[int, str]:
+) -> dict[int, str]:
     """Load lineage-to-front mapping and return lineage_id -> front_id dict.
 
     Supports two mapping formats:
@@ -148,7 +149,7 @@ def load_mapping(
     raise ValueError(msg)
 
 
-def load_onset_labels(onset_path: Path) -> Dict[int, str]:
+def load_onset_labels(onset_path: Path) -> dict[int, str]:
     """Load onset labels and return lineage_id -> onset_quarter dict.
 
     Only includes lineages where onset_detected == 1.
@@ -162,10 +163,10 @@ def load_onset_labels(onset_path: Path) -> Dict[int, str]:
 
 
 def derive_front_onset(
-    front_id: str,
-    mapped_lineages: Set[int],
-    lineage_onsets: Dict[int, str],
-) -> Optional[str]:
+    _front_id: str,
+    mapped_lineages: set[int],
+    lineage_onsets: dict[int, str],
+) -> str | None:
     """Derive a front's onset quarter as the earliest onset among its lineages."""
     onset_quarters = []
     for lin_id in mapped_lineages:
@@ -219,10 +220,10 @@ def compute_front_growth_columns(front_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def assign_lifecycle_stage(
-    quarters_since_onset: Optional[int],
+    quarters_since_onset: int | None,
     onset_detected: bool,
-    new_works_roll_mean_4q: float,
-    peak_roll_mean: float,
+    _new_works_roll_mean_4q: float,
+    _peak_roll_mean: float,
     consecutive_decline: int,
     growth_window: int = 12,
 ) -> str:
@@ -240,8 +241,8 @@ def assign_lifecycle_stage(
 
 def build_front_series(
     lineage_features: pd.DataFrame,
-    lineage_to_front: Dict[int, str],
-    lineage_onsets: Dict[int, str],
+    lineage_to_front: dict[int, str],
+    lineage_onsets: dict[int, str],
     growth_window: int = 12,
 ) -> pd.DataFrame:
     """Aggregate lineage features to front-level series.
@@ -271,7 +272,7 @@ def build_front_series(
     available_conv = [c for c in CONVERGENCE_MEAN_FEATURES if c in df.columns]
 
     # Build aggregation spec
-    agg_spec: Dict[str, Tuple[str, str]] = {}
+    agg_spec: dict[str, tuple[str, str]] = {}
     for col in available_sum:
         agg_spec[col] = (col, "sum")
     for col in available_mean + available_context + available_conv:
@@ -311,8 +312,8 @@ def build_front_series(
 
     # Cumulative distinct lineages per front
     # Track which lineages have ever appeared per front
-    front_lineage_sets: Dict[str, Set[int]] = {f: set() for f in all_fronts}
-    lineage_cum_counts: List[int] = []
+    front_lineage_sets: dict[str, set[int]] = {f: set() for f in all_fronts}
+    lineage_cum_counts: list[int] = []
     for _, row in result.iterrows():
         fid = row["front_id"]
         q = row["quarter"]
@@ -332,8 +333,8 @@ def build_front_series(
     result = pd.concat(front_dfs, ignore_index=True)
 
     # Derive front-level onset annotations
-    front_onsets: Dict[str, Optional[str]] = {}
-    front_mapped_lineages: Dict[str, Set[int]] = {f: set() for f in all_fronts}
+    front_onsets: dict[str, str | None] = {}
+    front_mapped_lineages: dict[str, set[int]] = {f: set() for f in all_fronts}
     for lin_id, fid in lineage_to_front.items():
         if fid in front_mapped_lineages:
             front_mapped_lineages[fid].add(lin_id)
@@ -350,9 +351,9 @@ def build_front_series(
     lifecycle_stage_col = []
 
     # Track rolling mean peaks and decline counters for lifecycle
-    front_peak_roll: Dict[str, float] = {f: 0.0 for f in all_fronts}
-    front_decline_count: Dict[str, int] = {f: 0 for f in all_fronts}
-    prev_roll_mean: Dict[str, float] = {f: 0.0 for f in all_fronts}
+    front_peak_roll: dict[str, float] = dict.fromkeys(all_fronts, 0.0)
+    front_decline_count: dict[str, int] = dict.fromkeys(all_fronts, 0)
+    prev_roll_mean: dict[str, float] = dict.fromkeys(all_fronts, 0.0)
 
     for _, row in result.iterrows():
         fid = row["front_id"]
@@ -426,12 +427,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--lineage-features",
-        default="data/out/02_lineage_tracking/lineage_multisignal_features.csv",
+        default=None,
         help="Path to lineage multisignal features CSV.",
     )
     parser.add_argument(
         "--mapping",
-        default="data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv",
+        default=None,
         help="Path to lineage-to-front mapping CSV.",
     )
     parser.add_argument(
@@ -453,7 +454,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--out",
-        default="data/out/04_front_aggregation/front_onset_series.csv",
+        default=None,
         help="Output path for front-level series CSV.",
     )
     parser.add_argument(
@@ -461,6 +462,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable debug logging.",
     )
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -468,6 +470,14 @@ def main() -> None:
     """Entry point for front-level feature computation."""
     args = parse_args()
     configure_logging(args.verbose)
+
+    paths = resolve_script_paths(args, REPO_ROOT)
+    if args.lineage_features is None:
+        args.lineage_features = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
+    if args.mapping is None:
+        args.mapping = str(paths.experiments / "stage0_tight_mapping/milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
+    if args.out is None:
+        args.out = str(paths.front_aggregation / "front_onset_series.csv") if paths else "data/out/04_front_aggregation/front_onset_series.csv"
 
     LOG.info("Loading lineage features from %s", args.lineage_features)
     lineage_features = pd.read_csv(args.lineage_features)
@@ -484,13 +494,13 @@ def main() -> None:
     LOG.info("Mapped %d lineages to fronts", len(lineage_to_front))
 
     # Report front distribution
-    front_counts: Dict[str, int] = {}
+    front_counts: dict[str, int] = {}
     for fid in lineage_to_front.values():
         front_counts[fid] = front_counts.get(fid, 0) + 1
     for fid in sorted(front_counts):
         LOG.info("  %-30s %d lineages", fid, front_counts[fid])
 
-    lineage_onsets: Dict[int, str] = {}
+    lineage_onsets: dict[int, str] = {}
     if args.onset_labels:
         LOG.info("Loading onset labels from %s", args.onset_labels)
         lineage_onsets = load_onset_labels(Path(args.onset_labels))

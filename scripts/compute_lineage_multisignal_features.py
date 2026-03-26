@@ -20,8 +20,9 @@ import multiprocessing as mp
 import sys
 import time
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -39,23 +40,23 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from src.trusted_io import load_trusted_pickle, save_trusted_pickle  # type: ignore
+from utils.quarter_utils import quarter_key, quarter_to_int  # noqa: E402
 
-from scripts.compute_lineage_ctfidf import (  # type: ignore
-    TECHNICAL_BIGRAMS,
+from scripts.compute_lineage_ctfidf import (  # type: ignore  # noqa: E402
     FORMULA_PATTERNS,
     STOPWORDS,
+    TECHNICAL_BIGRAMS,
 )
-from src.lineage_text_store import LineageTextStore  # type: ignore
-from src.raw_store import RawStore  # type: ignore
-from utils.quarter_utils import quarter_key, quarter_to_int, int_to_quarter
-
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.lineage_text_store import LineageTextStore  # type: ignore  # noqa: E402
+from src.raw_store import RawStore  # type: ignore  # noqa: E402
+from src.trusted_io import load_trusted_pickle, save_trusted_pickle  # type: ignore  # noqa: E402
 
 LOG = logging.getLogger("lineage_multisignal")
-_MP_REFERENCES_BY_WORK: Dict[str, List[str]] = {}
-_MP_WORK_LINEAGE: Dict[str, int] = {}
-_MP_CITED_BY_MAP: Dict[str, set] = {}
-_MP_PUB_YEAR_BY_WORK: Dict[str, int] = {}
+_MP_REFERENCES_BY_WORK: dict[str, list[str]] = {}
+_MP_WORK_LINEAGE: dict[str, int] = {}
+_MP_CITED_BY_MAP: dict[str, set] = {}
+_MP_PUB_YEAR_BY_WORK: dict[str, int] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -75,10 +76,7 @@ def load_field_metrics(path: Path) -> pd.DataFrame:
     if not path.exists():
         LOG.warning("Field metrics file %s not found; skipping field-relative features.", path)
         return pd.DataFrame()
-    if path.suffix == ".parquet":
-        df = pd.read_parquet(path)
-    else:
-        df = pd.read_csv(path)
+    df = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path)
     df = df.copy()
     df["quarter"] = df["quarter"].astype(str)
     return df
@@ -134,7 +132,7 @@ def logistic_func(x: np.ndarray, L: float, k: float, x0: float) -> np.ndarray:
     return L / (1.0 + np.exp(-k * (x - x0)))
 
 
-def fit_logistic_curve(values: np.ndarray, min_points: int = 8, r2_threshold: float = 0.7) -> Optional[Dict[str, float]]:
+def fit_logistic_curve(values: np.ndarray, min_points: int = 8, r2_threshold: float = 0.7) -> dict[str, float] | None:
     if curve_fit is None or len(values) < min_points:
         return None
     if np.allclose(values[-1], 0):
@@ -166,7 +164,7 @@ def fit_logistic_curve(values: np.ndarray, min_points: int = 8, r2_threshold: fl
     }
 
 
-def default_logistic_params() -> Dict[str, Any]:
+def default_logistic_params() -> dict[str, Any]:
     return {
         "logistic_carrying_capacity": 0.0,
         "logistic_growth_rate": 0.0,
@@ -176,8 +174,8 @@ def default_logistic_params() -> Dict[str, Any]:
     }
 
 
-def compute_growth_features(timeseries_df: pd.DataFrame) -> Dict[Tuple[int, str], Dict[str, float]]:
-    features: Dict[Tuple[int, str], Dict[str, float]] = {}
+def compute_growth_features(timeseries_df: pd.DataFrame) -> dict[tuple[int, str], dict[str, float]]:
+    features: dict[tuple[int, str], dict[str, float]] = {}
     grouped = timeseries_df.groupby("lineage_id")
     logistic_available = curve_fit is not None
 
@@ -200,7 +198,7 @@ def compute_growth_features(timeseries_df: pd.DataFrame) -> Dict[Tuple[int, str]
         roll_mean_4 = new_works.rolling(window=4, min_periods=1).mean()
         roll_std_4 = new_works.rolling(window=4, min_periods=2).std().fillna(0.0)
 
-        logistic_params_per_idx: List[Dict[str, Any]] = [
+        logistic_params_per_idx: list[dict[str, Any]] = [
             default_logistic_params() for _ in range(len(group_sorted))
         ]
         if logistic_available:
@@ -235,12 +233,12 @@ def compute_growth_features(timeseries_df: pd.DataFrame) -> Dict[Tuple[int, str]
     return features
 
 
-def load_milestone_lookup(milestone_path: Path) -> Dict[int, List[Tuple[int, str]]]:
+def load_milestone_lookup(milestone_path: Path) -> dict[int, list[tuple[int, str]]]:
     if not milestone_path.exists():
         LOG.warning("Milestone file %s not found; milestone proximity features disabled.", milestone_path)
         return {}
     df = pd.read_csv(milestone_path)
-    lookup: Dict[int, List[Tuple[int, str]]] = {}
+    lookup: dict[int, list[tuple[int, str]]] = {}
     for _, row in df.iterrows():
         try:
             lineage_id = int(row["lineage_id"])
@@ -256,12 +254,12 @@ def load_milestone_lookup(milestone_path: Path) -> Dict[int, List[Tuple[int, str
 def compute_milestone_proximity(
     timeseries_df: pd.DataFrame,
     milestone_path: Path,
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+) -> dict[tuple[int, str], dict[str, float]]:
     lookup = load_milestone_lookup(milestone_path)
     if not lookup:
         return {}
 
-    features: Dict[Tuple[int, str], Dict[str, float]] = {}
+    features: dict[tuple[int, str], dict[str, float]] = {}
     for lineage_id, group in timeseries_df.groupby("lineage_id"):
         group_sorted = group.sort_values("quarter", key=lambda col: col.map(quarter_key)).reset_index(drop=True)
         milestones = lookup.get(int(lineage_id), [])
@@ -283,7 +281,7 @@ def compute_milestone_proximity(
     return features
 
 
-def tokenize(text: str) -> List[str]:
+def tokenize(text: str) -> list[str]:
     """
     Tokenize text using the same normalization as Phase 3 (c-TF-IDF).
     """
@@ -300,18 +298,18 @@ def tokenize(text: str) -> List[str]:
     return [tok for tok in tokens if len(tok) > 2 and tok not in STOPWORDS]
 
 
-def load_partition(partition_path: Path) -> Dict[int, List[str]]:
+def load_partition(partition_path: Path) -> dict[int, list[str]]:
     """
     Load partition JSON and invert {work_id -> community} to {community -> [work_ids]}.
     """
     data = json.loads(partition_path.read_text())
-    inverted: Dict[int, List[str]] = defaultdict(list)
+    inverted: dict[int, list[str]] = defaultdict(list)
     for work_id, comm_id in data.get("labels", {}).items():
         inverted[int(comm_id)].append(work_id)
     return inverted
 
 
-def iter_raw_records(raw_dir: Path) -> Iterable[Tuple[str, Dict]]:
+def iter_raw_records(raw_dir: Path) -> Iterable[tuple[str, dict]]:
     """
     Iterate through all works in the raw ingest.
     """
@@ -328,7 +326,7 @@ def iter_raw_records(raw_dir: Path) -> Iterable[Tuple[str, Dict]]:
 # Global metric loading and context features
 
 
-def load_global_metrics(metrics_dir: Path) -> Dict[str, Dict[str, float]]:
+def load_global_metrics(metrics_dir: Path) -> dict[str, dict[str, float]]:
     """
     Load global metric parquet files and return dict keyed by quarter.
 
@@ -349,7 +347,7 @@ def load_global_metrics(metrics_dir: Path) -> Dict[str, Dict[str, float]]:
         'cross_cluster_bridging': 'cross_cluster_bridging.parquet',
     }
 
-    global_metrics: Dict[str, Dict[str, float]] = defaultdict(dict)
+    global_metrics: dict[str, dict[str, float]] = defaultdict(dict)
 
     for metric_name, filename in metric_files.items():
         filepath = metrics_dir / 'global' / filename
@@ -372,8 +370,8 @@ def load_global_metrics(metrics_dir: Path) -> Dict[str, Dict[str, float]]:
 
 def compute_context_features(
     timeseries_df: pd.DataFrame,
-    global_metrics: Dict[str, Dict[str, float]],
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+    global_metrics: dict[str, dict[str, float]],
+) -> dict[tuple[int, str], dict[str, float]]:
     """
     Compute context features using global metrics.
 
@@ -386,8 +384,8 @@ def compute_context_features(
     Note: We don't compute field-normalized ratios since we don't have
     lineage-level metric values yet (only lineage-level features).
     """
-    context_features: Dict[Tuple[int, str], Dict[str, float]] = {}
-    field_metrics_df = pd.DataFrame()
+    context_features: dict[tuple[int, str], dict[str, float]] = {}
+    pd.DataFrame()
 
     if not global_metrics:
         LOG.warning("No global metrics loaded; context features will be empty")
@@ -399,7 +397,7 @@ def compute_context_features(
 
     # Build quarter-sorted metric series for each metric
     quarters_sorted = sorted(global_metrics.keys(), key=quarter_key)
-    metric_series: Dict[str, List[float]] = {name: [] for name in metric_names}
+    metric_series: dict[str, list[float]] = {name: [] for name in metric_names}
 
     for quarter in quarters_sorted:
         for metric_name in metric_names:
@@ -407,7 +405,7 @@ def compute_context_features(
             metric_series[metric_name].append(value)
 
     # Compute mean and std for z-scores
-    metric_stats: Dict[str, Tuple[float, float]] = {}
+    metric_stats: dict[str, tuple[float, float]] = {}
     for metric_name, values in metric_series.items():
         arr = np.array(values)
         mean_val = np.mean(arr)
@@ -423,7 +421,7 @@ def compute_context_features(
             # No global metrics for this quarter; skip or use zeros
             continue
 
-        features: Dict[str, float] = {}
+        features: dict[str, float] = {}
 
         # Get current quarter index
         try:
@@ -507,11 +505,11 @@ def compute_context_features(
 
 
 def build_lineage_quarter_papers(
-    lineage_registry: Dict[int, Dict[str, Dict]],
+    lineage_registry: dict[int, dict[str, dict]],
     partitions_dir: Path,
-    quarters_sorted: List[str],
-    max_lineages: Optional[int] = None,
-) -> Tuple[Dict[Tuple[int, str], List[str]], Dict[str, int]]:
+    quarters_sorted: list[str],
+    max_lineages: int | None = None,
+) -> tuple[dict[tuple[int, str], list[str]], dict[str, int]]:
     """
     Determine new papers for each lineage and quarter.
 
@@ -523,9 +521,9 @@ def build_lineage_quarter_papers(
     if max_lineages:
         lineage_ids = lineage_ids[:max_lineages]
 
-    lineage_quarter_papers: Dict[Tuple[int, str], List[str]] = defaultdict(list)
-    work_lineage: Dict[str, int] = {}
-    seen_papers: Dict[int, set] = defaultdict(set)
+    lineage_quarter_papers: dict[tuple[int, str], list[str]] = defaultdict(list)
+    work_lineage: dict[str, int] = {}
+    seen_papers: dict[int, set] = defaultdict(set)
 
     for quarter in quarters_sorted:
         partition_path = partitions_dir / f"part_{quarter}.json"
@@ -538,7 +536,7 @@ def build_lineage_quarter_papers(
             if quarter not in quarter_map:
                 continue
             community_map = quarter_map[quarter]
-            for comm_id in community_map.keys():
+            for comm_id in community_map:
                 comm_int = int(comm_id)
                 papers = inverted.get(comm_int, [])
                 if not papers:
@@ -557,9 +555,9 @@ def build_lineage_quarter_papers(
 
 def load_references(
     raw_dir: Path,
-    cache_path: Optional[Path] = None,
+    cache_path: Path | None = None,
     force_refresh: bool = False,
-) -> Tuple[Dict[str, List[str]], Dict[str, int]]:
+) -> tuple[dict[str, list[str]], dict[str, int]]:
     """
     Parse raw records to extract references and publication year.
     Optionally cache results to speed up future runs.
@@ -572,8 +570,8 @@ def load_references(
         return cached["references"], cached["pub_years"]
 
     LOG.info("Parsing raw OpenAlex records for references (this may take a while)...")
-    references_by_work: Dict[str, List[str]] = {}
-    pub_year_by_work: Dict[str, int] = {}
+    references_by_work: dict[str, list[str]] = {}
+    pub_year_by_work: dict[str, int] = {}
 
     start = time.perf_counter()
     for work_id, record in iter_raw_records(raw_dir):
@@ -601,23 +599,23 @@ def load_references(
     return references_by_work, pub_year_by_work
 
 
-def build_cited_by_map(references_by_work: Dict[str, List[str]]) -> Dict[str, set]:
+def build_cited_by_map(references_by_work: dict[str, list[str]]) -> dict[str, set]:
     """
     Build inverse mapping: work_id -> set of works that cite it.
     """
-    cited_by: Dict[str, set] = defaultdict(set)
+    cited_by: dict[str, set] = defaultdict(set)
     for citing_work, refs in references_by_work.items():
         for ref in refs:
             cited_by[ref].add(citing_work)
     return cited_by
 
 
-def compute_dormancy_features(timeseries_df: pd.DataFrame) -> Dict[Tuple[int, str], Dict[str, float]]:
+def compute_dormancy_features(timeseries_df: pd.DataFrame) -> dict[tuple[int, str], dict[str, float]]:
     """
     Compute dormancy length and awakening intensity per lineage-quarter.
     """
-    features: Dict[Tuple[int, str], Dict[str, float]] = {}
-    for lineage_id, group in timeseries_df.groupby("lineage_id"):
+    features: dict[tuple[int, str], dict[str, float]] = {}
+    for _lineage_id, group in timeseries_df.groupby("lineage_id"):
         group = group.sort_values("quarter", key=lambda col: col.map(quarter_key))
         zero_streak = 0
         for row in group.itertuples():
@@ -636,19 +634,19 @@ def compute_dormancy_features(timeseries_df: pd.DataFrame) -> Dict[Tuple[int, st
 
 def _compute_novelty_serial(
     extractor,
-    lineage_quarter_papers: Dict[Tuple[int, str], List[str]],
+    lineage_quarter_papers: dict[tuple[int, str], list[str]],
     lineage_ids: Iterable[int],
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+) -> dict[tuple[int, str], dict[str, float]]:
     """
     Compute novelty metrics based on new technical terms per quarter.
     """
-    novelty: Dict[Tuple[int, str], Dict[str, float]] = {}
-    seen_terms: Dict[int, set] = defaultdict(set)
-    text_cache: Dict[str, str] = {}
+    novelty: dict[tuple[int, str], dict[str, float]] = {}
+    seen_terms: dict[int, set] = defaultdict(set)
+    text_cache: dict[str, str] = {}
 
     for lineage_id in lineage_ids:
         quarters = sorted(
-            {q for (lin, q) in lineage_quarter_papers.keys() if lin == lineage_id},
+            {q for (lin, q) in lineage_quarter_papers if lin == lineage_id},
             key=quarter_key,
         )
         if not quarters:
@@ -683,10 +681,10 @@ def _compute_novelty_serial(
 
 def compute_novelty(
     extractor,
-    lineage_quarter_papers: Dict[Tuple[int, str], List[str]],
+    lineage_quarter_papers: dict[tuple[int, str], list[str]],
     lineage_ids: Iterable[int],
-    n_workers: Optional[int] = None,
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+    n_workers: int | None = None,
+) -> dict[tuple[int, str], dict[str, float]]:
     """
     Dispatch novelty computation to serial or parallel implementation.
     """
@@ -704,11 +702,11 @@ def compute_novelty(
 
 def compute_novelty_for_lineage(
     lineage_id: int,
-    quarters: List[str],
-    lineage_quarter_papers: Dict[Tuple[int, str], List[str]],
-    text_data: Dict[str, str],
-) -> List[Tuple[Tuple[int, str], Dict[str, float]]]:
-    results: List[Tuple[Tuple[int, str], Dict[str, float]]] = []
+    quarters: list[str],
+    lineage_quarter_papers: dict[tuple[int, str], list[str]],
+    text_data: dict[str, str],
+) -> list[tuple[tuple[int, str], dict[str, float]]]:
+    results: list[tuple[tuple[int, str], dict[str, float]]] = []
     seen_terms: set = set()
 
     for quarter in quarters:
@@ -739,10 +737,10 @@ def compute_novelty_for_lineage(
 
 def compute_novelty_parallel(
     extractor,
-    lineage_quarter_papers: Dict[Tuple[int, str], List[str]],
+    lineage_quarter_papers: dict[tuple[int, str], list[str]],
     lineage_ids: Iterable[int],
     n_workers: int,
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+) -> dict[tuple[int, str], dict[str, float]]:
     workers = max(1, n_workers)
     if workers == 1:
         return _compute_novelty_serial(extractor, lineage_quarter_papers, lineage_ids)
@@ -756,7 +754,7 @@ def compute_novelty_parallel(
 
     LOG.info("Loading texts for %d unique papers...", len(all_paper_ids))
     start_load = time.perf_counter()
-    text_cache: Dict[str, str] = {}
+    text_cache: dict[str, str] = {}
     batch_size = 5000
     paper_ids_list = list(all_paper_ids)
     for i in range(0, len(paper_ids_list), batch_size):
@@ -767,10 +765,10 @@ def compute_novelty_parallel(
             LOG.debug("  Loaded %d / %d texts", len(text_cache), len(all_paper_ids))
     LOG.info("Text loading complete in %.1fs", time.perf_counter() - start_load)
 
-    lineage_quarters: Dict[int, List[str]] = {}
+    lineage_quarters: dict[int, list[str]] = {}
     for lineage_id in lineage_ids_list:
         quarters = sorted(
-            {q for (lin, q) in lineage_quarter_papers.keys() if lin == lineage_id},
+            {q for (lin, q) in lineage_quarter_papers if lin == lineage_id},
             key=quarter_key,
         )
         if quarters:
@@ -784,7 +782,7 @@ def compute_novelty_parallel(
         for lineage_id in sorted(lineage_quarters.keys())
     ]
 
-    novelty: Dict[Tuple[int, str], Dict[str, float]] = {}
+    novelty: dict[tuple[int, str], dict[str, float]] = {}
     with mp.Pool(processes=workers) as pool:
         for lineage_results in pool.starmap(compute_novelty_for_lineage, args_list):
             for key, metrics in lineage_results:
@@ -799,14 +797,14 @@ def compute_novelty_parallel(
 
 
 def compute_cross_domain_share(
-    lineage_quarter_papers: Dict[Tuple[int, str], List[str]],
-    work_lineage: Dict[str, int],
-    references_by_work: Dict[str, List[str]],
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+    lineage_quarter_papers: dict[tuple[int, str], list[str]],
+    work_lineage: dict[str, int],
+    references_by_work: dict[str, list[str]],
+) -> dict[tuple[int, str], dict[str, float]]:
     """
     Compute fraction of references from lineage-quarter papers that target other lineages.
     """
-    results: Dict[Tuple[int, str], Dict[str, float]] = {}
+    results: dict[tuple[int, str], dict[str, float]] = {}
     for key, papers in lineage_quarter_papers.items():
         cross_refs = same_refs = 0
         lineage_id, _ = key
@@ -831,18 +829,18 @@ def compute_cross_domain_share(
 
 
 def compute_cd_index(
-    lineage_quarter_papers: Dict[Tuple[int, str], List[str]],
-    references_by_work: Dict[str, List[str]],
-    cited_by_map: Dict[str, set],
-    pub_year_by_work: Dict[str, int],
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+    lineage_quarter_papers: dict[tuple[int, str], list[str]],
+    references_by_work: dict[str, list[str]],
+    cited_by_map: dict[str, set],
+    pub_year_by_work: dict[str, int],
+) -> dict[tuple[int, str], dict[str, float]]:
     """
     Compute Wu et al. style disruption index for each lineage-quarter.
     """
-    results: Dict[Tuple[int, str], Dict[str, float]] = {}
+    results: dict[tuple[int, str], dict[str, float]] = {}
 
     for key, papers in lineage_quarter_papers.items():
-        cd_values: List[float] = []
+        cd_values: list[float] = []
         for pid in papers:
             pub_year = pub_year_by_work.get(pid, 0)
             refs = references_by_work.get(pid, [])
@@ -902,10 +900,10 @@ def compute_cd_index(
 
 
 def build_lifecycle_features(
-    onset_labels_path: Optional[str],
-    maturation_labels_path: Optional[str],
-    all_quarters_sorted: List[str],
-) -> Dict[Tuple[int, str], Dict[str, object]]:
+    onset_labels_path: str | None,
+    maturation_labels_path: str | None,
+    all_quarters_sorted: list[str],
+) -> dict[tuple[int, str], dict[str, object]]:
     """Compute lifecycle stage features from onset and maturation labels.
 
     For each (lineage_id, quarter) key, produces:
@@ -930,7 +928,7 @@ def build_lifecycle_features(
     quarter_index = {q: i for i, q in enumerate(all_quarters_sorted)}
 
     # Load onset labels: lineage_id -> onset_quarter
-    onset_lookup: Dict[int, str] = {}
+    onset_lookup: dict[int, str] = {}
     if onset_labels_path:
         path = Path(onset_labels_path)
         if path.exists():
@@ -946,7 +944,7 @@ def build_lifecycle_features(
             LOG.warning("Onset labels file %s not found; skipping.", path)
 
     # Load maturation labels: lineage_id -> maturation_quarter
-    mat_lookup: Dict[int, str] = {}
+    mat_lookup: dict[int, str] = {}
     if maturation_labels_path:
         path = Path(maturation_labels_path)
         if path.exists():
@@ -965,7 +963,7 @@ def build_lifecycle_features(
         return {}
 
     all_lineages = set(onset_lookup.keys()) | set(mat_lookup.keys())
-    result: Dict[Tuple[int, str], Dict[str, object]] = {}
+    result: dict[tuple[int, str], dict[str, object]] = {}
 
     for lid in all_lineages:
         onset_q = onset_lookup.get(lid)
@@ -989,10 +987,7 @@ def build_lifecycle_features(
                 stage = "pre_onset"
 
             # Quarters since maturation (0 before, count after)
-            if has_mat and qi >= mat_idx:
-                q_since = qi - mat_idx
-            else:
-                q_since = 0
+            q_since = qi - mat_idx if has_mat and qi >= mat_idx else 0
 
             result[(lid, q)] = {
                 "lifecycle_stage": stage,
@@ -1013,16 +1008,16 @@ def build_lifecycle_features(
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Compute lineage-level multi-signal features.")
-    ap.add_argument("--registry", default="data/out/02_lineage_tracking/lineage_registry.json")
-    ap.add_argument("--timeseries", default="data/out/02_lineage_tracking/lineage_timeseries.csv")
-    ap.add_argument("--raw-dir", default="data/current_ingest/raw")
-    ap.add_argument("--partitions-dir", default="data/out/cache_cum/partitions_cum")
-    ap.add_argument("--reference-cache", default="data/out/cache_lineage/reference_data.pkl")
-    ap.add_argument("--out", default="data/out/02_lineage_tracking/lineage_multisignal_features.csv")
+    ap.add_argument("--registry", default=None)
+    ap.add_argument("--timeseries", default=None)
+    ap.add_argument("--raw-dir", default=None)
+    ap.add_argument("--partitions-dir", default=None)
+    ap.add_argument("--reference-cache", default=None)
+    ap.add_argument("--out", default=None)
     ap.add_argument("--max-lineages", type=int, default=None, help="Limit number of lineages (smoke tests).")
-    ap.add_argument("--metrics-dir", default="data/out/metrics", help="Directory containing global metrics parquet files.")
+    ap.add_argument("--metrics-dir", default=None, help="Directory containing global metrics parquet files.")
     ap.add_argument("--enable-context-features", action="store_true", help="Enable context features from global metrics.")
-    ap.add_argument("--field-metrics", default="data/out/04_front_aggregation/field_metrics.parquet", help="Field metrics file (parquet or CSV).")
+    ap.add_argument("--field-metrics", default=None, help="Field metrics file (parquet or CSV).")
     ap.add_argument("--disable-field-metrics", action="store_true", help="Disable field-level feature integration.")
     ap.add_argument(
         "--n-workers",
@@ -1032,8 +1027,8 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--milestones",
-        default="data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv",
-        help="Milestone-lineage mapping used for proximity metrics (default: %(default)s).",
+        default=None,
+        help="Milestone-lineage mapping used for proximity metrics.",
     )
     ap.add_argument(
         "--enable-milestone-proximity",
@@ -1060,12 +1055,33 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--force-cache-refresh", action="store_true", help="Recompute reference cache even if present.")
+    add_domain_args(ap)
     return ap.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     configure_logging(args.verbose)
+
+    paths = resolve_script_paths(args, REPO_ROOT)
+    if args.registry is None:
+        args.registry = str(paths.lineage_tracking / "lineage_registry.json") if paths else "data/out/02_lineage_tracking/lineage_registry.json"
+    if args.timeseries is None:
+        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
+    if args.raw_dir is None:
+        args.raw_dir = str(paths.raw) if paths else "data/current_ingest/raw"
+    if args.partitions_dir is None:
+        args.partitions_dir = str(paths.cache_cum / "partitions_cum") if paths else "data/out/cache_cum/partitions_cum"
+    if args.reference_cache is None:
+        args.reference_cache = str(paths.cache_lineage / "reference_data.pkl") if paths else "data/out/cache_lineage/reference_data.pkl"
+    if args.out is None:
+        args.out = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
+    if args.metrics_dir is None:
+        args.metrics_dir = str(paths.out / "metrics") if paths else "data/out/metrics"
+    if args.field_metrics is None:
+        args.field_metrics = str(paths.front_aggregation / "field_metrics.parquet") if paths else "data/out/04_front_aggregation/field_metrics.parquet"
+    if args.milestones is None:
+        args.milestones = str(paths.experiments / "stage0_tight_mapping/milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
 
     registry_path = Path(args.registry)
     timeseries_path = Path(args.timeseries)
@@ -1104,13 +1120,13 @@ def main() -> None:
     LOG.info("Computing growth derivatives and logistic summaries...")
     growth_features = compute_growth_features(timeseries_df)
 
-    milestone_features: Dict[Tuple[int, str], Dict[str, float]] = {}
+    milestone_features: dict[tuple[int, str], dict[str, float]] = {}
     if args.enable_milestone_proximity:
         LOG.info("Computing milestone proximity metrics from %s", args.milestones)
         milestone_features = compute_milestone_proximity(timeseries_df, Path(args.milestones))
 
     # Load global metrics and compute context features if enabled
-    context_features: Dict[Tuple[int, str], Dict[str, float]] = {}
+    context_features: dict[tuple[int, str], dict[str, float]] = {}
     if args.enable_context_features:
         LOG.info("Loading global metrics from %s...", args.metrics_dir)
         metrics_dir = Path(args.metrics_dir)
@@ -1150,7 +1166,7 @@ def main() -> None:
     dormancy_features = compute_dormancy_features(timeseries_df)
 
     LOG.info("Computing novelty features...")
-    lineage_ids_for_novelty = sorted({lin for lin, _ in lineage_quarter_papers.keys()})
+    lineage_ids_for_novelty = sorted({lin for lin, _ in lineage_quarter_papers})
     novelty_features = compute_novelty(
         store.extractor,
         lineage_quarter_papers,
@@ -1168,13 +1184,13 @@ def main() -> None:
     )
 
     LOG.info("Aggregating cross-domain share per lineage-quarter...")
-    cross_domain_features: Dict[Tuple[int, str], Dict[str, float]] = {}
-    cd_features: Dict[Tuple[int, str], Dict[str, float]] = {}
+    cross_domain_features: dict[tuple[int, str], dict[str, float]] = {}
+    cd_features: dict[tuple[int, str], dict[str, float]] = {}
     for key, papers in lineage_quarter_papers.items():
         lineage_id, _ = key
 
         cross_refs = same_refs = 0
-        cd_vals: List[float] = []
+        cd_vals: list[float] = []
         for pid in papers:
             cross, same = work_cross_stats.get(pid, (0, 0))
             cross_refs += cross
@@ -1205,7 +1221,7 @@ def main() -> None:
             }
 
     # Lifecycle stage features (from onset + maturation labels)
-    lifecycle_features: Dict[Tuple[int, str], Dict[str, object]] = {}
+    lifecycle_features: dict[tuple[int, str], dict[str, object]] = {}
     if args.onset_labels or args.maturation_labels:
         all_quarters_sorted = sorted(
             timeseries_df["quarter"].unique(), key=quarter_to_int,
@@ -1217,7 +1233,7 @@ def main() -> None:
             LOG.info("Computed lifecycle features for %d entries", len(lifecycle_features))
 
     # Convergence features (from compute_convergence_features.py)
-    convergence_features: Dict[Tuple[int, str], Dict[str, float]] = {}
+    convergence_features: dict[tuple[int, str], dict[str, float]] = {}
     if args.convergence_features:
         conv_path = Path(args.convergence_features)
         if conv_path.exists():
@@ -1329,10 +1345,10 @@ def main() -> None:
 
 
 def _init_work_metrics_pool(
-    references_by_work: Dict[str, List[str]],
-    work_lineage: Dict[str, int],
-    cited_by_map: Dict[str, set],
-    pub_year_by_work: Dict[str, int],
+    references_by_work: dict[str, list[str]],
+    work_lineage: dict[str, int],
+    cited_by_map: dict[str, set],
+    pub_year_by_work: dict[str, int],
 ) -> None:
     global _MP_REFERENCES_BY_WORK, _MP_WORK_LINEAGE, _MP_CITED_BY_MAP, _MP_PUB_YEAR_BY_WORK
     _MP_REFERENCES_BY_WORK = references_by_work
@@ -1341,7 +1357,7 @@ def _init_work_metrics_pool(
     _MP_PUB_YEAR_BY_WORK = pub_year_by_work
 
 
-def _compute_work_metrics_single(pid: str) -> Optional[Tuple[str, Tuple[int, int], Tuple[float, float]]]:
+def _compute_work_metrics_single(pid: str) -> tuple[str, tuple[int, int], tuple[float, float]] | None:
     lineage_id = _MP_WORK_LINEAGE.get(pid)
     if lineage_id is None:
         return None
@@ -1390,14 +1406,14 @@ def _compute_work_metrics_single(pid: str) -> Optional[Tuple[str, Tuple[int, int
 
 
 def compute_work_metrics(
-    work_lineage: Dict[str, int],
-    references_by_work: Dict[str, List[str]],
-    cited_by_map: Dict[str, set],
-    pub_year_by_work: Dict[str, int],
+    work_lineage: dict[str, int],
+    references_by_work: dict[str, list[str]],
+    cited_by_map: dict[str, set],
+    pub_year_by_work: dict[str, int],
     n_workers: int,
-) -> Tuple[Dict[str, Tuple[int, int]], Dict[str, Tuple[float, float]]]:
+) -> tuple[dict[str, tuple[int, int]], dict[str, tuple[float, float]]]:
     if n_workers <= 1:
-        work_cross_stats: Dict[str, Tuple[int, int]] = {}
+        work_cross_stats: dict[str, tuple[int, int]] = {}
         for pid, lineage_id in work_lineage.items():
             cross = same = 0
             for ref in references_by_work.get(pid, []):
@@ -1410,7 +1426,7 @@ def compute_work_metrics(
                     cross += 1
             work_cross_stats[pid] = (cross, same)
 
-        work_cd_stats: Dict[str, Tuple[float, float]] = {}
+        work_cd_stats: dict[str, tuple[float, float]] = {}
         for pid, refs in references_by_work.items():
             if pid not in work_lineage:
                 continue
@@ -1448,8 +1464,8 @@ def compute_work_metrics(
         return work_cross_stats, work_cd_stats
 
     LOG.info("Parallelizing work-level citation metrics with %d workers...", n_workers)
-    work_cross_stats: Dict[str, Tuple[int, int]] = {}
-    work_cd_stats: Dict[str, Tuple[float, float]] = {}
+    work_cross_stats: dict[str, tuple[int, int]] = {}
+    work_cd_stats: dict[str, tuple[float, float]] = {}
     with mp.Pool(
         processes=n_workers,
         initializer=_init_work_metrics_pool,

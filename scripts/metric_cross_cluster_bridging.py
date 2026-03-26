@@ -5,37 +5,38 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt  # noqa: E402
+import networkx as nx  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
-from src.community import run_leiden
-from src import trusted_io
-from src.metrics.common import (
-    ensure_dir,
-    list_quarter_files,
+from src import trusted_io  # noqa: E402
+from src.community import run_leiden  # noqa: E402
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.metrics.common import (  # noqa: E402
     create_metric_metadata,
-    write_metric_parquet,
-    write_metric_metadata,
+    ensure_dir,
     get_metric_output_paths,
+    list_quarter_files,
     update_manifest,
+    write_metric_metadata,
+    write_metric_parquet,
     write_placeholder_metric,
 )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Quantify cross-cluster bridging nodes over time.")
-    parser.add_argument("--graphs-dir", default="data/current_graphs", type=Path)
-    parser.add_argument("--out-dir", default="data/out/metrics", type=Path)
-    parser.add_argument("--registry", default="data/out/front_id_registry_cumulative.json", type=Path)
-    parser.add_argument("--cache-dir", default="data/out/cache_cum/partitions_cum", type=Path)
+    parser.add_argument("--graphs-dir", default=None, type=Path)
+    parser.add_argument("--out-dir", default=None, type=Path)
+    parser.add_argument("--registry", default=None, type=Path)
+    parser.add_argument("--cache-dir", default=None, type=Path)
+    parser.add_argument("--ingest-path", default=None, type=Path)
     parser.add_argument("--json-name", default="cross_cluster_bridging.json")
     parser.add_argument("--figure-name", default="cross_cluster_bridging.png")
     parser.add_argument("--limit", type=int, default=None)
@@ -45,20 +46,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-degree", type=int, default=3)
     parser.add_argument("--top-nodes", type=int, default=10)
     parser.add_argument("--high-ratio-threshold", type=float, default=0.5)
+    add_domain_args(parser)
     return parser.parse_args()
 
 
-def load_registry(path: Path) -> Dict[str, Dict[str, int]]:
+def load_registry(path: Path) -> dict[str, dict[str, int]]:
     if not path.exists():
         return {}
     data = json.loads(path.read_text())
-    registry: Dict[str, Dict[str, int]] = {}
+    registry: dict[str, dict[str, int]] = {}
     for quarter, mapping in data.items():
         registry[quarter] = {str(k): int(v) for k, v in mapping.items()}
     return registry
 
 
-def load_cached_partition(cache_dir: Path, quarter: str) -> Optional[Dict[str, int]]:
+def load_cached_partition(cache_dir: Path, quarter: str) -> dict[str, int] | None:
     if not cache_dir or not cache_dir.exists():
         return None
     path = cache_dir / f"part_{quarter}.json"
@@ -74,7 +76,7 @@ def compute_partition(
     quarter: str,
     args: argparse.Namespace,
     cache_dir: Path,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     cached = load_cached_partition(cache_dir, quarter)
     if cached is not None:
         return cached
@@ -94,7 +96,7 @@ def build_undirected(G: nx.DiGraph) -> nx.Graph:
     return H
 
 
-def front_lookup(registry: Dict[str, Dict[str, int]], quarter: str, community: int) -> Optional[int]:
+def front_lookup(registry: dict[str, dict[str, int]], quarter: str, community: int) -> int | None:
     mapping = registry.get(quarter)
     if not mapping:
         return None
@@ -105,14 +107,16 @@ def analyze_quarter(
     quarter: str,
     graph_path: Path,
     args: argparse.Namespace,
-    registry: Dict[str, Dict[str, int]],
-) -> Dict[str, object]:
+    registry: dict[str, dict[str, int]],
+    ingest_path: Path | None = None,
+) -> dict[str, object]:
     Gfull: nx.DiGraph = trusted_io.load_trusted_binary(
         graph_path, description="citation graph",
     )
 
     # Load metadata lookup table (graphs now use minimal attributes for memory efficiency)
-    ingest_path = REPO_ROOT / "data" / "current_ingest" / "ingest.parquet"
+    if ingest_path is None:
+        ingest_path = REPO_ROOT / "data" / "current_ingest" / "ingest.parquet"
     metadata_df = pd.read_parquet(ingest_path, columns=['work_id', 'title', 'cited_by_count'])
     metadata_lookup = metadata_df.set_index('work_id').to_dict('index')
 
@@ -129,7 +133,7 @@ def analyze_quarter(
             "top_nodes": [],
         }
     G = build_undirected(Gfull)
-    bridge_rows: List[Dict[str, object]] = []
+    bridge_rows: list[dict[str, object]] = []
     considered_edges = 0
     external_edges = 0
 
@@ -211,7 +215,7 @@ def analyze_quarter(
     }
 
 
-def render_plot(payload: Dict[str, object], out_path: Path) -> None:
+def render_plot(payload: dict[str, object], out_path: Path) -> None:
     quarters = [row["quarter"] for row in payload["quarters"]]
     mean_ratios = [row["mean_bridge_ratio"] or 0 for row in payload["quarters"]]
     p90_ratios = [row["p90_bridge_ratio"] or 0 for row in payload["quarters"]]
@@ -250,13 +254,13 @@ def render_plot(payload: Dict[str, object], out_path: Path) -> None:
 
 def analyze_quarter_wrapper(args_tuple):
     """Wrapper for parallel processing."""
-    quarter, path, args, registry = args_tuple
-    return analyze_quarter(quarter, path, args, registry)
+    quarter, path, args, registry, ingest_path = args_tuple
+    return analyze_quarter(quarter, path, args, registry, ingest_path)
 
 
 def write_standardized_outputs(
-    payload: Dict[str, object],
-    input_files: List[Path],
+    payload: dict[str, object],
+    input_files: list[Path],
     args: argparse.Namespace,
 ) -> None:
     """
@@ -335,6 +339,22 @@ def write_standardized_outputs(
 
 def main() -> None:
     args = parse_args()
+    paths = resolve_script_paths(args, REPO_ROOT)
+    args.graphs_dir = args.graphs_dir or (paths.graphs if paths else Path("data/current_graphs"))
+    args.out_dir = args.out_dir or (paths.out / "metrics" if paths else Path("data/out/metrics"))
+    args.registry = args.registry or (
+        paths.out / "front_id_registry_cumulative.json"
+        if paths
+        else Path("data/out/front_id_registry_cumulative.json")
+    )
+    args.cache_dir = args.cache_dir or (
+        paths.cache_cum / "partitions_cum" if paths else Path("data/out/cache_cum/partitions_cum")
+    )
+    args.ingest_path = args.ingest_path or (
+        paths.ingest / "ingest.parquet"
+        if paths
+        else REPO_ROOT / "data" / "current_ingest" / "ingest.parquet"
+    )
     ensure_dir(args.out_dir)
     registry = load_registry(args.registry) if args.registry else {}
     graph_pairs = list_quarter_files(args.graphs_dir, "citation_graph_cumulative_*.pkl")
@@ -350,7 +370,7 @@ def main() -> None:
     print(f"Processing {len(graph_pairs)} quarters using {n_workers} parallel workers...")
 
     # Prepare arguments for parallel processing
-    quarter_args = [(quarter, path, args, registry) for quarter, path in graph_pairs]
+    quarter_args = [(quarter, path, args, registry, args.ingest_path) for quarter, path in graph_pairs]
 
     with Pool(n_workers) as pool:
         quarters = pool.map(analyze_quarter_wrapper, quarter_args)

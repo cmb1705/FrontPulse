@@ -3,38 +3,40 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Set, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-import matplotlib.pyplot as plt
-import pandas as pd
-import pyarrow.parquet as pq
+import matplotlib.pyplot as plt  # noqa: E402
+import pandas as pd  # noqa: E402
+import pyarrow.parquet as pq  # noqa: E402
 
-from src.metrics.common import (
-    ensure_dir,
-    iter_quarter_slices,
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.metrics.common import (  # noqa: E402
     create_metric_metadata,
-    write_metric_parquet,
-    write_metric_metadata,
+    ensure_dir,
     get_metric_output_paths,
+    iter_quarter_slices,
     update_manifest,
+    write_metric_metadata,
+    write_metric_parquet,
     write_placeholder_metric,
 )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compute quarterly author influx metrics.")
-    parser.add_argument("--slices-dir", default="data/current_ingest/slices", type=Path)
-    parser.add_argument("--out-dir", default="data/out/metrics", type=Path)
+    parser.add_argument("--slices-dir", default=None, type=Path)
+    parser.add_argument("--out-dir", default=None, type=Path)
     parser.add_argument("--pattern", default="by_quarter__*.parquet")
     parser.add_argument("--limit", type=int, default=None, help="Optional cap on number of quarters.")
     parser.add_argument("--json-name", default="author_influx.json")
     parser.add_argument("--figure-name", default="author_influx.png")
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -50,11 +52,11 @@ def normalize_author_ids(raw_value: object) -> Iterable[str]:
     return [str(raw_value).strip()] if str(raw_value).strip() else []
 
 
-def compute_author_influx(args: argparse.Namespace) -> Tuple[Dict[str, object], List[Path]]:
-    entries: List[Dict[str, object]] = []
-    seen_authors: Set[str] = set()
-    cumulative_counts: List[int] = []
-    input_files: List[Path] = []  # Track input files for provenance
+def compute_author_influx(args: argparse.Namespace) -> tuple[dict[str, object], list[Path]]:
+    entries: list[dict[str, object]] = []
+    seen_authors: set[str] = set()
+    cumulative_counts: list[int] = []
+    input_files: list[Path] = []  # Track input files for provenance
 
     for idx, (quarter, path) in enumerate(iter_quarter_slices(args.slices_dir, args.pattern)):
         if args.limit is not None and idx >= args.limit:
@@ -88,7 +90,7 @@ def compute_author_influx(args: argparse.Namespace) -> Tuple[Dict[str, object], 
                 else:
                     raise
 
-        quarter_authors: Set[str] = set()
+        quarter_authors: set[str] = set()
         for raw in df[chosen_col].dropna():
             quarter_authors.update(normalize_author_ids(raw))
         total_authors = len(quarter_authors)
@@ -117,7 +119,7 @@ def compute_author_influx(args: argparse.Namespace) -> Tuple[Dict[str, object], 
     return payload, input_files
 
 
-def render_plot(payload: Dict[str, object], out_path: Path) -> None:
+def render_plot(payload: dict[str, object], out_path: Path) -> None:
     quarters = [row["quarter"] for row in payload["quarters"]]
     new_counts = [row["new_authors"] for row in payload["quarters"]]
     returning_counts = [row["returning_authors"] for row in payload["quarters"]]
@@ -164,8 +166,8 @@ def render_plot(payload: Dict[str, object], out_path: Path) -> None:
 
 
 def write_standardized_outputs(
-    payload: Dict[str, object],
-    input_files: List[Path],
+    payload: dict[str, object],
+    input_files: list[Path],
     args: argparse.Namespace,
 ) -> None:
     """
@@ -238,6 +240,9 @@ def write_standardized_outputs(
 
 def main() -> None:
     args = parse_args()
+    paths = resolve_script_paths(args, REPO_ROOT)
+    args.slices_dir = args.slices_dir or (paths.slices if paths else Path("data/current_ingest/slices"))
+    args.out_dir = args.out_dir or (paths.out / "metrics" if paths else Path("data/out/metrics"))
     ensure_dir(args.out_dir)
     payload, input_files = compute_author_influx(args)
 

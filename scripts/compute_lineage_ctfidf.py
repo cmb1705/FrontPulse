@@ -18,9 +18,8 @@ import math
 import re
 import sys
 import time
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,11 +27,12 @@ import yaml
 from tqdm import tqdm
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 # Import from Stage 2
-from scripts.extract_abstracts import AbstractExtractor
-
+from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 # Stopwords (same as Stage 2)
 STOPWORDS = {
@@ -147,7 +147,7 @@ class LineageTermExtractor:
             # Load lineage registry
             print("[1/6] Loading lineage registry...")
             start = time.time()
-            with open(registry_path, 'r') as f:
+            with open(registry_path) as f:
                 registry_by_quarter = json.load(f)
 
             # Invert to get {lineage_id: {quarter: {community_id: lineage_id}}}
@@ -176,7 +176,7 @@ class LineageTermExtractor:
         # Load research fronts (always needed)
         print("[2/6] Loading research front definitions...")
         start = time.time()
-        with open(front_config_path, 'r') as f:
+        with open(front_config_path) as f:
             self.fronts_config = yaml.safe_load(f)
         print(f"      Loaded {len(self.fronts_config)} research fronts in {time.time()-start:.3f}s")
 
@@ -189,7 +189,7 @@ class LineageTermExtractor:
         # Will store: {term: num_lineages_containing_term}
         self.term_document_frequency = Counter()
 
-    def load_lineage_papers_fast(self, lineage_id: int) -> List[str]:
+    def load_lineage_papers_fast(self, lineage_id: int) -> list[str]:
         """
         Load papers for a lineage using cached JSON partitions.
         Reuses optimization from Stage 2.
@@ -210,7 +210,7 @@ class LineageTermExtractor:
                 if not partition_path.exists():
                     continue
 
-                with open(partition_path, 'r') as f:
+                with open(partition_path) as f:
                     data = json.load(f)
 
                 # Invert to {community_id: [work_ids]}
@@ -238,7 +238,7 @@ class LineageTermExtractor:
 
         return unique_papers
 
-    def tokenize_and_filter(self, text: str) -> List[str]:
+    def tokenize_and_filter(self, text: str) -> list[str]:
         """
         Tokenize text and filter stopwords/short tokens.
 
@@ -275,7 +275,7 @@ class LineageTermExtractor:
 
         return filtered
 
-    def extract_lineage_terms(self, lineage_id: int) -> Dict[str, int]:
+    def extract_lineage_terms(self, lineage_id: int) -> dict[str, int]:
         """
         Extract term counts for a single lineage.
         Returns: {term: count}
@@ -295,7 +295,7 @@ class LineageTermExtractor:
 
         return dict(term_counts)
 
-    def compute_ctfidf_for_lineage(self, lineage_id: int, term_counts: Dict[str, int]) -> Dict[str, float]:
+    def compute_ctfidf_for_lineage(self, _lineage_id: int, term_counts: dict[str, int]) -> dict[str, float]:
         """
         Compute c-TF-IDF scores for terms in a lineage.
 
@@ -333,13 +333,13 @@ class LineageTermExtractor:
 
         # Pass 2: Compute document frequency
         print("\n[5/6] Computing term document frequencies...")
-        for lineage_id, term_counts in self.lineage_term_counts.items():
-            for term in term_counts.keys():
+        for _lineage_id, term_counts in self.lineage_term_counts.items():
+            for term in term_counts:
                 self.term_document_frequency[term] += 1
 
         print(f"      Found {len(self.term_document_frequency)} unique terms across all lineages")
 
-    def compute_ctfidf_scores(self) -> Dict[int, Dict[str, float]]:
+    def compute_ctfidf_scores(self) -> dict[int, dict[str, float]]:
         """
         Compute c-TF-IDF scores for all lineages.
         Returns: {lineage_id: {term: score}}
@@ -354,7 +354,7 @@ class LineageTermExtractor:
 
         return ctfidf_scores
 
-    def get_front_terms(self, front_name: str) -> Set[str]:
+    def get_front_terms(self, front_name: str) -> set[str]:
         """
         Extract all terms (canonical + aliases) for a research front.
         Returns set of lowercase terms.
@@ -377,8 +377,8 @@ class LineageTermExtractor:
 
     def compute_term_similarity(
         self,
-        lineage_terms: Dict[str, float],
-        front_terms: Set[str],
+        lineage_terms: dict[str, float],
+        front_terms: set[str],
         min_threshold: float = 0.01,
         top_k: int = 50
     ) -> float:
@@ -425,7 +425,7 @@ class LineageTermExtractor:
 
     def generate_outputs(
         self,
-        ctfidf_scores: Dict[int, Dict[str, float]],
+        ctfidf_scores: dict[int, dict[str, float]],
         top_n: int = 100,
         similarity_threshold: float = 0.01,
         output_dir_lineage: Path = Path("data/out/02_lineage_tracking"),
@@ -610,7 +610,7 @@ def run_phase3_validation(
     terms_df: pd.DataFrame,
     similarity_df: pd.DataFrame,
     validation_dir: Path = Path('data/out/06_validation/stage3')
-) -> Dict:
+) -> dict:
     """
     Run Stage 3 validation checks and generate outputs.
 
@@ -622,8 +622,6 @@ def run_phase3_validation(
         Dictionary with validation results
     """
     # Lazy imports to avoid overhead when validation disabled
-    import matplotlib.pyplot as plt
-    import seaborn as sns
 
     # Create output directory
     output_dir = Path(validation_dir)
@@ -657,7 +655,7 @@ def run_phase3_validation(
     return checks
 
 
-def _validate_stage3_integrity(terms_df: pd.DataFrame, similarity_df: pd.DataFrame) -> Dict:
+def _validate_stage3_integrity(terms_df: pd.DataFrame, similarity_df: pd.DataFrame) -> dict:
     """Run data integrity checks on Stage 3 outputs."""
     checks = {}
 
@@ -778,7 +776,7 @@ def _generate_phase3_top_terms_showcase(terms_df: pd.DataFrame, similarity_df: p
     ax.axis('off')
 
     y_pos = 0.95
-    for i, row in enumerate(showcase_data):
+    for _i, row in enumerate(showcase_data):
         # Lineage header
         header = f"{row['lineage']} -> {row['front']} (sim={row['similarity']:.3f})"
         ax.text(0.05, y_pos, header, fontsize=10, fontweight='bold',
@@ -835,7 +833,7 @@ def _generate_phase3_distributions(terms_df: pd.DataFrame, similarity_df: pd.Dat
     stats_text = f"Mean: {ctfidf_scores.mean():.2f}\nMedian: {np.median(ctfidf_scores):.2f}\nMax: {ctfidf_scores.max():.2f}"
     ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 2: Similarity score distribution
     ax = axes[0, 1]
@@ -858,7 +856,7 @@ def _generate_phase3_distributions(terms_df: pd.DataFrame, similarity_df: pd.Dat
     if len(nonzero_similarities) > 0:
         ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
                 fontsize=9, verticalalignment='top', horizontalalignment='right',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+                bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 3: Terms per lineage distribution
     ax = axes[1, 0]
@@ -872,7 +870,7 @@ def _generate_phase3_distributions(terms_df: pd.DataFrame, similarity_df: pd.Dat
     stats_text = f"Mean: {terms_per_lineage.mean():.1f}\nMedian: {terms_per_lineage.median():.1f}\nMax: {terms_per_lineage.max()}"
     ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 4: Matches per front distribution
     ax = axes[1, 1]
@@ -892,7 +890,7 @@ def _generate_phase3_distributions(terms_df: pd.DataFrame, similarity_df: pd.Dat
     plt.close()
 
 
-def _generate_phase3_report(checks: Dict, output_path: Path):
+def _generate_phase3_report(checks: dict, output_path: Path):
     """Generate markdown validation report."""
     report = []
     report.append("# Stage 3 Validation Report")
@@ -993,19 +991,19 @@ def main():
     parser.add_argument(
         '--registry',
         type=Path,
-        default=Path('data/out/02_lineage_tracking/lineage_registry.json'),
+        default=None,
         help='Path to lineage registry JSON'
     )
     parser.add_argument(
         '--partitions',
         type=Path,
-        default=Path('data/out/cache_cum/partitions_cum'),
+        default=None,
         help='Path to cached partition JSONs'
     )
     parser.add_argument(
         '--raw',
         type=Path,
-        default=Path('data/current_ingest/raw'),
+        default=None,
         help='Path to raw JSONL data'
     )
     parser.add_argument(
@@ -1041,11 +1039,22 @@ def main():
     parser.add_argument(
         '--output-root',
         type=Path,
-        default=Path('data/out'),
+        default=None,
         help='Base directory for outputs (default: data/out)'
     )
+    add_domain_args(parser)
 
     args = parser.parse_args()
+
+    paths = resolve_script_paths(args, REPO_ROOT)
+    if args.registry is None:
+        args.registry = paths.lineage_tracking / "lineage_registry.json" if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
+    if args.partitions is None:
+        args.partitions = paths.cache_cum / "partitions_cum" if paths else Path("data/out/cache_cum/partitions_cum")
+    if args.raw is None:
+        args.raw = paths.raw if paths else Path("data/current_ingest/raw")
+    if args.output_root is None:
+        args.output_root = paths.out if paths else Path("data/out")
 
     # Call the refactored function (standalone mode, store=None)
     run_ctfidf(
