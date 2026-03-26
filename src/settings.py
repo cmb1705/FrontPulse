@@ -1,6 +1,7 @@
 """Settings management for 2YP pipeline configuration."""
 from __future__ import annotations
 
+import contextlib
 import json
 import pathlib
 from typing import Any
@@ -55,46 +56,79 @@ def _flatten_yaml_settings(yaml_data: dict[str, Any]) -> dict[str, Any]:
     return flat
 
 
-def load_settings() -> dict[str, Any]:
-    """
-    Load settings from config/settings.yaml or .2yp_settings.json (legacy).
+def load_settings(
+    domain_settings_path: pathlib.Path | None = None,
+) -> dict[str, Any]:
+    """Load settings with optional per-domain state path.
 
     Priority:
-    1. config/settings.yaml (new explicit format)
-    2. .2yp_settings.json (legacy hidden file)
-    3. Defaults
+    1. Per-domain settings file (if provided and exists)
+    2. config/settings.yaml (shared defaults)
+    3. .2yp_settings.json (legacy hidden file)
+    4. Built-in defaults
+
+    When ``domain_settings_path`` is provided, it supplies the mutable
+    runtime state (e.g., ``last_ingested_date`` watermark) while shared
+    defaults still load from config/settings.yaml for base configuration.
+
+    Args:
+        domain_settings_path: Optional path to a per-domain JSON settings
+            file (e.g., ``data/psc/settings.json``).
 
     Returns:
-        Dictionary containing settings with defaults applied for missing keys
+        Dictionary containing settings with defaults applied for missing keys.
     """
-    # Try new YAML format first (preferred)
+    result = DEFAULTS.copy()
+
+    # Layer 1: shared YAML defaults
     if YAML_SETTINGS_PATH.exists():
         try:
             yaml_data = yaml.safe_load(YAML_SETTINGS_PATH.read_text())
             if yaml_data:
-                flat = _flatten_yaml_settings(yaml_data)
-                return {**DEFAULTS, **flat}
-        except Exception:
-            pass  # Fall through to legacy path
-
-    # Fall back to legacy JSON format
-    if LEGACY_JSON_PATH.exists():
-        try:
-            return {**DEFAULTS, **json.loads(LEGACY_JSON_PATH.read_text())}
+                result.update(_flatten_yaml_settings(yaml_data))
         except Exception:
             pass
 
-    return DEFAULTS.copy()
+    # Layer 2: legacy JSON (only if no YAML and no domain path)
+    if (
+        not YAML_SETTINGS_PATH.exists()
+        and domain_settings_path is None
+        and LEGACY_JSON_PATH.exists()
+    ):
+        with contextlib.suppress(Exception):
+            result.update(json.loads(LEGACY_JSON_PATH.read_text()))
+
+    # Layer 3: per-domain state overrides (highest priority for mutable state)
+    if domain_settings_path is not None and domain_settings_path.exists():
+        try:
+            domain_data = json.loads(domain_settings_path.read_text())
+            if domain_data:
+                result.update(domain_data)
+        except Exception:
+            pass
+
+    return result
 
 
-def save_settings(cfg: dict[str, Any]) -> None:
-    """
-    Save settings to .2yp_settings.json.
+def save_settings(
+    cfg: dict[str, Any],
+    domain_settings_path: pathlib.Path | None = None,
+) -> None:
+    """Save settings, optionally to a per-domain path.
+
+    When ``domain_settings_path`` is provided, mutable runtime state
+    (watermarks, last-used parameters) is written there instead of
+    the global ``.2yp_settings.json``.
 
     Args:
-        cfg: Settings dictionary to persist
+        cfg: Settings dictionary to persist.
+        domain_settings_path: Optional per-domain JSON path. When
+            provided, settings are saved here; otherwise the global
+            legacy path is used.
     """
-    SETTINGS_PATH.write_text(json.dumps(cfg, indent=2))
+    target = domain_settings_path if domain_settings_path else SETTINGS_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(cfg, indent=2))
 
 
 def redact_mailto(mailto: str | None) -> str | None:

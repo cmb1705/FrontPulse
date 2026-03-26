@@ -393,14 +393,17 @@ def rebuild_ingest_from_raw(raw_dir: pathlib.Path, manifest_arg: str | None) -> 
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--domain", default=None, choices=["psc", "crispr"],
-                    help="Research domain shortcut (psc or crispr). Overrides --config.")
+    ap.add_argument("--domain", default=None,
+                    help="Research domain (derives all data paths from convention)")
     ap.add_argument("--config", default=None, help="config/datasources.yaml (or use --domain)")
     ap.add_argument("--schema", required=True, help="config/schema.yaml")
     ap.add_argument("--slices", required=True, help="config/slices.yaml")
-    ap.add_argument("--outdir", required=True, help="output directory")
-    ap.add_argument("--ingest-dir", default="data/current_ingest", help="Directory for cached ingest data")
-    ap.add_argument("--graphs-dir", default="data/current_graphs", help="Directory for generated graph files")
+    ap.add_argument("--outdir", default=None,
+                    help="Output directory (derived from --domain if not set)")
+    ap.add_argument("--ingest-dir", default=None,
+                    help="Ingest directory (derived from --domain if not set)")
+    ap.add_argument("--graphs-dir", default=None,
+                    help="Graphs directory (derived from --domain if not set)")
     ap.add_argument("--raw-dir", default=None, help="Directory for raw OpenAlex snapshots (defaults to <ingest-dir>/raw)")
     ap.add_argument("--raw-basename", default="openalex_raw", help="Basename for raw NDJSON chunk files")
     ap.add_argument("--raw-chunk-size", type=int, default=2000, help="Max records per raw NDJSON chunk (<=0 keeps single file)")
@@ -458,8 +461,8 @@ def parse_args():
                     help=f"Minimum shared references required to add a coupling edge (default {_COUPLING_CFG.get('min_shared_refs', 5)})")
     ap.add_argument("--coupling-min-score", type=float, default=_COUPLING_CFG.get("min_coupling_score", 0.05),
                     help=f"Minimum normalized coupling score required to add an edge (default {_COUPLING_CFG.get('min_coupling_score', 0.05)})")
-    ap.add_argument("--coupling-cache-dir", type=pathlib.Path, default=pathlib.Path("data/out/cache_coupling"),
-                    help="Directory for caching bibliographic coupling intermediates")
+    ap.add_argument("--coupling-cache-dir", type=pathlib.Path, default=None,
+                    help="Coupling cache dir (derived from --domain if not set)")
     ap.add_argument("--clear-coupling-cache", action="store_true",
                     help="Clear coupling cache before building graphs")
     ap.add_argument("--coupling-workers", type=int, default=DEFAULT_PARALLEL_WORKERS,
@@ -658,7 +661,8 @@ def handle_settings_flow(args, logger: logging.Logger) -> dict[str, Any] | None:
     Returns:
         Settings dictionary with validated mailto, or None if validation fails
     """
-    settings = load_settings()
+    dsp = getattr(args, "_domain_settings_path", None)
+    settings = load_settings(domain_settings_path=dsp)
 
     # Support --interactive as alias for --configure (backward compatibility)
     configure_mode = args.configure or args.interactive
@@ -676,7 +680,7 @@ def handle_settings_flow(args, logger: logging.Logger) -> dict[str, Any] | None:
         settings["graph_mode"] = gm if gm in ("none", "annual", "delta", "both", "cumulative") else settings["graph_mode"]
         mailto_input = ask("Contact email for OpenAlex (mailto)", settings.get("mailto") or "")
         settings["mailto"] = mailto_input.strip() or None
-        save_settings(settings)
+        save_settings(settings, domain_settings_path=dsp)
         logger.info(f"Settings saved: {summary(settings)}")
     else:
         # Non-interactive mode: use saved settings or CLI args
@@ -697,7 +701,7 @@ def handle_settings_flow(args, logger: logging.Logger) -> dict[str, Any] | None:
     if mailto_effective:
         settings["mailto"] = mailto_effective
         if args.mailto:
-            save_settings(settings)
+            save_settings(settings, domain_settings_path=dsp)
 
     if api_key:
         settings["api_key"] = api_key
@@ -873,7 +877,8 @@ def run_ingest_phase(
             if pd.notna(max_date):
                 watermark = str(max_date)[:10]
                 settings["last_ingested_date"] = watermark
-                save_settings(settings)
+                _dsp = getattr(args, "_domain_settings_path", None)
+                save_settings(settings, domain_settings_path=_dsp)
                 logger.info("Updated ingestion watermark: %s", watermark)
 
         if raw_manifest_abs:
@@ -1351,6 +1356,8 @@ def run_community_detection(
         str(outdir),
         "--resume",
     ]
+    if args.domain:
+        cumulative_cmd.extend(["--domain", args.domain])
     try:
         log_section(logger, "Community Detection Phase: Cumulative")
         subprocess.check_call(cumulative_cmd)
@@ -1383,6 +1390,8 @@ def run_community_detection(
             "--align-deltas",
             "preceding",
         ]
+        if args.domain:
+            call.extend(["--domain", args.domain])
         try:
             log_section(logger, f"Community Detection Phase: {args.communities.title()}")
             subprocess.check_call(call)
@@ -1453,16 +1462,54 @@ def main():
     # Parse arguments and initialize output directory
     args = parse_args()
 
-    # Resolve --domain to --config if specified
+    # Resolve --domain to config and data paths
+    project_root = pathlib.Path(__file__).resolve().parent
+    domain_settings_path = None
+
     if args.domain is not None:
-        from src.domain_registry import resolve_domain_args
+        from src.domain_registry import DOMAIN_REGISTRY, resolve_domain_args, resolve_pipeline_paths
+        # Validate domain choice (argparse choices removed for dynamic registry)
+        if args.domain.lower() not in DOMAIN_REGISTRY:
+            available = ", ".join(sorted(DOMAIN_REGISTRY))
+            print(f"Error: unknown domain '{args.domain}'. Available: {available}")
+            sys.exit(1)
+
         args.config = resolve_domain_args(
-            args.domain, args.config,
-            project_root=pathlib.Path(__file__).resolve().parent,
+            args.domain, args.config, project_root=project_root,
         )
-    elif args.config is None:
+        domain_paths = resolve_pipeline_paths(
+            args.domain,
+            args.ingest_dir, args.graphs_dir, args.outdir,
+            str(args.coupling_cache_dir) if args.coupling_cache_dir else None,
+            project_root,
+        )
+        # Apply domain-derived paths where CLI args were not explicitly set
+        if args.ingest_dir is None:
+            args.ingest_dir = str(domain_paths.ingest)
+        if args.graphs_dir is None:
+            args.graphs_dir = str(domain_paths.graphs)
+        if args.outdir is None:
+            args.outdir = str(domain_paths.out)
+        if args.coupling_cache_dir is None:
+            args.coupling_cache_dir = domain_paths.cache_coupling
+        domain_settings_path = domain_paths.base / "settings.json"
+    elif args.config is None:  # noqa: SIM114
         print("Error: either --domain or --config must be specified.")
         sys.exit(1)
+
+    # Legacy fallbacks when --domain is not used and explicit paths omitted
+    if args.outdir is None:
+        print("Error: --outdir is required when --domain is not set.")
+        sys.exit(1)
+    if args.ingest_dir is None:
+        args.ingest_dir = "data/current_ingest"
+    if args.graphs_dir is None:
+        args.graphs_dir = "data/current_graphs"
+    if args.coupling_cache_dir is None:
+        args.coupling_cache_dir = pathlib.Path(args.outdir) / "cache_coupling"
+
+    # Attach domain settings path for handle_settings_flow
+    args._domain_settings_path = domain_settings_path
 
     outdir = pathlib.Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)

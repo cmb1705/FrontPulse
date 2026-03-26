@@ -19,15 +19,20 @@ Examples:
 """
 
 
-import argparse, json, sys, math
-from collections import Counter, defaultdict
-from itertools import count
-from pathlib import Path
-from typing import Dict, Iterable, Tuple, Optional, Any, List
+import argparse  # noqa: E402
+import json  # noqa: E402
+import math  # noqa: E402
+import sys  # noqa: E402
+from collections import Counter, defaultdict  # noqa: E402
+from collections.abc import Iterable  # noqa: E402
+from itertools import count  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Any  # noqa: E402
 
-import pandas as pd
-import numpy as np
-import networkx as nx
+import networkx as nx  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+
 try:
     import plotly.graph_objects as go  # type: ignore
 except Exception:
@@ -39,18 +44,17 @@ if str(REPO) not in sys.path:
 
 try:
     # project imports
-    from src.community import run_leiden, run_ecg, adaptive_cluster_bounds, compute_pia_flags
     from src.alignment import (
-        pagerank_core,
-        match_by_cores,
-        variation_of_information,
         label_map_from_partition,
+        match_by_cores,
+        pagerank_core,
+        variation_of_information,
     )
+    from src.community import adaptive_cluster_bounds, compute_pia_flags, run_ecg, run_leiden
 except ModuleNotFoundError as e:
     raise SystemExit("Cannot import src.*. Run from repo root.") from e
-from src.graph_lite import LiteGraph
-from src.trusted_io import load_trusted_pickle
-
+from src.graph_lite import LiteGraph  # noqa: E402
+from src.trusted_io import load_trusted_pickle  # noqa: E402
 
 # Module-level clustering dispatch. Defaults to Leiden; overridden by
 # --use-ecg flag in __main__ to use ECG ensemble clustering.
@@ -62,7 +66,7 @@ def _canonical_quarter(label: str) -> str:
     m = re.search(r"(\d{4}Q[1-4])", str(label))
     return m.group(1) if m else str(label)
 
-def _write_resolution_html(entries: List[Dict[str, Any]], out_path: Path) -> None:
+def _write_resolution_html(entries: list[dict[str, Any]], out_path: Path) -> None:
     if go is None:
         print("[Sweep] Plotly not available; skipping HTML visualization.")
         return
@@ -98,7 +102,7 @@ def _write_resolution_html(entries: List[Dict[str, Any]], out_path: Path) -> Non
     print(f"[Sweep] Saved {out_path}")
 
 
-def _quarter_sort_key(label: str) -> Tuple[int, int]:
+def _quarter_sort_key(label: str) -> tuple[int, int]:
     canon = _canonical_quarter(label)
     y = int(canon[:4]) if canon[:4].isdigit() else 0
     q = int(canon[-1]) if canon[-1].isdigit() else 0
@@ -123,7 +127,7 @@ def _unique_cids(part) -> list:
     return sorted(set(lm.values()))
 
 
-def _full_core_overlaps(cores_prev: Dict[int, set], cores_curr: Dict[int, set]) -> list[list[int]]:
+def _full_core_overlaps(cores_prev: dict[int, set], cores_curr: dict[int, set]) -> list[list[int]]:
     rows: list[list[int]] = []
     for a, Sa in cores_prev.items():
         la = len(Sa) or 1
@@ -163,8 +167,8 @@ def _events_from_overlaps(
     return int(splits), int(merges), events
 
 
-def _collect_cumulative_graph_paths(graphs_dir: Path) -> Dict[str, Dict[str, Path]]:
-    mapping: Dict[str, Dict[str, Path]] = {}
+def _collect_cumulative_graph_paths(graphs_dir: Path) -> dict[str, dict[str, Path]]:
+    mapping: dict[str, dict[str, Path]] = {}
     for path in graphs_dir.glob("citation_graph_cumulative_*.pkl"):
         q = _canonical_quarter(path.stem)
         mapping.setdefault(q, {})["pkl"] = path
@@ -175,7 +179,7 @@ def _collect_cumulative_graph_paths(graphs_dir: Path) -> Dict[str, Dict[str, Pat
 
 
 def _load_cumulative_graph(
-    paths: Dict[str, Path],
+    paths: dict[str, Path],
     *,
     include_publication_dates: bool,
     allow_external_pickle: bool = False,
@@ -220,13 +224,13 @@ def _load_cumulative_graph(
 
 
 
-def _vi_stats(part_curr: Dict[str, int], part_prev: Dict[str, int], node_subset: Optional[Iterable[str]] = None) -> tuple[Optional[float], Optional[float], int]:
+def _vi_stats(part_curr: dict[str, int], part_prev: dict[str, int], node_subset: Iterable[str] | None = None) -> tuple[float | None, float | None, int]:
     nodes_curr = set(part_curr.keys())
     nodes_prev = set(part_prev.keys())
     if node_subset is None:
         nodes = nodes_curr & nodes_prev
     else:
-        nodes = set(str(n) for n in node_subset) & nodes_curr & nodes_prev
+        nodes = {str(n) for n in node_subset} & nodes_curr & nodes_prev
     N = len(nodes)
     if N <= 1:
         return (None, None, N)
@@ -247,10 +251,11 @@ def _nodes_recent(G, q: str, years: int) -> set[str]:
     return out
 
 
-def _core_overlap_summary(matches, cores_prev: Dict[int, set[str]], cores_curr: Dict[int, set[str]], curr_map: Dict[int, int]) -> Dict[int, Optional[float]]:
-    summary: Dict[int, tuple[float, float]] = {}
+def _core_overlap_summary(matches, cores_prev: dict[int, set[str]], cores_curr: dict[int, set[str]], curr_map: dict[int, int]) -> dict[int, float | None]:
+    summary: dict[int, tuple[float, float]] = {}
     for prev_cid, curr_cid, ov in matches:
-        prev_cid = int(prev_cid); curr_cid = int(curr_cid)
+        prev_cid = int(prev_cid)
+        curr_cid = int(curr_cid)
         fid = curr_map.get(curr_cid)
         if fid is None:
             continue
@@ -267,11 +272,12 @@ def _core_overlap_summary(matches, cores_prev: Dict[int, set[str]], cores_curr: 
     return {int(fid): ((num / den) if den else None) for fid, (num, den) in summary.items()}
 
 
-def _label_change_rates(front_nodes: Dict[int, list[str]], part_prev: Dict[str, int], prev_front_map: Dict[int, int]) -> tuple[Dict[int, Optional[float]], Dict[int, int]]:
-    rates: Dict[int, Optional[float]] = {}
-    counts: Dict[int, int] = {}
+def _label_change_rates(front_nodes: dict[int, list[str]], part_prev: dict[str, int], prev_front_map: dict[int, int]) -> tuple[dict[int, float | None], dict[int, int]]:
+    rates: dict[int, float | None] = {}
+    counts: dict[int, int] = {}
     for fid, nodes in front_nodes.items():
-        total = 0; change = 0
+        total = 0
+        change = 0
         for n in nodes:
             prev_cid = part_prev.get(n)
             if prev_cid is None:
@@ -287,7 +293,7 @@ def _label_change_rates(front_nodes: Dict[int, list[str]], part_prev: Dict[str, 
     return rates, counts
 
 
-def _cluster_size_summary(sizes: List[int]) -> Dict[str, Optional[float]]:
+def _cluster_size_summary(sizes: list[int]) -> dict[str, float | None]:
     if not sizes:
         return {
             "min": 0,
@@ -325,8 +331,7 @@ def _quarter_end(q: str) -> pd.Timestamp:
         return p.to_timestamp(how="end")
 
 
-def _window_and_prune(G, q: str, window_quarters: Optional[int], prune_age_years: Optional[int], prune_min_in_deg: Optional[int]):
-    import networkx as nx  # type: ignore
+def _window_and_prune(G, q: str, window_quarters: int | None, prune_age_years: int | None, prune_min_in_deg: int | None):
     H = G
     if window_quarters and window_quarters > 0:
         end = _quarter_end(q)
@@ -345,10 +350,7 @@ def _window_and_prune(G, q: str, window_quarters: Optional[int], prune_age_years
         for n, d in H.nodes(data=True):
             dt = _parse_ts(d.get("publication_date"))
             if pd.notna(dt) and dt < age_cut and threshold is not None:
-                if H.is_directed():
-                    in_deg = H.in_degree(n)
-                else:
-                    in_deg = H.degree(n)
+                in_deg = H.in_degree(n) if H.is_directed() else H.degree(n)
                 if in_deg <= threshold:
                     drop.append(n)
         if drop:
@@ -368,22 +370,22 @@ def run_cumulative(
     max_fraction: float,
     max_floor: int,
     max_ceiling: int,
-    min_fraction: Optional[float] = None,
-    max_floor_fraction: Optional[float] = None,
-    max_ceiling_fraction: Optional[float] = None,
+    min_fraction: float | None = None,
+    max_floor_fraction: float | None = None,
+    max_ceiling_fraction: float | None = None,
     min_absolute_floor: int = 10,
     max_absolute_ceiling: int = 15000,
     avg_degree_threshold: float = 15.0,
     core_frac: float,
     overlap_min: int,
     overlap_frac: float,
-    window_quarters: Optional[int],
-    prune_age_years: Optional[int],
-    prune_min_in_deg: Optional[int] = 0,
-    cache_dir: Optional[Path],
+    window_quarters: int | None,
+    prune_age_years: int | None,
+    prune_min_in_deg: int | None = 0,
+    cache_dir: Path | None,
     resume: bool,
     force: bool,
-    limit_quarters: Optional[int],
+    limit_quarters: int | None,
     write_outputs: bool = True,
     allow_external_pickle: bool = False,
 ) -> dict:
@@ -408,12 +410,12 @@ def run_cumulative(
         return {"delta": []}
 
     results = {"delta": []}
-    registry: Dict[str, Dict[int, int]] = {}
-    states: Dict[str, Dict[str, object]] = {}
-    ts_rows: List[Dict[str, Any]] = []
-    lineage_metrics_rows: List[Dict[str, Any]] = []
+    registry: dict[str, dict[int, int]] = {}
+    states: dict[str, dict[str, object]] = {}
+    ts_rows: list[dict[str, Any]] = []
+    lineage_metrics_rows: list[dict[str, Any]] = []
     next_id = count(start=1)
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "resolution": resolution,
         "quarters": [],
         "cluster_stats_by_quarter": {},
@@ -502,8 +504,8 @@ def run_cumulative(
         cores_fp = cache_cores / f"cores_{q}.json" if cache_cores else None
         part_map = None
         cores_q = None
-        raw_n_communities: Optional[int] = None
-        modularity_val: Optional[float] = None
+        raw_n_communities: int | None = None
+        modularity_val: float | None = None
         if resume and part_fp and part_fp.exists() and not force:
             data = json.loads(part_fp.read_text())
             part_map = {str(k): int(v) for k, v in (data.get("labels") or {}).items()}
@@ -579,7 +581,7 @@ def run_cumulative(
         if modularity_val is None:
             try:
                 import networkx as nx  # type: ignore
-                communities_sets: Dict[int, list[str]] = defaultdict(list)
+                communities_sets: dict[int, list[str]] = defaultdict(list)
                 for node, cid in part_map.items():
                     communities_sets[int(cid)].append(node)
                 community_partition = [set(nodes) for nodes in communities_sets.values() if nodes]
@@ -663,9 +665,9 @@ def run_cumulative(
                 cache_payload["modularity"] = float(modularity_val)
             part_fp.write_text(json.dumps(cache_payload, indent=2))
         if cores_fp and (force or not cores_fp.exists()):
-            cores_fp.write_text(json.dumps({int(k): sorted(list(v)) for k, v in cores_q.items()}, indent=2))
+            cores_fp.write_text(json.dumps({int(k): sorted(v) for k, v in cores_q.items()}, indent=2))
 
-        curr_map: Dict[int, int] = {}
+        curr_map: dict[int, int] = {}
         alignment = {"matches": [], "overlaps": [], "VI": None, "splits": 0, "merges": 0, "events": []}
         matches_qoq = []
         if state_qoq:
@@ -684,11 +686,12 @@ def run_cumulative(
             }
             prev_front_map = state_qoq["front_map"]  # type: ignore[index]
             for a_prev, b_curr, _ov in matches_qoq:
-                a_prev = int(a_prev); b_curr = int(b_curr)
+                a_prev = int(a_prev)
+                b_curr = int(b_curr)
                 prev_front = prev_front_map.get(a_prev)
                 if prev_front is not None and b_curr not in curr_map:
                     curr_map[b_curr] = prev_front
-        method_alerts: List[str] = []
+        method_alerts: list[str] = []
         if modularity_val is not None and modularity_val < 0.25:
             method_alerts.append("modularity_below_0.25")
         if avg_degree < 12.0:
@@ -725,16 +728,20 @@ def run_cumulative(
 
         registry[q] = {int(k): int(v) for k, v in curr_map.items()}
 
-        front_nodes: Dict[int, List[str]] = defaultdict(list)
+        front_nodes: dict[int, list[str]] = defaultdict(list)
         for node, cid in part_map.items():
             fid = curr_map.get(int(cid))
             if fid is not None:
                 front_nodes[int(fid)].append(node)
 
-        vi_qoq = nvi_qoq = None; N_qoq = 0
-        vi_qoq_2y = nvi_qoq_2y = None; N_qoq_2y = 0
-        vi_yoy = nvi_yoy = None; N_yoy = 0
-        vi_q20 = nvi_q20 = None; N_q20 = 0
+        vi_qoq = nvi_qoq = None
+        N_qoq = 0
+        vi_qoq_2y = nvi_qoq_2y = None
+        N_qoq_2y = 0
+        vi_yoy = nvi_yoy = None
+        N_yoy = 0
+        vi_q20 = nvi_q20 = None
+        N_q20 = 0
         if state_qoq:
             vi_qoq, nvi_qoq, N_qoq = _vi_stats(part_map, state_qoq["part_map"])  # type: ignore[index]
             nodes_2y = _nodes_recent(Gq, q, 2)
@@ -786,10 +793,10 @@ def run_cumulative(
 
         overlap_qoq = {}
         overlap_yoy = {}
-        label_rate_qoq: Dict[int, Optional[float]] = {}
-        label_rate_yoy: Dict[int, Optional[float]] = {}
-        count_qoq: Dict[int, int] = {}
-        count_yoy: Dict[int, int] = {}
+        label_rate_qoq: dict[int, float | None] = {}
+        label_rate_yoy: dict[int, float | None] = {}
+        count_qoq: dict[int, int] = {}
+        count_yoy: dict[int, int] = {}
         if state_qoq:
             overlap_qoq = _core_overlap_summary(matches_qoq, state_qoq["cores"], cores_q, curr_map)  # type: ignore[index]
             label_rate_qoq, count_qoq = _label_change_rates(front_nodes, state_qoq["part_map"], prev_front_map_qoq)  # type: ignore[index]
@@ -811,14 +818,14 @@ def run_cumulative(
             "pia_count": entry["pia_count"],
             "pia_rate": entry["pia_rate"],
         }
-        front_pia_raw: Dict[int, Dict[str, int]] = defaultdict(lambda: {"eligible": 0, "pia": 0})
+        front_pia_raw: dict[int, dict[str, int]] = defaultdict(lambda: {"eligible": 0, "pia": 0})
         for cid, stats in pia_cluster_stats.items():
             fid = curr_map.get(int(cid))
             if fid is None:
                 continue
             front_pia_raw[int(fid)]["eligible"] += int(stats.get("eligible", 0) or 0)
             front_pia_raw[int(fid)]["pia"] += int(stats.get("pia", 0) or 0)
-        front_pia_metrics: Dict[int, Dict[str, Optional[float]]] = {}
+        front_pia_metrics: dict[int, dict[str, float | None]] = {}
         for fid, stats in front_pia_raw.items():
             eligible = int(stats.get("eligible", 0) or 0)
             pia = int(stats.get("pia", 0) or 0)
@@ -829,7 +836,7 @@ def run_cumulative(
                 "pia_rate": rate,
             }
 
-        for fid, nodes in front_nodes.items():
+        for fid, _nodes in front_nodes.items():
             lineage_metrics_rows.append({
                 "lineage_id": int(fid),
                 "quarter": q,
@@ -878,7 +885,7 @@ def run_cumulative(
         del Gfull
         del Gq
 
-    def _set_summary_stats(key: str, values: List[float]) -> None:
+    def _set_summary_stats(key: str, values: list[float]) -> None:
         arr = [float(v) for v in values if v is not None]
         summary[f"{key}_mean"] = float(np.mean(arr)) if arr else None
         summary[f"{key}_median"] = float(np.median(arr)) if arr else None
@@ -1414,8 +1421,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["cumulative", "annual", "delta", "both", "all"], default="cumulative",
                     help="Select which community pipelines to run (default cumulative).")
-    ap.add_argument("--graphs-dir", type=Path, default=Path("data/current_graphs"))
-    ap.add_argument("--out-dir", type=Path, default=Path("data/out"))
+    from src.domain_registry import add_domain_args, resolve_script_paths
+    add_domain_args(ap)
+    ap.add_argument("--graphs-dir", type=Path, default=None)
+    ap.add_argument("--out-dir", type=Path, default=None)
     ap.add_argument("--res", type=float, default=0.001, help="Resolution for cumulative runs")
     ap.add_argument("--annual-res", type=float, default=0.001, help="Resolution for annual graphs")
     ap.add_argument("--delta-res", type=float, default=0.001, help="Resolution for quarterly graphs")
@@ -1449,7 +1458,7 @@ def main():
     ap.add_argument("--window-quarters", type=int, default=None)
     ap.add_argument("--prune-age-years", type=int, default=None)
     ap.add_argument("--prune-min-in-degree", type=int, default=0)
-    ap.add_argument("--cache-dir", type=Path, default=Path("data/out/cache_cum"))
+    ap.add_argument("--cache-dir", type=Path, default=None)
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--limit-quarters", type=int, default=None)
@@ -1481,21 +1490,30 @@ def main():
     )
     args = ap.parse_args()
 
+    # Resolve domain-derived paths with legacy fallbacks
+    paths = resolve_script_paths(args, REPO)
+    if args.graphs_dir is None:
+        args.graphs_dir = paths.graphs if paths else Path("data/current_graphs")
+    if args.out_dir is None:
+        args.out_dir = paths.out if paths else Path("data/out")
+    if args.cache_dir is None:
+        args.cache_dir = paths.cache_cum if paths else Path("data/out/cache_cum")
+
     try:
         import igraph  # noqa: F401
         import leidenalg  # noqa: F401
-    except Exception:
-        raise SystemExit("Leiden requires: python-igraph + leidenalg installed.")
+    except Exception as exc:
+        raise SystemExit("Leiden requires: python-igraph + leidenalg installed.") from exc
 
     if args.use_ecg:
         try:
             import partition_igraph  # noqa: F401
-        except ImportError:
+        except ImportError as exc:
             raise SystemExit(
                 "ECG requires: partition-igraph installed. "
                 "Install: pip install partition-igraph>=0.0.7"
-            )
-        print("[ECG] Using ensemble clustering (ens_size=%d)" % args.ecg_ens_size)
+            ) from exc
+        print(f"[ECG] Using ensemble clustering (ens_size={args.ecg_ens_size})")
 
     if args.use_ecg:
         _ecg_ens = args.ecg_ens_size
@@ -1522,17 +1540,16 @@ def main():
     modes = mode_map.get(args.mode, ["cumulative"])
 
     # Cumulative run (with optional resolution sweep)
-    cumulative_summary = None
     if "cumulative" in modes:
-        sweep_values: List[float] = []
+        sweep_values: list[float] = []
         if args.res_sweep:
             try:
                 sweep_values = [float(val.strip()) for val in args.res_sweep.split(",") if val.strip()]
-            except ValueError:
-                raise SystemExit(f"Invalid --res-sweep values: {args.res_sweep}")
+            except ValueError as exc:
+                raise SystemExit(f"Invalid --res-sweep values: {args.res_sweep}") from exc
         if sweep_values:
             print(f"[Sweep] Evaluating cumulative resolutions: {sweep_values}")
-            sweep_summaries: List[Dict[str, Any]] = []
+            sweep_summaries: list[dict[str, Any]] = []
             for res_val in sweep_values:
                 sweep_result = run_cumulative(
                     graphs_dir=args.graphs_dir,
@@ -1588,7 +1605,7 @@ def main():
             if args.res_sweep_only:
                 return
 
-        cumulative_summary = run_cumulative(
+        run_cumulative(
             graphs_dir=args.graphs_dir,
             out_dir=out_dir,
             resolution=args.res,
