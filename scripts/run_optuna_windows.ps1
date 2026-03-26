@@ -1,3 +1,6 @@
+# NOTE: Archival wrapper -- uses hardcoded PSC paths under data/out/.
+# Not domain-aware. For domain-isolated runs, invoke optuna_msd_search.py
+# directly with --domain <domain_id>.
 $windows = @(
     @{lagMin=8; lagMax='none'; study='msd_meta_tuning_cat_lag8inf'},
     @{lagMin=6; lagMax='12';  study='msd_meta_tuning_cat_lag6_12'},

@@ -698,3 +698,67 @@ class TestDomainPathResolutionModes:
         args = Namespace(domain=None)
         result = resolve_script_paths(args, PROJECT_ROOT)
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Domain-porting regression guard (FP-5rj.1)
+# ---------------------------------------------------------------------------
+
+
+def test_no_new_unported_scripts_use_shared_paths() -> None:
+    """New scripts referencing data/current_* must be domain-ported.
+
+    Archival scripts (from a94fd1b) are exempt. This test catches
+    regressions where a NEW script is added with hardcoded shared paths.
+    """
+    import subprocess
+
+    shared_patterns = ["data/current_ingest", "data/current_graphs"]
+    # migrate_domain_layout.py references shared paths by design (it moves them)
+    exempt = {"scripts/migrate_domain_layout.py"}
+
+    # Get list of files modified after a94fd1b (the initial public release)
+    result = subprocess.run(
+        ["git", "log", "--diff-filter=A", "--name-only", "--pretty=format:",
+         "a94fd1b..HEAD", "--", "scripts/*.py"],
+        capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+    )
+    new_scripts = {
+        line.strip() for line in result.stdout.splitlines()
+        if line.strip() and line.strip().endswith(".py")
+    }
+
+    violations = []
+    for rel in new_scripts:
+        if rel in exempt:
+            continue
+        path = PROJECT_ROOT / rel
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8", errors="replace")
+        if "add_domain_args" in content:
+            continue  # Already ported
+        for pat in shared_patterns:
+            if pat in content:
+                violations.append(f"{rel} references '{pat}' without domain-porting")
+                break
+
+    assert not violations, (
+        "New scripts use shared paths without domain-porting:\n"
+        + "\n".join(f"  - {v}" for v in violations)
+    )
+
+
+def test_shell_wrappers_have_domain_notes() -> None:
+    """Shell/PowerShell wrappers must document their archival status."""
+    scripts_dir = PROJECT_ROOT / "scripts"
+    wrappers = list(scripts_dir.glob("*.sh")) + list(scripts_dir.glob("*.ps1"))
+    missing = []
+    for w in wrappers:
+        content = w.read_text(encoding="utf-8", errors="replace")
+        if "domain" not in content.lower():
+            missing.append(w.name)
+    assert not missing, (
+        "Shell wrappers missing domain-awareness note:\n"
+        + "\n".join(f"  - {m}" for m in missing)
+    )

@@ -1,3 +1,6 @@
+# NOTE: Archival wrapper -- uses hardcoded PSC paths under data/out/.
+# Not domain-aware. For domain-isolated runs, invoke multi_signal_detector.py
+# directly with --domain <domain_id>.
 python scripts/multi_signal_detector.py \
     --labels data/out/02_lineage_tracking/inflection_labels.csv \
     --multisignal data/out/02_lineage_tracking/lineage_multisignal_features.csv \

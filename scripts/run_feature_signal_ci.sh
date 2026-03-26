@@ -3,6 +3,10 @@ set -euo pipefail
 
 # Lightweight CI hook for feature-signal diagnostics + subset evaluation.
 # Runs small-sample smoke tests to ensure the tooling executes end-to-end.
+#
+# NOTE: Archival wrapper -- uses hardcoded PSC paths under data/out/.
+# Not domain-aware. For domain-isolated runs, invoke the underlying
+# scripts directly with --domain <domain_id>.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
