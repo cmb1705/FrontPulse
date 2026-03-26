@@ -21,6 +21,7 @@ hyperparameters:
   persistence_window: 2
 
 artifacts:
+  # Legacy PSC defaults; overridden by --domain at runtime
   output_dir: data/out/experiments/time_forward_holdout_2020
   best_config_source: data/out/experiments/msd_meta_tuning_field/best_config.json
 
@@ -29,4 +30,4 @@ metadata:
   maintainer: analytics@perovskite.work
   notes:
     - Mirrors TIME_FORWARD_HOLDOUT_PLAN.md Phase 1 target.
-    - Use --labels data/out/02_lineage_tracking/inflection_labels.csv.
+    - Use --labels data/out/02_lineage_tracking/inflection_labels.csv (PSC; use --domain for other domains).

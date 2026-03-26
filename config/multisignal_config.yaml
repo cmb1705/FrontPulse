@@ -41,7 +41,7 @@ metrics:
 
   cross_cluster_bridging:
     enabled: true
-    graphs_dir: "data/out/graphs"
+    graphs_dir: "data/out/graphs"  # Legacy PSC default; overridden by --domain at runtime
     resolution: 1.0
     min_size: 10
     max_size: 5000
@@ -220,12 +220,12 @@ pipeline:
     parallel_execution: false  # Run metrics sequentially
     validate_outputs: true
 
-  # Caching
+  # Caching (legacy PSC default; overridden by --domain at runtime)
   cache:
     abstract_cache_dir: "data/out/cache_lineage"
     enable_abstract_cache: true
 
-  # Output paths
+  # Output paths (legacy PSC defaults; overridden by --domain at runtime)
   paths:
     metrics_dir: "data/out/metrics"
     slices_dir: "data/current_ingest/slices"

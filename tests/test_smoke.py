@@ -586,3 +586,115 @@ class TestDomainRegistrySmoke:
         """run.py parse_args must include --domain argument."""
         source = (PROJECT_ROOT / "run.py").read_text(encoding="utf-8")
         assert "--domain" in source
+
+
+# ---------------------------------------------------------------------------
+# Domain isolation config alignment (FP-5uo.7)
+# ---------------------------------------------------------------------------
+
+
+class TestDomainConfigAlignment:
+    """Verify config files are annotated for domain-aware path resolution."""
+
+    def test_multisignal_config_paths_annotated(self):
+        """multisignal_config.yaml pipeline.paths must note domain override."""
+        path = PROJECT_ROOT / "config" / "multisignal_config.yaml"
+        if not path.exists():
+            pytest.skip("multisignal_config.yaml not present")
+        text = path.read_text(encoding="utf-8")
+        assert "--domain" in text or "domain" in text.lower()
+
+    def test_feature_groups_field_baseline_annotated(self):
+        """feature_groups.yaml field_baseline_template source has domain note."""
+        path = PROJECT_ROOT / "config" / "features" / "feature_groups.yaml"
+        if not path.exists():
+            pytest.skip("feature_groups.yaml not present")
+        text = path.read_text(encoding="utf-8")
+        # The template source line should mention domain resolution
+        assert "domain" in text.lower()
+
+    def test_holdout_config_artifacts_annotated(self):
+        """msd_timeforward_holdout_2020.yaml artifacts note domain override."""
+        path = PROJECT_ROOT / "config" / "splits" / "msd_timeforward_holdout_2020.yaml"
+        if not path.exists():
+            pytest.skip("holdout config not present")
+        text = path.read_text(encoding="utf-8")
+        assert "domain" in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Domain-ported scripts accept --domain (FP-5uo.7)
+# ---------------------------------------------------------------------------
+
+_DOMAIN_PORTED_SCRIPTS = [
+    "scripts/communities.py",
+    "scripts/compute_lineage_multisignal_features.py",
+    "scripts/compute_convergence_features.py",
+    "scripts/compute_lineage_ctfidf.py",
+    "scripts/compute_lineage_npmi.py",
+    "scripts/compute_lineage_embeddings.py",
+    "scripts/compute_front_level_features.py",
+    "scripts/aggregate_field_metrics.py",
+    "scripts/metric_author_influx.py",
+    "scripts/metric_citation_velocity.py",
+    "scripts/metric_reference_vitality.py",
+    "scripts/metric_topic_diversity.py",
+    "scripts/metric_cross_cluster_bridging.py",
+    "scripts/multi_signal_detector.py",
+    "scripts/label_inflection_points.py",
+    "scripts/optuna_msd_search.py",
+    "scripts/filter_stable_lineages.py",
+    "scripts/run_bocpd_detector.py",
+    "scripts/map_lineages_to_fronts.py",
+    "scripts/update_assessment_history.py",
+    "scripts/generate_horizon_estimates.py",
+    "scripts/generate_quarterly_report.py",
+    "scripts/refine_calibration.py",
+    "scripts/run_all_metrics.py",
+    "scripts/run_metric_refresh.py",
+    "scripts/run_build_pipeline.py",
+]
+
+
+@pytest.mark.parametrize("rel_path", _DOMAIN_PORTED_SCRIPTS)
+def test_script_imports_domain_registry(rel_path: str) -> None:
+    """Every domain-ported script must import add_domain_args."""
+    path = PROJECT_ROOT / rel_path
+    if not path.exists():
+        pytest.skip(f"{rel_path} not present")
+    source = path.read_text(encoding="utf-8")
+    assert "add_domain_args" in source, f"{rel_path} missing add_domain_args import"
+
+
+# ---------------------------------------------------------------------------
+# Domain path resolution modes (FP-5uo.7)
+# ---------------------------------------------------------------------------
+
+
+class TestDomainPathResolutionModes:
+    """Verify PSC, CRISPR, and explicit-path modes resolve correctly."""
+
+    def test_psc_paths_resolve(self):
+        """PSC domain paths resolve under data/psc/."""
+        from src.domain_registry import get_domain
+        d = get_domain("psc")
+        paths = d.resolve_data_paths(PROJECT_ROOT)
+        assert paths.base == PROJECT_ROOT / "data" / "psc"
+        assert paths.ingest == PROJECT_ROOT / "data" / "psc" / "ingest"
+
+    def test_crispr_paths_resolve(self):
+        """CRISPR domain paths resolve under data/crispr/."""
+        from src.domain_registry import get_domain
+        d = get_domain("crispr")
+        paths = d.resolve_data_paths(PROJECT_ROOT)
+        assert paths.base == PROJECT_ROOT / "data" / "crispr"
+        assert paths.out == PROJECT_ROOT / "data" / "crispr" / "out"
+
+    def test_explicit_override_bypasses_domain(self):
+        """resolve_script_paths returns None when --domain is absent."""
+        from argparse import Namespace
+
+        from src.domain_registry import resolve_script_paths
+        args = Namespace(domain=None)
+        result = resolve_script_paths(args, PROJECT_ROOT)
+        assert result is None

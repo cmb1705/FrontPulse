@@ -139,7 +139,7 @@ def find_lineage_for_paper(
 def build_anchor_map_phase1(
     milestone_csv: Path,
     lineage_registry_json: Path,
-    _graphs_dir: Path,
+    graphs_dir: Path,  # noqa: ARG001
     verbose: bool = True
 ) -> dict[str, set[int]]:
     """

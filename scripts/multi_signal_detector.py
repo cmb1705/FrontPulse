@@ -248,7 +248,7 @@ def load_and_merge_signals(
     multisignal_features_path: Path,
     lineage_timeseries_path: Path,
     labels_path: Path | None = None,
-    _n_samples: int = None,
+    n_samples: int = None,  # noqa: ARG001
 ) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame]:
     """
     Load and merge all signal sources into unified feature matrix.
@@ -1188,7 +1188,7 @@ def generate_predictions(
     df: pd.DataFrame,
     X: pd.DataFrame,
     pipeline,
-    _feature_names: list[str],
+    feature_names: list[str],  # noqa: ARG001
     output_dir: Path,
     threshold: float = 0.70,
     persistence_window: int = 2,
@@ -1494,6 +1494,7 @@ def main():
         multisignal_path,
         timeseries_path,
         labels_path=labels_path,
+        n_samples=None,  # Always load full dataset for proper labeling
     )
 
     # Step 2: Construct labels

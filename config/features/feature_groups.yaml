@@ -14,7 +14,7 @@ templates:
     caveats:
       - "Requires --convergence-features CSV from compute_convergence_features.py."
   field_baseline_template: &field_baseline_template
-    source: data/out/04_front_aggregation/field_metrics.csv
+    source: data/out/04_front_aggregation/field_metrics.csv  # PSC example; actual path resolved by --domain
     units: varies
     causal_window: "quarterly aggregate"
     caveats:
