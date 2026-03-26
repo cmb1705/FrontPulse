@@ -34,14 +34,6 @@ def _create_legacy_tree(root: Path) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Import the migration module (uses sys.path setup)
-# ---------------------------------------------------------------------------
-
-import sys  # noqa: E402
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from scripts.migrate_domain_layout import (  # noqa: E402
     COMPAT_LINKS,
     MOVES,

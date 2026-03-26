@@ -1,13 +1,10 @@
-import yaml
 from pathlib import Path
-from typing import Any, Dict
-import sys
+from typing import Any
+
+import yaml
+from utils.feature_registry import FeatureRegistry
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.append(str(PROJECT_ROOT / "scripts"))
-
-from utils.feature_registry import FeatureRegistry  # noqa: E402
-
 
 SUBSET_CONFIG = PROJECT_ROOT / "config" / "features" / "feature_subset_configs.yaml"
 FEATURE_CONFIG = PROJECT_ROOT / "config" / "features" / "feature_groups.yaml"
@@ -19,7 +16,7 @@ def load_subset_configs():
     return data.get("configs", {})
 
 
-def subset_kwargs(definition: Dict[str, Any]) -> Dict[str, Any]:
+def subset_kwargs(definition: dict[str, Any]) -> dict[str, Any]:
     keys = [
         "include_groups",
         "include_columns",

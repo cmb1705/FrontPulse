@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,12 +17,6 @@ import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-# Ensure scripts/ is importable for CLI tests
-if str(PROJECT_ROOT / "scripts") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # ---------------------------------------------------------------------------
@@ -664,6 +659,29 @@ def test_script_imports_domain_registry(rel_path: str) -> None:
         pytest.skip(f"{rel_path} not present")
     source = path.read_text(encoding="utf-8")
     assert "add_domain_args" in source, f"{rel_path} missing add_domain_args import"
+
+
+@pytest.mark.parametrize(
+    "rel_path",
+    [
+        "scripts/run_all_metrics.py",
+        "scripts/run_metric_refresh.py",
+        "scripts/run_build_pipeline.py",
+    ],
+)
+def test_cli_entrypoint_import_bootstrap(rel_path: str) -> None:
+    """Key CLI entrypoints must run ``--help`` without local path hacks."""
+    path = PROJECT_ROOT / rel_path
+    if not path.exists():
+        pytest.skip(f"{rel_path} not present")
+
+    result = subprocess.run(
+        [sys.executable, str(path), "--help"],
+        capture_output=True,
+        text=True,
+        cwd=str(PROJECT_ROOT),
+    )
+    assert result.returncode == 0, result.stderr
 
 
 # ---------------------------------------------------------------------------

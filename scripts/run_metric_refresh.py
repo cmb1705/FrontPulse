@@ -21,13 +21,13 @@ import sys
 import time
 from pathlib import Path
 
+from _path_bootstrap import ensure_repo_imports
+
 # Windows-safe symbols
 CHECK = "[OK]"
 CROSS = "[FAIL]"
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 from src.metrics.common import verify_manifest_entry  # noqa: E402

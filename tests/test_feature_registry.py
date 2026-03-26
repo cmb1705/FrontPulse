@@ -1,12 +1,9 @@
-import pytest
 from pathlib import Path
-import sys
+
+import pytest
+from utils.feature_registry import FeatureRegistry
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.append(str(PROJECT_ROOT / "scripts"))
-
-from utils.feature_registry import FeatureRegistry  # noqa: E402
-
 
 FEATURE_CONFIG = PROJECT_ROOT / "config" / "features" / "feature_groups.yaml"
 

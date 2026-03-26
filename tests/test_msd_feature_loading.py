@@ -1,11 +1,7 @@
+from __future__ import annotations
+
 import pandas as pd
-from pathlib import Path
-import sys
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.append(str(PROJECT_ROOT / "scripts"))
-
-from multi_signal_detector import select_features  # noqa: E402
+from multi_signal_detector import select_features
 
 
 def test_select_features_accepts_curated_list():

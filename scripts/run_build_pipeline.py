@@ -53,9 +53,9 @@ import sys
 import time
 from pathlib import Path
 
-# Add repo root to path
-repo_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(repo_root))
+from _path_bootstrap import ensure_repo_imports
+
+repo_root = ensure_repo_imports()
 
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 from src.lineage_text_store import LineageTextStore  # noqa: E402
