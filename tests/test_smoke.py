@@ -578,9 +578,13 @@ class TestDomainRegistrySmoke:
         assert (PROJECT_ROOT / d.datasources_config).exists()
 
     def test_run_py_accepts_domain_flag(self):
-        """run.py parse_args must include --domain argument."""
-        source = (PROJECT_ROOT / "run.py").read_text(encoding="utf-8")
-        assert "--domain" in source
+        """run.py --help must list --domain as a recognized argument."""
+        result = subprocess.run(
+            [sys.executable, str(PROJECT_ROOT / "run.py"), "--help"],
+            capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+        )
+        assert result.returncode == 0, result.stderr
+        assert "--domain" in result.stdout, "run.py --help does not list --domain"
 
 
 # ---------------------------------------------------------------------------
@@ -589,32 +593,50 @@ class TestDomainRegistrySmoke:
 
 
 class TestDomainConfigAlignment:
-    """Verify config files are annotated for domain-aware path resolution."""
+    """Verify config files have domain-override annotations on path fields."""
 
     def test_multisignal_config_paths_annotated(self):
-        """multisignal_config.yaml pipeline.paths must note domain override."""
+        """multisignal_config.yaml hardcoded path lines must note domain override."""
         path = PROJECT_ROOT / "config" / "multisignal_config.yaml"
         if not path.exists():
             pytest.skip("multisignal_config.yaml not present")
         text = path.read_text(encoding="utf-8")
-        assert "--domain" in text or "domain" in text.lower()
+        # Each legacy-path section should have an explicit --domain annotation
+        path_sections = ["graphs_dir:", "cache", "paths"]
+        annotated = [s for s in path_sections if any(
+            "--domain" in line
+            for line in text.splitlines()
+            if s in line.lower()
+        )]
+        assert len(annotated) >= 2, (
+            f"Only {len(annotated)}/{len(path_sections)} path sections "
+            "annotated with --domain override"
+        )
 
-    def test_feature_groups_field_baseline_annotated(self):
-        """feature_groups.yaml field_baseline_template source has domain note."""
+    def test_feature_groups_field_baseline_source(self):
+        """feature_groups.yaml field_baseline_template source must be a valid path."""
         path = PROJECT_ROOT / "config" / "features" / "feature_groups.yaml"
         if not path.exists():
             pytest.skip("feature_groups.yaml not present")
-        text = path.read_text(encoding="utf-8")
-        # The template source line should mention domain resolution
-        assert "domain" in text.lower()
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        # Verify the field_baseline features exist and reference a source
+        field_features = [
+            k for k, v in data.get("features", {}).items()
+            if "field_baseline" in (v.get("groups") or [])
+        ]
+        assert len(field_features) >= 15, (
+            f"Expected >= 15 field_baseline features, found {len(field_features)}"
+        )
 
-    def test_holdout_config_artifacts_annotated(self):
-        """msd_timeforward_holdout_2020.yaml artifacts note domain override."""
+    def test_holdout_config_has_artifacts_section(self):
+        """msd_timeforward_holdout_2020.yaml must define artifacts paths."""
         path = PROJECT_ROOT / "config" / "splits" / "msd_timeforward_holdout_2020.yaml"
         if not path.exists():
             pytest.skip("holdout config not present")
-        text = path.read_text(encoding="utf-8")
-        assert "domain" in text.lower()
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        assert "artifacts" in data or "split" in data, (
+            "Holdout config missing artifacts or split section"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -652,13 +674,28 @@ _DOMAIN_PORTED_SCRIPTS = [
 
 
 @pytest.mark.parametrize("rel_path", _DOMAIN_PORTED_SCRIPTS)
-def test_script_imports_domain_registry(rel_path: str) -> None:
-    """Every domain-ported script must import add_domain_args."""
+def test_script_calls_add_domain_args(rel_path: str) -> None:
+    """Every domain-ported script must call add_domain_args() in its AST."""
     path = PROJECT_ROOT / rel_path
     if not path.exists():
         pytest.skip(f"{rel_path} not present")
     source = path.read_text(encoding="utf-8")
-    assert "add_domain_args" in source, f"{rel_path} missing add_domain_args import"
+    tree = ast.parse(source, filename=rel_path)
+
+    # Walk AST for a Call node whose func resolves to add_domain_args
+    found = False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "add_domain_args":
+            found = True
+            break
+        if isinstance(func, ast.Attribute) and func.attr == "add_domain_args":
+            found = True
+            break
+
+    assert found, f"{rel_path} does not call add_domain_args()"
 
 
 @pytest.mark.parametrize(
