@@ -19,12 +19,12 @@ Example Usage:
         config_path="config/datasources.yaml",
         schema_path="config/schema.yaml",
         slices_path="config/slices.yaml",
-        outdir="data/out",
-        ingest_dir="data/current_ingest",
-        graphs_dir="data/current_graphs"
+        outdir="data/psc/out",
+        ingest_dir="data/psc/ingest",
+        graphs_dir="data/psc/graphs"
     )
 
-    # Run full pipeline
+    # Run full pipeline (or use --domain psc for automatic path resolution)
     results = pipeline.run()
 
     # Or run individual phases
@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import pathlib
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -79,10 +79,10 @@ class PipelineConfig:
     outdir: pathlib.Path
     ingest_dir: pathlib.Path
     graphs_dir: pathlib.Path
-    raw_dir: Optional[pathlib.Path] = None
+    raw_dir: pathlib.Path | None = None
     graph_mode: str = "cumulative"
-    coupling_config: Optional[CouplingConfig] = None
-    mailto: Optional[str] = None
+    coupling_config: CouplingConfig | None = None
+    mailto: str | None = None
     log_level: str = "INFO"
 
     def __post_init__(self):
@@ -107,12 +107,12 @@ class PipelineResults:
         manifest: Final pipeline manifest
         errors: List of errors encountered (if any)
     """
-    df: Optional[pd.DataFrame] = None
-    slices: Dict[str, pd.DataFrame] = field(default_factory=dict)
-    graphs: Dict[str, List[pathlib.Path]] = field(default_factory=dict)
-    communities: Optional[Dict[str, Any]] = None
-    manifest: Dict[str, Any] = field(default_factory=dict)
-    errors: List[str] = field(default_factory=list)
+    df: pd.DataFrame | None = None
+    slices: dict[str, pd.DataFrame] = field(default_factory=dict)
+    graphs: dict[str, list[pathlib.Path]] = field(default_factory=dict)
+    communities: dict[str, Any] | None = None
+    manifest: dict[str, Any] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
 
 
 class Pipeline:
@@ -131,9 +131,9 @@ class Pipeline:
         ...     config_path="config/datasources.yaml",
         ...     schema_path="config/schema.yaml",
         ...     slices_path="config/slices.yaml",
-        ...     outdir="data/out",
-        ...     ingest_dir="data/current_ingest",
-        ...     graphs_dir="data/current_graphs"
+        ...     outdir="data/psc/out",
+        ...     ingest_dir="data/psc/ingest",
+        ...     graphs_dir="data/psc/graphs"
         ... )
         >>> results = pipeline.run()
         >>> print(f"Ingested {len(results.df)} records")
@@ -147,10 +147,10 @@ class Pipeline:
         outdir: pathlib.Path | str,
         ingest_dir: pathlib.Path | str,
         graphs_dir: pathlib.Path | str,
-        raw_dir: Optional[pathlib.Path | str] = None,
+        raw_dir: pathlib.Path | str | None = None,
         graph_mode: str = "cumulative",
-        coupling_config: Optional[CouplingConfig] = None,
-        mailto: Optional[str] = None,
+        coupling_config: CouplingConfig | None = None,
+        mailto: str | None = None,
         log_level: str = "INFO"
     ):
         """Initialize pipeline with configuration.
@@ -205,7 +205,7 @@ class Pipeline:
         self,
         skip_cache: bool = False,
         rebuild_from_raw: bool = False,
-        raw_manifest_path: Optional[pathlib.Path] = None
+        raw_manifest_path: pathlib.Path | None = None
     ) -> pd.DataFrame:
         """Execute ingest phase to fetch or load works data.
 
@@ -276,7 +276,7 @@ class Pipeline:
         self.logger.info(f"Ingest complete: {len(df)} records")
         return df
 
-    def slice(self, df: Optional[pd.DataFrame] = None) -> Dict[str, pd.DataFrame]:
+    def slice(self, df: pd.DataFrame | None = None) -> dict[str, pd.DataFrame]:
         """Apply temporal/categorical slicing to DataFrame.
 
         Args:
@@ -304,9 +304,9 @@ class Pipeline:
 
     def build_graphs(
         self,
-        df: Optional[pd.DataFrame] = None,
-        mode: Optional[str] = None
-    ) -> Dict[str, List[pathlib.Path]]:
+        df: pd.DataFrame | None = None,
+        mode: str | None = None
+    ) -> dict[str, list[pathlib.Path]]:
         """Build citation graphs in specified mode.
 
         Args:
@@ -326,7 +326,7 @@ class Pipeline:
             df = self.results.df
 
         mode = mode or self.config.graph_mode
-        graphs: Dict[str, List[pathlib.Path]] = {}
+        graphs: dict[str, list[pathlib.Path]] = {}
 
         # Extract time periods
         from run import extract_time_periods
@@ -384,9 +384,9 @@ class Pipeline:
 
     def detect_communities(
         self,
-        mode: Optional[str] = None,
+        mode: str | None = None,
         resume: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run community detection on built graphs.
 
         Args:
@@ -464,14 +464,14 @@ class Pipeline:
             df = self.ingest(skip_cache=skip_ingest)
 
             # Phase 2: Slice
-            slices = self.slice(df)
+            self.slice(df)
 
             # Phase 3: Build graphs
-            graphs = self.build_graphs(df)
+            self.build_graphs(df)
 
             # Phase 4: Community detection (optional)
             if run_communities:
-                communities = self.detect_communities()
+                self.detect_communities()
 
             self.logger.info("=" * 60)
             self.logger.info("Pipeline execution complete")

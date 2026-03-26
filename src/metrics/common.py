@@ -7,7 +7,7 @@ import re
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -30,7 +30,7 @@ def quarter_sort_key(quarter: str) -> int:
 def list_quarter_files(
     directory: Path,
     pattern: str,
-) -> List[Tuple[str, Path]]:
+) -> list[tuple[str, Path]]:
     pairs: dict[str, Path] = {}
     for path in directory.glob(pattern):
         try:
@@ -58,9 +58,8 @@ def ensure_dir(path: Path) -> None:
 def iter_quarter_slices(
     slice_dir: Path,
     pattern: str = "by_quarter__*.parquet",
-) -> Iterator[Tuple[str, Path]]:
-    for quarter, path in list_quarter_files(slice_dir, pattern):
-        yield quarter, path
+) -> Iterator[tuple[str, Path]]:
+    yield from list_quarter_files(slice_dir, pattern)
 
 
 # =====================================================================
@@ -108,13 +107,13 @@ def get_metric_output_paths(
     metric_name: str,
     out_dir: Path,
     level: str,
-) -> Dict[str, Path]:
+) -> dict[str, Path]:
     """
     Get standardized output paths for a metric at a given aggregation level.
 
     Args:
         metric_name: Name of metric (e.g., "author_influx")
-        out_dir: Base output directory (e.g., data/out/metrics)
+        out_dir: Base output directory (e.g., data/psc/out/metrics)
         level: Aggregation level ("global", "front", or "lineage")
 
     Returns:
@@ -186,12 +185,8 @@ def write_metric_parquet(
     validate_metric_schema(df, level, metric_name)
 
     # Select schema based on level
-    if level == "global":
-        schema = GLOBAL_METRIC_SCHEMA
-    elif level == "front":
-        schema = FRONT_METRIC_SCHEMA
-    elif level == "lineage":
-        schema = LINEAGE_METRIC_SCHEMA
+    if level == "global" or level == "front" or level == "lineage":
+        pass
     else:
         raise ValueError(f"Unknown level: {level}")
 
@@ -204,7 +199,7 @@ def write_metric_parquet(
 
 
 def write_metric_metadata(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     output_path: Path,
 ) -> None:
     """
@@ -223,11 +218,11 @@ def create_metric_metadata(
     description: str,
     formula: str,
     units: str,
-    parameters: Dict[str, Any],
-    input_files: List[Path],
+    parameters: dict[str, Any],
+    input_files: list[Path],
     level: str,
-    column_descriptions: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    column_descriptions: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """
     Create standardized metadata dictionary for a metric.
 
@@ -267,7 +262,7 @@ def write_placeholder_metric(
     metric_name: str,
     out_dir: Path,
     level: str,
-    base_metadata: Dict[str, Any],
+    base_metadata: dict[str, Any],
     placeholder_reason: str,
 ) -> None:
     """
@@ -313,7 +308,7 @@ def write_placeholder_metric(
 # Manifest Management System (Task 1.2)
 # =====================================================================
 
-def load_manifest(manifest_path: Path) -> Dict[str, Any]:
+def load_manifest(manifest_path: Path) -> dict[str, Any]:
     """
     Load existing manifest file or create empty structure.
 
@@ -339,8 +334,8 @@ def update_manifest(
     manifest_path: Path,
     metric_name: str,
     level: str,
-    metadata: Dict[str, Any],
-    output_files: Dict[str, Path],
+    metadata: dict[str, Any],
+    output_files: dict[str, Path],
 ) -> None:
     """
     Update central manifest file with new metric information.
@@ -401,7 +396,7 @@ def verify_manifest_entry(
     manifest_path: Path,
     metric_name: str,
     level: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Verify a manifest entry and check file integrity.
 

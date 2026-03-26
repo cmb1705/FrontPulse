@@ -11,7 +11,7 @@ without opening individual manifests.
 
 Typical layout::
 
-    data/out/models/msd/
+    data/psc/out/models/msd/
         registry.json                       # version index
         v_20260323_001/
             model.pkl                       # trained pipeline
@@ -100,7 +100,7 @@ def save_versioned_model(
         pipeline: Trained sklearn/imblearn pipeline object.
         version: Populated ``ModelVersion`` with metrics and config.
         registry_dir: Root of the model registry
-            (e.g. ``data/out/models/msd``).
+            (e.g. ``data/psc/out/models/msd``).
         allow_external: Bypass the repo-boundary check for the model
             artifact.  Useful in tests.
 

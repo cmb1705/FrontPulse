@@ -1,5 +1,9 @@
 # Pipeline API Examples
 
+> **Note**: These examples use legacy shared paths (`data/out/`, `data/current_ingest/`).
+> For domain-isolated runs, use `--domain psc` or `--domain crispr` to auto-resolve
+> paths under `data/{domain}/`. See `src/domain_registry.py` for details.
+
 This directory contains example scripts demonstrating how to use the `Pipeline` class for programmatic execution of the FrontPulse research front monitoring pipeline.
 
 ## Quick Start

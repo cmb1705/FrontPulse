@@ -10,8 +10,8 @@ Validates temporal slices (by_quarter__YYYYQN.parquet) to ensure:
 Can be run standalone via CLI or imported for programmatic validation.
 
 Usage:
-    python src/validate_slices.py "data/current_ingest/slices/by_quarter__*.parquet" \\
-        --json data/out/slice_validation.json --strict
+    python src/validate_slices.py "data/psc/ingest/slices/by_quarter__*.parquet" \\
+        --json data/psc/out/slice_validation.json --strict
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -119,7 +119,7 @@ def safe_len(x) -> int:
         pass
     return 0
 
-def validate_file(path: Path, limit: int = 25) -> Dict[str, Any]:
+def validate_file(path: Path, limit: int = 25) -> dict[str, Any]:
     """Validate a single parquet slice file and return comprehensive diagnostics.
 
     Performs multiple validation checks:
@@ -224,7 +224,7 @@ def validate_file(path: Path, limit: int = 25) -> Dict[str, Any]:
         "anomaly_flags": anomalies
     }
 
-def print_report(r: Dict[str, Any], limit: int):
+def print_report(r: dict[str, Any], limit: int):
     """Print human-readable validation report to console.
 
     Formats validation results from validate_file() into a readable console
@@ -285,21 +285,21 @@ def main():
         $ python src/validate_slices.py "data/slices/*.parquet" --json report.json --strict
     """
     ap = argparse.ArgumentParser()
-    ap.add_argument("paths", nargs="+", help="Parquet files or globs (e.g., data/out/by_quarter__*.parquet)")
+    ap.add_argument("paths", nargs="+", help="Parquet files or globs (e.g., data/psc/ingest/slices/by_quarter__*.parquet)")
     ap.add_argument("--limit", type=int, default=25, help="Max anomaly rows to show per file")
     ap.add_argument("--json", type=Path, default=None, help="Optional JSON report path")
     ap.add_argument("--strict", action="store_true",
                     help="Exit non-zero if any anomalies are found")
     args = ap.parse_args()
 
-    files: List[Path] = []
+    files: list[Path] = []
     for p in args.paths:
         files.extend(sorted(Path().glob(p)))
     if not files:
         print("No files matched.", file=sys.stderr)
         sys.exit(2)
 
-    report: List[Dict[str, Any]] = []
+    report: list[dict[str, Any]] = []
     any_anomaly = False
 
     for f in files:

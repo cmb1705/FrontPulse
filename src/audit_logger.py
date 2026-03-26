@@ -23,7 +23,7 @@ Usage:
 
     # Log model training
     event = ModelTrainingEvent(
-        model_path='data/out/models/msd_model.pkl',
+        model_path='data/psc/out/models/msd_model.pkl',
         recall=0.87,
         precision=0.24
     )
@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 
 class EventType(Enum):
@@ -68,9 +68,9 @@ class AuditEvent:
     timestamp: str
     status: EventStatus
     message: str
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary for JSON serialization."""
         return {
             "event_type": self.event_type.value,
@@ -87,11 +87,11 @@ class MetricRefreshEvent(AuditEvent):
 
     def __init__(
         self,
-        metrics: List[str],
-        status: Union[EventStatus, str],
-        manifest_hash: Optional[str] = None,
-        failed_metrics: Optional[List[str]] = None,
-        execution_time_seconds: Optional[float] = None,
+        metrics: list[str],
+        status: EventStatus | str,
+        manifest_hash: str | None = None,
+        failed_metrics: list[str] | None = None,
+        execution_time_seconds: float | None = None,
         **kwargs
     ):
         if isinstance(status, str):
@@ -129,9 +129,9 @@ class FeatureGenerationEvent(AuditEvent):
         num_features: int,
         num_samples: int,
         context_features_enabled: bool,
-        status: Union[EventStatus, str],
-        coverage: Optional[float] = None,
-        execution_time_seconds: Optional[float] = None,
+        status: EventStatus | str,
+        coverage: float | None = None,
+        execution_time_seconds: float | None = None,
         **kwargs
     ):
         if isinstance(status, str):
@@ -170,12 +170,12 @@ class ModelTrainingEvent(AuditEvent):
         model_type: str,
         recall: float,
         precision: float,
-        f1_score: Optional[float] = None,
-        pr_auc: Optional[float] = None,
-        status: Union[EventStatus, str] = EventStatus.SUCCESS,
-        num_features: Optional[int] = None,
-        hyperparameters: Optional[Dict[str, Any]] = None,
-        execution_time_seconds: Optional[float] = None,
+        f1_score: float | None = None,
+        pr_auc: float | None = None,
+        status: EventStatus | str = EventStatus.SUCCESS,
+        num_features: int | None = None,
+        hyperparameters: dict[str, Any] | None = None,
+        execution_time_seconds: float | None = None,
         **kwargs
     ):
         if isinstance(status, str):
@@ -220,11 +220,11 @@ class ModelDeploymentEvent(AuditEvent):
     def __init__(
         self,
         model_path: str,
-        previous_model_path: Optional[str],
-        status: Union[EventStatus, str],
+        previous_model_path: str | None,
+        status: EventStatus | str,
         validation_passed: bool,
         deployed_by: str = "automated",
-        git_commit: Optional[str] = None,
+        git_commit: str | None = None,
         **kwargs
     ):
         if isinstance(status, str):
@@ -269,10 +269,10 @@ class ValidationEvent(AuditEvent):
     def __init__(
         self,
         validation_type: str,
-        status: Union[EventStatus, str],
+        status: EventStatus | str,
         checks_passed: int,
         checks_failed: int,
-        errors: Optional[List[str]] = None,
+        errors: list[str] | None = None,
         **kwargs
     ):
         if isinstance(status, str):
@@ -306,8 +306,8 @@ class RollbackEvent(AuditEvent):
         self,
         rollback_target: str,
         reason: str,
-        status: Union[EventStatus, str],
-        artifacts_restored: List[str],
+        status: EventStatus | str,
+        artifacts_restored: list[str],
         triggered_by: str = "automated",
         **kwargs
     ):
@@ -345,7 +345,7 @@ class AuditLogger:
 
     def __init__(
         self,
-        log_dir: Union[str, Path] = "logs/audit",
+        log_dir: str | Path = "logs/audit",
         enable_file_logging: bool = True,
         enable_console_logging: bool = True,
         log_level: int = logging.INFO
@@ -412,12 +412,12 @@ class AuditLogger:
 
     def query_events(
         self,
-        event_type: Optional[EventType] = None,
-        status: Optional[EventStatus] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        event_type: EventType | None = None,
+        status: EventStatus | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         Query audit events from JSONL log.
 
@@ -466,7 +466,7 @@ class AuditLogger:
 
         return events
 
-    def get_latest_deployment(self) -> Optional[Dict[str, Any]]:
+    def get_latest_deployment(self) -> dict[str, Any] | None:
         """Get the most recent deployment event."""
         deployments = self.query_events(
             event_type=EventType.MODEL_DEPLOYMENT,
@@ -477,7 +477,7 @@ class AuditLogger:
     def get_performance_history(
         self,
         limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get performance history from recent model training events.
 
@@ -535,7 +535,7 @@ if __name__ == '__main__':
 
     # Example: Log model training
     event = ModelTrainingEvent(
-        model_path="data/out/models/msd_model_20251106.pkl",
+        model_path="data/psc/out/models/msd_model_20251106.pkl",
         model_type="LightGBM",
         recall=0.868,
         precision=0.245,

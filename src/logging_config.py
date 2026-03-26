@@ -10,10 +10,9 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
 
 # Global logger instance
-_logger: Optional[logging.Logger] = None
+_logger: logging.Logger | None = None
 
 
 def get_logger(name: str = "2yp") -> logging.Logger:
@@ -31,9 +30,9 @@ def get_logger(name: str = "2yp") -> logging.Logger:
 
 def setup_logging(
     level: str = "INFO",
-    log_file: Optional[Path] = None,
+    log_file: Path | None = None,
     console: bool = True,
-    file_level: Optional[str] = None,
+    file_level: str | None = None,
 ) -> logging.Logger:
     """
     Configure logging for the 2YP pipeline.
@@ -49,7 +48,7 @@ def setup_logging(
 
     Example:
         >>> from src.logging_config import setup_logging
-        >>> logger = setup_logging(level="DEBUG", log_file=Path("data/out/logs/pipeline.log"))
+        >>> logger = setup_logging(level="DEBUG", log_file=Path("data/psc/out/logs/pipeline.log"))
         >>> logger.info("Pipeline started")
     """
     global _logger

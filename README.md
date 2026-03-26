@@ -72,17 +72,20 @@ Dynamic research-front monitoring on OpenAlex bibliometric data. The pipeline in
 
 ### Key Data Artifacts
 
-- `data/current_ingest/ingest.parquet` -- full cached corpus
-- `data/current_ingest/raw/*.jsonl` -- chunked OpenAlex raw snapshots with byte-offset indexes
-- `data/current_ingest/slices/*.parquet` -- per-slice parquet files
-- `data/current_graphs/citation_graph_*` -- exported graphs (annual, delta, cumulative)
-- `data/out/` -- JSON/CSV manifests, community summaries, debug reports
+Data is organized per domain under `data/{domain_id}/` (e.g., `data/psc/`, `data/crispr/`).
+Use `--domain psc` or `--domain crispr` for automatic path resolution.
+
+- `data/{domain}/ingest/ingest.parquet` -- full cached corpus
+- `data/{domain}/ingest/raw/*.jsonl` -- chunked OpenAlex raw snapshots with byte-offset indexes
+- `data/{domain}/ingest/slices/*.parquet` -- per-slice parquet files
+- `data/{domain}/graphs/citation_graph_*` -- exported graphs (annual, delta, cumulative)
+- `data/{domain}/out/` -- JSON/CSV manifests, community summaries, debug reports
   - `lineage_timeseries.csv` -- time series tracking community lineages
   - `lineage_metrics.csv` -- per-quarter metrics for each lineage
   - `lineage_registry.json` -- mapping of quarter-specific community IDs to persistent lineage IDs
   - `communities_cumulative.json` -- full community detection results per quarter
-- `data/out/metrics/` -- scientometric context metrics with provenance tracking
-- `data/archive/<YYYYMMDD_HHMMSS>/` -- timestamped snapshots
+- `data/{domain}/out/metrics/` -- scientometric context metrics with provenance tracking
+- `data/{domain}/archive/<YYYYMMDD_HHMMSS>/` -- timestamped snapshots
 
 ## Terminology
 
@@ -107,9 +110,10 @@ usage: run.py --config CONFIG --schema SCHEMA --slices SLICES --outdir OUTDIR
 
 Key flags:
 
-- `--outdir` (default `data/out`) -- report destination
-- `--ingest-dir` (default `data/current_ingest`) -- cached ingest + slices
-- `--graphs-dir` (default `data/current_graphs`) -- graph outputs
+- `--domain` -- domain selector (`psc` or `crispr`); auto-resolves all data paths
+- `--outdir` (default: domain-derived or `data/out`) -- report destination
+- `--ingest-dir` (default: domain-derived or `data/current_ingest`) -- cached ingest + slices
+- `--graphs-dir` (default: domain-derived or `data/current_graphs`) -- graph outputs
 - `--mailto` -- contact email for OpenAlex (falls back to `config/settings.yaml`)
 - `--skip-ingest` -- reuse `ingest.parquet` instead of re-downloading
 - `--rebuild-ingest-from-raw` -- reconstruct ingest from raw NDJSON (no API calls)
@@ -149,32 +153,35 @@ python run.py --config config/datasources.yaml --schema config/schema.yaml `
 **Archive current outputs**:
 
 ```powershell
-python run.py --outdir data/out --ingest-dir data/current_ingest `
-    --graphs-dir data/current_graphs --archive-only
+python run.py --domain psc --archive-only
 ```
 
 ### Outputs
 
-- `data/current_ingest/ingest.parquet`, `slices/by_quarter__*.parquet`
-- `data/current_ingest/raw/openalex_raw_*.jsonl` + `_index.csv` + manifest
-- `data/current_graphs/citation_graph_*`
-- `data/out/manifest.json`
-- `data/out/logs/` -- rotating pipeline logs
-- `data/out/communities_*.json`, `front_id_registry*.json`, `front_timeseries.csv`
-- `data/out/eval/` -- backtest outputs (alerts, validation, diagnostic plots)
+- `data/{domain}/ingest/ingest.parquet`, `slices/by_quarter__*.parquet`
+- `data/{domain}/ingest/raw/openalex_raw_*.jsonl` + `_index.csv` + manifest
+- `data/{domain}/graphs/citation_graph_*`
+- `data/{domain}/out/manifest.json`
+- `data/{domain}/out/logs/` -- rotating pipeline logs
+- `data/{domain}/out/communities_*.json`, `front_id_registry*.json`, `front_timeseries.csv`
+- `data/{domain}/out/eval/` -- backtest outputs (alerts, validation, diagnostic plots)
 
 ## Complete Pipeline Order (Steps 1-10)
 
 After the primary pipeline produces community lineages, run these scripts **in order** to map lineages to research fronts and generate alerts.
 
+> **Domain isolation**: All scripts accept `--domain psc` or `--domain crispr`
+> for automatic path resolution under `data/{domain}/`. The `data/out/` paths
+> shown below are PSC examples; substitute your domain or use `--domain`
+> to override.
+
 ### Step 1: Community Detection
 
 ```powershell
-python scripts/communities.py --mode cumulative --graphs-dir data/current_graphs `
-    --out-dir data/out --resume
+python scripts/communities.py --mode cumulative --domain psc --resume
 ```
 
-Outputs: `lineage_registry.json`, `lineage_timeseries.csv`, `lineage_metrics.csv` in `data/out/02_lineage_tracking/`
+Outputs: `lineage_registry.json`, `lineage_timeseries.csv`, `lineage_metrics.csv` in `data/{domain}/out/02_lineage_tracking/`
 
 Community modes: `cumulative` (default), `annual`, `delta`, `both`, `all`. Resolution sweeps available via `--res-sweep`.
 
@@ -375,8 +382,7 @@ From each metric, 7 context features are derived per lineage-quarter (z-scores, 
 
 ```powershell
 # Regenerate metrics
-python scripts/run_metric_refresh.py --slices-dir data/current_ingest/slices `
-    --out-dir data/out/metrics
+python scripts/run_metric_refresh.py --domain psc
 
 # Aggregate field baselines
 python scripts/aggregate_field_metrics.py
