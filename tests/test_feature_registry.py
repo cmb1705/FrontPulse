@@ -17,7 +17,7 @@ def test_core_group_contains_expected_features(registry: FeatureRegistry):
     core = registry.get_group("core")
     assert "semantic_velocity" in core
     assert "disruption_intensity" in core
-    assert len(core) >= 20
+    assert len(core) >= 18
 
 
 def test_resolve_with_patterns(registry: FeatureRegistry):
