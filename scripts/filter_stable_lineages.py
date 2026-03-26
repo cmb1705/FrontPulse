@@ -23,7 +23,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.stable_lineage_filter import (
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.stable_lineage_filter import (  # noqa: E402
     filter_stable_lineages,
     summarize_filter,
 )
@@ -36,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--timeseries",
-        default="data/out/02_lineage_tracking/lineage_timeseries.csv",
+        default=None,
         help="Path to lineage timeseries CSV.",
     )
     parser.add_argument(
@@ -58,7 +59,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--out-dir",
-        default="data/out/02_lineage_tracking",
+        default=None,
         help="Output directory for filtered files.",
     )
     parser.add_argument(
@@ -66,12 +67,19 @@ def parse_args() -> argparse.Namespace:
         default="_stable",
         help="Suffix appended to output filenames (default: _stable).",
     )
+    add_domain_args(parser)
     return parser.parse_args()
 
 
 def main() -> None:
     """Filter lineages and write outputs."""
     args = parse_args()
+
+    paths = resolve_script_paths(args, REPO_ROOT)
+    if args.timeseries is None:
+        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
+    if args.out_dir is None:
+        args.out_dir = str(paths.lineage_tracking) if paths else "data/out/02_lineage_tracking"
 
     timeseries_path = Path(args.timeseries)
     if not timeseries_path.exists():

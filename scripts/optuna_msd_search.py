@@ -15,12 +15,11 @@ import logging
 import sys
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import optuna
 import pandas as pd
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
@@ -33,6 +32,8 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+
 LOG = logging.getLogger("optuna_msd")
 
 # ---------------------------------------------------------------------------
@@ -44,7 +45,7 @@ def load_data(
     multisignal_path: str,
     timeseries_path: str,
     semantic_velocity_path: str,
-) -> Tuple[pd.DataFrame, np.ndarray]:
+) -> tuple[pd.DataFrame, np.ndarray]:
     """Load and merge all data sources, returning features and labels."""
     # Load labels
     labels_df = pd.read_csv(labels_path)
@@ -156,9 +157,8 @@ def select_leakage_safe_features(df: pd.DataFrame) -> list[str]:
 
     # Add context features (trailing windows only)
     for col in df.columns:
-        if any(col.startswith(prefix) for prefix in CONTEXT_PREFIXES):
-            if col not in LEAKAGE_UNSAFE:
-                features.append(col)
+        if any(col.startswith(prefix) for prefix in CONTEXT_PREFIXES) and col not in LEAKAGE_UNSAFE:
+            features.append(col)
 
     # Exclude field and leakage-unsafe features
     features = [
@@ -171,7 +171,7 @@ def select_leakage_safe_features(df: pd.DataFrame) -> list[str]:
 
 
 def build_model(
-    model_type: str, params: Dict[str, Any],
+    model_type: str, params: dict[str, Any],
 ) -> Any:
     """Build a sklearn-compatible model from type and params."""
     if model_type == "gradient_boosting":
@@ -244,7 +244,7 @@ def build_model(
 
 def cv_evaluate(
     model: Any, X: np.ndarray, y: np.ndarray, n_folds: int = 5,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Run stratified CV and return mean metrics."""
     skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
     roc_aucs = []
@@ -302,7 +302,7 @@ def create_objective(
         max_depth = trial.suggest_int("max_depth", 2, 8)
         min_samples_leaf = trial.suggest_int("min_samples_leaf", 1, 50)
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "n_estimators": n_estimators,
             "max_depth": max_depth,
             "min_samples_leaf": min_samples_leaf,
@@ -361,26 +361,39 @@ def main() -> None:
         description="Optuna hyperparameter search for MSD onset detection",
     )
     parser.add_argument(
-        "--labels", default="data/out/02_lineage_tracking/onset_labels_msd.csv",
+        "--labels", default=None,
     )
     parser.add_argument(
         "--multisignal",
-        default="data/out/02_lineage_tracking/lineage_multisignal_features.csv",
+        default=None,
     )
     parser.add_argument(
         "--timeseries",
-        default="data/out/02_lineage_tracking/lineage_timeseries.csv",
+        default=None,
     )
     parser.add_argument(
         "--semantic-velocity",
-        default="data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv",
+        default=None,
     )
     parser.add_argument("--n-trials", type=int, default=50)
     parser.add_argument("--cv-folds", type=int, default=5)
     parser.add_argument(
-        "--output-dir", default="data/out/experiments/optuna_search",
+        "--output-dir", default=None,
     )
+    add_domain_args(parser)
     args = parser.parse_args()
+
+    paths = resolve_script_paths(args, REPO)
+    if args.labels is None:
+        args.labels = str(paths.lineage_tracking / "onset_labels_msd.csv") if paths else "data/out/02_lineage_tracking/onset_labels_msd.csv"
+    if args.multisignal is None:
+        args.multisignal = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
+    if args.timeseries is None:
+        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
+    if args.semantic_velocity is None:
+        args.semantic_velocity = str(paths.experiments / "stage1_quarterly_embeddings" / "semantic_velocity.csv") if paths else "data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv"
+    if args.output_dir is None:
+        args.output_dir = str(paths.experiments / "optuna_search") if paths else "data/out/experiments/optuna_search"
 
     logging.basicConfig(
         level=logging.INFO,
@@ -483,7 +496,7 @@ def main() -> None:
         final_metrics["cv_roc_auc_mean"], final_metrics["cv_roc_auc_std"]))
     print("  PR-AUC:  {:.4f} +/- {:.4f}".format(
         final_metrics["cv_pr_auc_mean"], final_metrics["cv_pr_auc_std"]))
-    print("\nResults saved to: {}".format(output_dir))
+    print(f"\nResults saved to: {output_dir}")
 
 
 if __name__ == "__main__":

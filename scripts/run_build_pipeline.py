@@ -16,6 +16,9 @@ Usage:
     # Run full pipeline with defaults
     python scripts/run_build_pipeline.py
 
+    # Run with domain selection
+    python scripts/run_build_pipeline.py --domain crispr
+
     # Run only specific Stages
     python scripts/run_build_pipeline.py --stages 2,3,4
 
@@ -29,6 +32,7 @@ Usage:
     python scripts/run_build_pipeline.py --refresh-metrics
 
 Options:
+    --domain: Research domain (derives all data paths from convention)
     --stages: Comma-separated list of Stages to run (default: 2,3,4,5)
     --min-quarters: Minimum quarters for persistent lineages (default: 6)
     --abstract-cache: Path to serialized abstract index cache (default auto-generated)
@@ -43,6 +47,7 @@ Options:
 """
 
 from __future__ import annotations
+
 import argparse
 import sys
 import time
@@ -52,7 +57,8 @@ from pathlib import Path
 repo_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(repo_root))
 
-from src.lineage_text_store import LineageTextStore
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.lineage_text_store import LineageTextStore  # noqa: E402
 
 
 class PipelineConfig:
@@ -86,6 +92,9 @@ class PipelineConfig:
         self.refresh_metrics = args.refresh_metrics
         self.metrics_dir = Path(args.metrics_dir)
         self.slices_dir = Path(args.slices_dir)
+
+        # Domain forwarding
+        self.domain = getattr(args, "domain", None)
 
         # Stage-specific parameters (can be expanded)
         self.embedding_device = args.device
@@ -122,12 +131,16 @@ def refresh_metrics_if_requested(config: PipelineConfig) -> None:
         '--out-dir', str(config.metrics_dir),
     ]
 
+    # Forward --domain to metric refresh
+    if config.domain is not None:
+        cmd.extend(['--domain', config.domain])
+
     print(f"[Pipeline] Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, check=False)
 
     if result.returncode != 0:
         print(f"[WARNING] Metric refresh failed with exit code {result.returncode}")
-        print(f"[WARNING] Continuing with existing metrics")
+        print("[WARNING] Continuing with existing metrics")
     else:
         t_refresh = time.time() - t_start
         print(f"\n[Pipeline] Metrics refreshed in {t_refresh:.2f}s")
@@ -167,9 +180,9 @@ def load_shared_resources(config: PipelineConfig) -> LineageTextStore:
 
     t_load = time.time() - t_start
     print(f"\n[Pipeline] Store loaded in {t_load:.2f}s")
-    print(f"[Pipeline] All stages refactored - No subprocess overhead!")
-    print(f"[Pipeline] Stages 2, 3, 4 use shared store (faster)")
-    print(f"[Pipeline] Stage 5 uses direct call (Stage 5 only needs similarity matrices)")
+    print("[Pipeline] All stages refactored - No subprocess overhead!")
+    print("[Pipeline] Stages 2, 3, 4 use shared store (faster)")
+    print("[Pipeline] Stage 5 uses direct call (Stage 5 only needs similarity matrices)")
     print("=" * 70)
 
     return store
@@ -190,7 +203,7 @@ def run_stage2_embeddings(config: PipelineConfig, store: LineageTextStore) -> No
     print("\n" + "=" * 70)
     print("Stage 2: SciBERT Embeddings")
     print("=" * 70)
-    print(f"[Pipeline] Starting Stage 2 with shared store...")
+    print("[Pipeline] Starting Stage 2 with shared store...")
 
     t_start = time.time()
 
@@ -229,7 +242,7 @@ def run_stage3_ctfidf(config: PipelineConfig, store: LineageTextStore) -> None:
     """
     from scripts.compute_lineage_ctfidf import run_ctfidf
 
-    print(f"\n[Pipeline] Starting Stage 3 with shared store...")
+    print("\n[Pipeline] Starting Stage 3 with shared store...")
 
     t_start = time.time()
 
@@ -267,7 +280,7 @@ def run_stage4_npmi(config: PipelineConfig, store: LineageTextStore) -> None:
     print("\n" + "=" * 70)
     print("Stage 4: NPMI Co-term Discovery")
     print("=" * 70)
-    print(f"[Pipeline] Starting Stage 4 with shared store...")
+    print("[Pipeline] Starting Stage 4 with shared store...")
 
     t_start = time.time()
 
@@ -298,7 +311,7 @@ def run_stage4_npmi(config: PipelineConfig, store: LineageTextStore) -> None:
     print(f"\n[Pipeline] Stage 4 completed in {t_stage:.2f}s (using shared store)")
 
 
-def run_stage5_ensemble(config: PipelineConfig, store: LineageTextStore) -> None:
+def run_stage5_ensemble(config: PipelineConfig, _store: LineageTextStore) -> None:
     """
     Run Stage 5: Ensemble mapping.
 
@@ -314,7 +327,7 @@ def run_stage5_ensemble(config: PipelineConfig, store: LineageTextStore) -> None
     print("\n" + "=" * 70)
     print("Stage 5: Ensemble Front Mapping")
     print("=" * 70)
-    print(f"[Pipeline] Starting Stage 5 (direct call, no subprocess overhead)...")
+    print("[Pipeline] Starting Stage 5 (direct call, no subprocess overhead)...")
 
     t_start = time.time()
 
@@ -343,7 +356,7 @@ def main():
         description="Run Stages 2-5 pipeline with shared text index"
     )
 
-    # Input paths
+    # Input paths (None defaults allow domain resolution)
     parser.add_argument(
         "--registry",
         type=str,
@@ -359,19 +372,19 @@ def main():
     parser.add_argument(
         "--raw",
         type=str,
-        default="data/current_ingest/raw",
+        default=None,
         help="Path to raw JSONL files"
     )
     parser.add_argument(
         "--graphs",
         type=str,
-        default="data/current_graphs",
-        help="Path to citation graph PKL files"
+        default=None,
+        help="Path to citation graph files"
     )
     parser.add_argument(
         "--partitions",
         type=str,
-        default="data/out/cache_cum/partitions_cum",
+        default=None,
         help="Path to partition JSON files"
     )
     parser.add_argument(
@@ -385,7 +398,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="data/out",
+        default=None,
         help="Base output directory for all stages (default: data/out)"
     )
 
@@ -471,17 +484,36 @@ def main():
     parser.add_argument(
         "--metrics-dir",
         type=str,
-        default="data/out/metrics",
+        default=None,
         help="Directory for metric outputs (default: data/out/metrics)"
     )
     parser.add_argument(
         "--slices-dir",
         type=str,
-        default="data/current_ingest/slices",
+        default=None,
         help="Directory for quarterly slices (default: data/current_ingest/slices)"
     )
 
+    add_domain_args(parser)
     args = parser.parse_args()
+
+    # Resolve domain paths (returns None when --domain is omitted)
+    dpaths = resolve_script_paths(args, repo_root)
+
+    # Apply domain defaults for paths not explicitly provided
+    args.raw = args.raw or (str(dpaths.raw) if dpaths else "data/current_ingest/raw")
+    args.graphs = args.graphs or (str(dpaths.graphs) if dpaths else "data/current_graphs")
+    args.partitions = args.partitions or (
+        str(dpaths.cache_cum / "partitions_cum") if dpaths else "data/out/cache_cum/partitions_cum"
+    )
+    args.output_dir = args.output_dir or (str(dpaths.out) if dpaths else "data/out")
+    args.metrics_dir = args.metrics_dir or (
+        str(dpaths.out / "metrics") if dpaths else "data/out/metrics"
+    )
+    args.slices_dir = args.slices_dir or (
+        str(dpaths.slices) if dpaths else "data/current_ingest/slices"
+    )
+
     config = PipelineConfig(args)
 
     # Pipeline execution
@@ -491,10 +523,12 @@ def main():
     print(f"\nStages to run: {config.stages}")
     print(f"Min quarters: {config.min_quarters}")
     print(f"Output dir: {config.output_dir}")
+    if config.domain:
+        print(f"Domain: {config.domain}")
     if config.refresh_metrics:
-        print(f"Metric refresh: ENABLED (will regenerate metrics)")
+        print("Metric refresh: ENABLED (will regenerate metrics)")
     else:
-        print(f"Metric refresh: DISABLED (use --refresh-metrics to enable)")
+        print("Metric refresh: DISABLED (use --refresh-metrics to enable)")
 
     # Metric refresh (optional pre-step, Task 5.1)
     t_pipeline_start = time.time()
@@ -536,11 +570,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-

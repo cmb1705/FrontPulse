@@ -12,9 +12,9 @@ import argparse
 import json
 import logging
 import random
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,10 +28,11 @@ from utils.quarter_utils import quarter_to_int
 
 # Onset detector (Phase 1 prospective-safe labeling)
 _REPO = Path(__file__).resolve().parents[1]
-if str(_REPO) not in __import__("sys").path:
-    __import__("sys").path.insert(0, str(_REPO))
-from src.onset_detector import OnsetResult, detect_onset
-from src.maturation_detector import MaturationResult, detect_maturation
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.maturation_detector import MaturationResult, detect_maturation  # noqa: E402
+from src.onset_detector import OnsetResult, detect_onset  # noqa: E402
 
 LOG = logging.getLogger("inflection_labels")
 
@@ -40,18 +41,18 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Label lineage inflection points.")
     parser.add_argument(
         "--timeseries",
-        default="data/out/02_lineage_tracking/lineage_timeseries.csv",
-        help="Lineage time-series CSV with columns lineage_id, quarter, new_works (default: %(default)s)",
+        default=None,
+        help="Lineage time-series CSV with columns lineage_id, quarter, new_works",
     )
     parser.add_argument(
         "--milestones",
-        default="data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv",
-        help="Milestone-lineage mapping CSV (default: %(default)s)",
+        default=None,
+        help="Milestone-lineage mapping CSV",
     )
     parser.add_argument(
         "--out",
-        default="data/out/02_lineage_tracking/inflection_labels.csv",
-        help="Path to write inflection labels CSV (default: %(default)s)",
+        default=None,
+        help="Path to write inflection labels CSV",
     )
     parser.add_argument("--min-points", type=int, default=12, help="Minimum quarters required to attempt logistic fit.")
     parser.add_argument("--logistic-r2", type=float, default=0.85, help="Minimum R^2 for logistic fit acceptance.")
@@ -134,7 +135,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--field-metrics",
-        default="data/out/04_front_aggregation/field_metrics.parquet",
+        default=None,
         help="Field metrics file (parquet or CSV) used for context comparisons.",
     )
     parser.add_argument(
@@ -222,6 +223,7 @@ def parse_args() -> argparse.Namespace:
         help="Below this smoothed count the lineage is dormant (default: 1).",
     )
 
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -233,10 +235,7 @@ def load_field_metrics(path: Path) -> pd.DataFrame:
     if not path or not path.exists():
         LOG.warning("Field metrics file %s not found; continuing without field context.", path)
         return pd.DataFrame()
-    if path.suffix == ".parquet":
-        df = pd.read_parquet(path)
-    else:
-        df = pd.read_csv(path)
+    df = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path)
     df = df.copy()
     df["quarter"] = df["quarter"].astype(str)
     rename_map = {col: (col if col == "quarter" else f"field_{col}") for col in df.columns}
@@ -244,10 +243,10 @@ def load_field_metrics(path: Path) -> pd.DataFrame:
     return df
 
 
-def build_field_metrics_lookup(df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+def build_field_metrics_lookup(df: pd.DataFrame) -> dict[str, dict[str, float]]:
     if df.empty:
         return {}
-    lookup: Dict[str, Dict[str, float]] = {}
+    lookup: dict[str, dict[str, float]] = {}
     records = df.to_dict(orient="records")
     for row in records:
         quarter = str(row["quarter"])
@@ -277,7 +276,7 @@ class DerivativeResult:
     threshold: float
 
 
-def fit_logistic(cum_values: np.ndarray, min_points: int, r2_threshold: float) -> Optional[LogisticResult]:
+def fit_logistic(cum_values: np.ndarray, min_points: int, r2_threshold: float) -> LogisticResult | None:
     if curve_fit is None or len(cum_values) < min_points:
         return None
 
@@ -314,7 +313,7 @@ def derivative_detection(
     cum_values: np.ndarray,
     window: int,
     threshold_k: float,
-) -> Optional[DerivativeResult]:
+) -> DerivativeResult | None:
     if len(cum_values) < 6:
         return None
     series = pd.Series(cum_values)
@@ -336,12 +335,12 @@ def derivative_detection(
     return DerivativeResult(idx=idx, quarter_int=None, score=score, threshold=float(threshold))
 
 
-def build_milestone_lookup(milestone_path: Path) -> Dict[int, List[Tuple[int, str]]]:
+def build_milestone_lookup(milestone_path: Path) -> dict[int, list[tuple[int, str]]]:
     if not milestone_path.exists():
         LOG.warning("Milestone file %s not found; lag metrics will be null.", milestone_path)
         return {}
     df = pd.read_csv(milestone_path)
-    lookup: Dict[int, List[Tuple[int, str]]] = {}
+    lookup: dict[int, list[tuple[int, str]]] = {}
     for _, row in df.iterrows():
         try:
             lineage_id = int(row["lineage_id"])
@@ -355,8 +354,8 @@ def build_milestone_lookup(milestone_path: Path) -> Dict[int, List[Tuple[int, st
 def find_nearest_milestone(
     lineage_id: int,
     inflection_q: int,
-    lookup: Dict[int, List[Tuple[int, str]]],
-) -> Tuple[Optional[str], Optional[int], str]:
+    lookup: dict[int, list[tuple[int, str]]],
+) -> tuple[str | None, int | None, str]:
     candidates = lookup.get(lineage_id)
     if not candidates:
         return None, None, "no_milestone"
@@ -367,7 +366,7 @@ def find_nearest_milestone(
     return event_id, lag, bucket
 
 
-def bucket_lag(lag: Optional[int]) -> str:
+def bucket_lag(lag: int | None) -> str:
     if lag is None:
         return "no_milestone"
     abs_lag = abs(lag)
@@ -383,10 +382,10 @@ def bucket_lag(lag: Optional[int]) -> str:
 def detect_inflection_for_lineage(
     lineage_id: int,
     lineage_df: pd.DataFrame,
-    milestone_lookup: Dict[int, List[Tuple[int, str]]],
-    field_metrics: Optional[Dict[str, Dict[str, float]]],
+    milestone_lookup: dict[int, list[tuple[int, str]]],
+    field_metrics: dict[str, dict[str, float]] | None,
     args: argparse.Namespace,
-) -> Optional[Dict[str, object]]:
+) -> dict[str, object] | None:
     lineage_df = lineage_df.sort_values("quarter_order")
     total_cum = lineage_df["new_works"].sum()
     recent_cum = lineage_df["new_works"].tail(4).sum()
@@ -460,9 +459,8 @@ def detect_inflection_for_lineage(
         if field_acceleration is not None and not pd.isna(field_acceleration):
             field_acceleration_delta = growth_fraction - float(field_acceleration)
 
-    if args.min_field_growth_ratio > 0:
-        if field_growth_ratio is None or field_growth_ratio < args.min_field_growth_ratio:
-            return None
+    if args.min_field_growth_ratio > 0 and (field_growth_ratio is None or field_growth_ratio < args.min_field_growth_ratio):
+        return None
 
     event_id, lag, bucket = find_nearest_milestone(lineage_id, quarter_int, milestone_lookup)
     return {
@@ -493,7 +491,7 @@ def detect_onset_for_lineage(
     lineage_id: int,
     lineage_df: pd.DataFrame,
     args: argparse.Namespace,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """Run onset detection on a single lineage and return a result dict.
 
     Always returns a dict (one row per lineage), even when onset is not
@@ -536,7 +534,7 @@ def detect_maturation_for_lineage(
     lineage_id: int,
     lineage_df: pd.DataFrame,
     args: argparse.Namespace,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """Run maturation detection on a single lineage and return a result dict.
 
     Always returns a dict (one row per lineage), even when maturation is
@@ -591,7 +589,7 @@ def prepare_timeseries(ts_path: Path) -> pd.DataFrame:
     return df
 
 
-def save_metadata(out_path: Path, payload: Dict[str, object]) -> None:
+def save_metadata(out_path: Path, payload: dict[str, object]) -> None:
     meta_path = out_path.with_suffix(".json")
     ensure_directory(meta_path)
     meta_path.write_text(json.dumps(payload, indent=2))
@@ -659,20 +657,20 @@ def plot_borderline_detection(
         f"Margin: {detection_row['threshold_margin']:.3f}\n"
         f"Lag bucket: {detection_row['lag_bucket']}"
     )
-    text_box = plt.text(
+    plt.text(
         0.02,
         0.98,
         annotation,
         transform=plt.gca().transAxes,
         fontsize=10,
         verticalalignment="top",
-        bbox=dict(facecolor="white", alpha=0.85, edgecolor="gray", boxstyle="round,pad=0.4"),
+        bbox={"facecolor": "white", "alpha": 0.85, "edgecolor": "gray", "boxstyle": "round,pad=0.4"},
     )
 
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Cumulative works")
     plt.title(f"Lineage {detection_row['lineage_id']} borderline detection")
-    legend = plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
     plt.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -683,6 +681,16 @@ def plot_borderline_detection(
 def main() -> None:
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+
+    paths = resolve_script_paths(args, _REPO)
+    if args.timeseries is None:
+        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
+    if args.milestones is None:
+        args.milestones = str(paths.experiments / "stage0_tight_mapping" / "milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
+    if args.out is None:
+        args.out = str(paths.lineage_tracking / "inflection_labels.csv") if paths else "data/out/02_lineage_tracking/inflection_labels.csv"
+    if args.field_metrics is None:
+        args.field_metrics = str(paths.front_aggregation / "field_metrics.parquet") if paths else "data/out/04_front_aggregation/field_metrics.parquet"
 
     ts_path = Path(args.timeseries)
     milestone_path = Path(args.milestones)
@@ -702,7 +710,7 @@ def main() -> None:
 
     # ── Onset-only mode ────────────────────────────────────────────────
     if mode == "onset":
-        onset_rows: List[Dict[str, object]] = []
+        onset_rows: list[dict[str, object]] = []
         for lineage_id, group in ts_df.groupby("lineage_id"):
             onset_rows.append(detect_onset_for_lineage(int(lineage_id), group, args))
 
@@ -748,7 +756,7 @@ def main() -> None:
 
     # ── Maturation-only mode ──────────────────────────────────────────
     if mode == "maturation":
-        mat_rows: List[Dict[str, object]] = []
+        mat_rows: list[dict[str, object]] = []
         for lineage_id, group in ts_df.groupby("lineage_id"):
             mat_rows.append(
                 detect_maturation_for_lineage(int(lineage_id), group, args)
@@ -810,7 +818,7 @@ def main() -> None:
 
     # ── Retrospective or comparison mode ───────────────────────────────
     milestone_lookup = build_milestone_lookup(milestone_path)
-    field_metrics_lookup: Dict[str, Dict[str, float]] = {}
+    field_metrics_lookup: dict[str, dict[str, float]] = {}
     if not args.disable_field_metrics:
         field_metrics_df = load_field_metrics(Path(args.field_metrics))
         field_metrics_lookup = build_field_metrics_lookup(field_metrics_df)
@@ -818,8 +826,8 @@ def main() -> None:
     else:
         LOG.info("Field metrics disabled; skipping corpus-level guard.")
 
-    detections: List[Dict[str, object]] = []
-    onset_rows_cmp: List[Dict[str, object]] = []
+    detections: list[dict[str, object]] = []
+    onset_rows_cmp: list[dict[str, object]] = []
 
     for lineage_id, group in ts_df.groupby("lineage_id"):
         lid = int(lineage_id)

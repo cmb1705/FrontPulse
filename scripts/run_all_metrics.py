@@ -5,6 +5,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -19,23 +25,23 @@ def parse_args() -> argparse.Namespace:
              "If specified, overrides --ingest-dir, --graphs-dir, and --out-dir.",
     )
 
-    # Individual directory overrides
+    # Individual directory overrides (None defaults allow domain resolution)
     parser.add_argument(
         "--ingest-dir",
         type=Path,
-        default=Path("data/current_ingest"),
+        default=None,
         help="Directory containing slices/ and ingest.parquet (default: data/current_ingest)",
     )
     parser.add_argument(
         "--graphs-dir",
         type=Path,
-        default=Path("data/current_graphs"),
-        help="Directory containing graph pickle files (default: data/current_graphs)",
+        default=None,
+        help="Directory containing graph files (default: data/current_graphs)",
     )
     parser.add_argument(
         "--out-dir",
         type=Path,
-        default=Path("data/out"),
+        default=None,
         help="Directory containing front_id_registry and cache (default: data/out)",
     )
 
@@ -60,11 +66,20 @@ def parse_args() -> argparse.Namespace:
         help="Python executable to use when invoking metric scripts.",
     )
 
+    add_domain_args(parser)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    # Resolve domain paths (returns None when --domain is omitted)
+    dpaths = resolve_script_paths(args, REPO_ROOT)
+
+    # Apply domain defaults for paths not explicitly provided
+    args.ingest_dir = args.ingest_dir or (dpaths.ingest if dpaths else Path("data/current_ingest"))
+    args.graphs_dir = args.graphs_dir or (dpaths.graphs if dpaths else Path("data/current_graphs"))
+    args.out_dir = args.out_dir or (dpaths.out if dpaths else Path("data/out"))
 
     # Determine data paths (archive mode or individual directories)
     if args.archive_dir:
@@ -114,6 +129,11 @@ def main() -> None:
     # Determine output filename suffix
     suffix = args.output_suffix
 
+    # Build --domain forwarding args for subprocess calls
+    domain_fwd: list[str] = []
+    if getattr(args, "domain", None):
+        domain_fwd = ["--domain", args.domain]
+
     # Build commands for all 5 metric scripts
     commands = [
         [
@@ -126,7 +146,7 @@ def main() -> None:
             f"author_influx{suffix}.json",
             "--figure-name",
             f"author_influx{suffix}.png",
-        ],
+        ] + domain_fwd,
         [
             "scripts/metric_citation_velocity.py",
             "--slices-dir",
@@ -137,7 +157,7 @@ def main() -> None:
             f"citation_velocity{suffix}.json",
             "--figure-name",
             f"citation_velocity{suffix}.png",
-        ],
+        ] + domain_fwd,
         [
             "scripts/metric_topic_diversity.py",
             "--slices-dir",
@@ -148,7 +168,7 @@ def main() -> None:
             f"topic_diversity{suffix}.json",
             "--figure-name",
             f"topic_diversity{suffix}.png",
-        ],
+        ] + domain_fwd,
         [
             "scripts/metric_cross_cluster_bridging.py",
             "--graphs-dir",
@@ -163,7 +183,7 @@ def main() -> None:
             f"cross_cluster_bridging{suffix}.json",
             "--figure-name",
             f"cross_cluster_bridging{suffix}.png",
-        ],
+        ] + domain_fwd,
         [
             "scripts/metric_reference_vitality.py",
             "--slices-dir",
@@ -176,15 +196,17 @@ def main() -> None:
             f"reference_vitality{suffix}.json",
             "--figure-name",
             f"reference_vitality{suffix}.png",
-        ],
+        ] + domain_fwd,
     ]
 
     # Print configuration summary
-    print(f"[Config] Running metrics with:")
+    print("[Config] Running metrics with:")
     print(f"  Ingest:  {ingest_dir}")
     print(f"  Graphs:  {graphs_dir}")
     print(f"  Output:  {out_dir}")
     print(f"  Metrics: {metrics_out}")
+    if getattr(args, "domain", None):
+        print(f"  Domain:  {args.domain}")
     print(f"  Suffix:  '{suffix}'" if suffix else "  Suffix:  (none)")
     print()
 

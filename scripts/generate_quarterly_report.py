@@ -30,16 +30,13 @@ from src.assessment_history import (  # noqa: E402
     compute_calibration_stats,
     load_history,
 )
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 from src.quarterly_report import (  # noqa: E402
     generate_quarterly_report,
     summarize_report_stats,
 )
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_PREDICTIONS = "data/out/experiments/msd_latest/breakthrough_predictions.csv"
-_DEFAULT_HISTORY = "data/out/assessments/assessment_history.csv"
-_DEFAULT_ESTIMATES = "data/out/assessments/horizon_estimates.csv"
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,16 +45,16 @@ def parse_args() -> argparse.Namespace:
         description="Generate quarterly briefing report.",
     )
     parser.add_argument(
-        "--predictions", default=_DEFAULT_PREDICTIONS,
-        help="Path to latest MSD predictions CSV (default: %(default)s)",
+        "--predictions", default=None,
+        help="Path to latest MSD predictions CSV",
     )
     parser.add_argument(
-        "--history", default=_DEFAULT_HISTORY,
-        help="Path to assessment history CSV (default: %(default)s)",
+        "--history", default=None,
+        help="Path to assessment history CSV",
     )
     parser.add_argument(
-        "--horizon-estimates", default=_DEFAULT_ESTIMATES,
-        help="Path to horizon estimates CSV (default: %(default)s)",
+        "--horizon-estimates", default=None,
+        help="Path to horizon estimates CSV",
     )
     parser.add_argument(
         "--quarter", required=True,
@@ -68,7 +65,7 @@ def parse_args() -> argparse.Namespace:
         help="Model version ID (e.g., v_20260323_001)",
     )
     parser.add_argument(
-        "--out", required=True,
+        "--out", default=None,
         help="Output path for the markdown report",
     )
     parser.add_argument(
@@ -76,6 +73,7 @@ def parse_args() -> argparse.Namespace:
         help="Probability column name (default: %(default)s)",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -86,6 +84,16 @@ def main() -> None:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    paths = resolve_script_paths(args, _REPO)
+    if args.predictions is None:
+        args.predictions = str(paths.experiments / "msd_latest" / "breakthrough_predictions.csv") if paths else "data/out/experiments/msd_latest/breakthrough_predictions.csv"
+    if args.history is None:
+        args.history = str(paths.assessments / "assessment_history.csv") if paths else "data/out/assessments/assessment_history.csv"
+    if args.horizon_estimates is None:
+        args.horizon_estimates = str(paths.assessments / "horizon_estimates.csv") if paths else "data/out/assessments/horizon_estimates.csv"
+    if args.out is None:
+        args.out = str(paths.assessments / f"quarterly_report_{args.quarter}.md") if paths else f"data/out/assessments/quarterly_report_{args.quarter}.md"
 
     # Load predictions
     pred_path = Path(args.predictions)

@@ -47,11 +47,9 @@ from src.assessment_history import (  # noqa: E402
     save_history,
     summarize_history,
 )
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_HISTORY = "data/out/assessments/assessment_history.csv"
-_DEFAULT_LABELS = "data/out/02_lineage_tracking/onset_labels_msd.csv"
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,10 +58,11 @@ def parse_args() -> argparse.Namespace:
         description="Update MSD assessment history.",
     )
     parser.add_argument(
-        "--history", default=_DEFAULT_HISTORY,
-        help="Path to assessment history CSV (default: %(default)s)",
+        "--history", default=None,
+        help="Path to assessment history CSV",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
+    add_domain_args(parser)
 
     sub = parser.add_subparsers(dest="command")
 
@@ -93,8 +92,8 @@ def parse_args() -> argparse.Namespace:
     # Backfill subcommand
     bf = sub.add_parser("backfill", help="Backfill outcomes with labels")
     bf.add_argument(
-        "--labels", default=_DEFAULT_LABELS,
-        help="Path to onset labels CSV (default: %(default)s)",
+        "--labels", default=None,
+        help="Path to onset labels CSV",
     )
     bf.add_argument(
         "--label-column", default="is_inflection_onset",
@@ -201,6 +200,13 @@ def main() -> None:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    paths = resolve_script_paths(args, _REPO)
+    if args.history is None:
+        args.history = str(paths.assessments / "assessment_history.csv") if paths else "data/out/assessments/assessment_history.csv"
+    # Resolve backfill labels default if applicable
+    if args.command == "backfill" and getattr(args, "labels", None) is None:
+        args.labels = str(paths.lineage_tracking / "onset_labels_msd.csv") if paths else "data/out/02_lineage_tracking/onset_labels_msd.csv"
 
     if args.command == "record":
         cmd_record(args)

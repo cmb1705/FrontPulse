@@ -17,23 +17,24 @@ Usage:
 """
 
 from __future__ import annotations
+
 import argparse
 import json
-from pathlib import Path
-from collections import defaultdict
-from typing import Dict, Set, List, Tuple
 import sys
+from collections import defaultdict
+from pathlib import Path
 
 import pandas as pd
-import numpy as np
 
 repo_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(repo_root))
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
-from src.trusted_io import load_trusted_pickle
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.trusted_io import load_trusted_pickle  # noqa: E402
 
 
-def load_milestone_anchors(milestone_csv: Path) -> Dict[str, List[str]]:
+def load_milestone_anchors(milestone_csv: Path) -> dict[str, list[str]]:
     """
     Load milestone DOIs and extract anchor papers for each research front.
 
@@ -44,14 +45,14 @@ def load_milestone_anchors(milestone_csv: Path) -> Dict[str, List[str]]:
     df = pd.read_csv(milestone_csv)
 
     # Filter to detectable events only
-    df = df[df['detectable'] == True].copy()
+    df = df[df['detectable'] == True].copy()  # noqa: E712
     print(f"[ANCHOR] Found {len(df)} detectable milestones")
 
     # Some milestones may reference multiple fronts (pipe-separated)
     # Example: mapped_fronts = "stability_engineering|interface_passivation"
     anchor_map = defaultdict(list)
 
-    for _, row in df.iterrows():
+    for _idx, row in df.iterrows():
         event_id = row['event_id']
         mapped_fronts = row['mapped_fronts']
 
@@ -78,7 +79,7 @@ def load_milestone_anchors(milestone_csv: Path) -> Dict[str, List[str]]:
 def find_lineage_for_paper(
     paper_doi: str,
     quarter: str,
-    lineage_registry: Dict[str, Dict[int, int]],
+    lineage_registry: dict[str, dict[int, int]],
     graphs_dir: Path,
     allow_external_pickle: bool = False,
 ) -> int | None:
@@ -90,6 +91,7 @@ def find_lineage_for_paper(
         quarter: Quarter string (e.g., "2016Q2")
         lineage_registry: Mapping of quarter -> {community_id: lineage_id}
         graphs_dir: Directory containing graph PKL files
+        allow_external_pickle: Allow loading graph artifacts from outside repo.
 
     Returns:
         lineage_id if found, None otherwise
@@ -102,22 +104,22 @@ def find_lineage_for_paper(
         return None
 
     try:
-        G = load_trusted_pickle(
+        graph = load_trusted_pickle(
             graph_path,
-            description="Milestone mapping graph pickle",
+            description="Milestone mapping graph artifact",
             allow_external=allow_external_pickle,
         )
 
         # Check if paper exists in graph
-        if paper_doi not in G.nodes:
+        if paper_doi not in graph.nodes:
             return None
 
         # Get community assignment
-        if 'labels' not in G.graph:
+        if 'labels' not in graph.graph:
             print(f"[ANCHOR] Warning: No labels found in graph for {quarter}")
             return None
 
-        labels = G.graph['labels']
+        labels = graph.graph['labels']
         community_id = labels.get(paper_doi)
 
         if community_id is None:
@@ -129,17 +131,17 @@ def find_lineage_for_paper(
 
         return lineage_id
 
-    except Exception as e:
-        print(f"[ANCHOR] Error loading graph for {quarter}: {e}")
+    except Exception as exc:
+        print(f"[ANCHOR] Error loading graph for {quarter}: {exc}")
         return None
 
 
 def build_anchor_map_phase1(
     milestone_csv: Path,
     lineage_registry_json: Path,
-    graphs_dir: Path,
+    _graphs_dir: Path,
     verbose: bool = True
-) -> Dict[str, Set[int]]:
+) -> dict[str, set[int]]:
     """
     Phase 1: Build anchor map from milestone DOIs to lineage IDs.
 
@@ -151,24 +153,24 @@ def build_anchor_map_phase1(
     print("="*70)
 
     # Load milestone anchors
-    milestone_anchors = load_milestone_anchors(milestone_csv)
+    _milestone_anchors = load_milestone_anchors(milestone_csv)
 
     # Load lineage registry
     print(f"\n[ANCHOR] Loading lineage registry from {lineage_registry_json}")
-    with open(lineage_registry_json, 'r') as f:
+    with open(lineage_registry_json) as f:
         lineage_registry = json.load(f)
     print(f"[ANCHOR] Registry covers {len(lineage_registry)} quarters")
 
     # Build front -> lineage mapping
-    front_to_lineages: Dict[str, Set[int]] = defaultdict(set)
+    front_to_lineages: dict[str, set[int]] = defaultdict(set)
 
     # Load milestone CSV again to get quarters
     df_milestones = pd.read_csv(milestone_csv)
-    df_milestones = df_milestones[df_milestones['detectable'] == True]
+    df_milestones = df_milestones[df_milestones['detectable'] == True]  # noqa: E712
 
-    print(f"\n[ANCHOR] Searching for milestone papers in citation graphs...")
+    print("\n[ANCHOR] Searching for milestone papers in citation graphs...")
 
-    for _, row in df_milestones.iterrows():
+    for _idx, row in df_milestones.iterrows():
         event_id = row['event_id']
         event_quarter = row['event_quarter']
         mapped_fronts = row['mapped_fronts']
@@ -195,14 +197,14 @@ def build_anchor_map_phase1(
     print("\n[ANCHOR] Phase 1 complete")
     print("[ANCHOR] NOTE: Full implementation requires DOI extraction from milestone descriptions")
     print("[ANCHOR] Current version returns front definitions without lineage mappings")
-    print(f"[ANCHOR] Identified {len(milestone_anchors)} research fronts")
+    print(f"[ANCHOR] Identified {len(_milestone_anchors)} research fronts")
 
     # Return empty mapping for now - to be filled when DOIs are available
     return dict(front_to_lineages)
 
 
 def save_anchor_results(
-    anchor_map: Dict[str, Set[int]],
+    anchor_map: dict[str, set[int]],
     output_path: Path,
     milestone_csv: Path
 ):
@@ -211,7 +213,7 @@ def save_anchor_results(
     # Convert sets to lists for JSON serialization
     serializable_map = {
         front: {
-            "lineage_ids": sorted(list(lineages)),
+            "lineage_ids": sorted(lineages),
             "n_lineages": len(lineages)
         }
         for front, lineages in anchor_map.items()
@@ -219,7 +221,7 @@ def save_anchor_results(
 
     # Add metadata
     df = pd.read_csv(milestone_csv)
-    df_detectable = df[df['detectable'] == True]
+    df_detectable = df[df['detectable'] == True]  # noqa: E712
 
     output_data = {
         "phase": "anchor_seeding",
@@ -252,19 +254,19 @@ def main():
     parser.add_argument(
         "--lineage-registry",
         type=Path,
-        default=Path("data/out/02_lineage_tracking/lineage_registry.json"),
+        default=None,
         help="Path to lineage registry JSON"
     )
     parser.add_argument(
         "--graphs-dir",
         type=Path,
-        default=Path("data/current_graphs"),
+        default=None,
         help="Directory containing citation graph PKL files"
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/out/03_milestone_mapping/lineage_to_front_mapping.json"),
+        default=None,
         help="Output path for mapping results"
     )
     parser.add_argument(
@@ -281,10 +283,19 @@ def main():
     parser.add_argument(
         "--allow-external-pickle",
         action="store_true",
-        help="Allow loading graph pickles from outside the repository root.",
+        help="Allow loading graph artifacts from outside the repository root.",
     )
 
+    add_domain_args(parser)
     args = parser.parse_args()
+
+    paths = resolve_script_paths(args, repo_root)
+    if args.lineage_registry is None:
+        args.lineage_registry = Path(paths.lineage_tracking / "lineage_registry.json") if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
+    if args.graphs_dir is None:
+        args.graphs_dir = paths.graphs if paths else Path("data/current_graphs")
+    if args.output is None:
+        args.output = Path(paths.out / "03_milestone_mapping" / "lineage_to_front_mapping.json") if paths else Path("data/out/03_milestone_mapping/lineage_to_front_mapping.json")
 
     # Phase 1: Anchor-based seeding
     anchor_map = build_anchor_map_phase1(

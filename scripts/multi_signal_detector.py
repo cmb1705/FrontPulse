@@ -35,59 +35,61 @@ import json
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, Tuple, List, Any, Optional
+from typing import Any
 
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-import lightgbm as lgb
+import lightgbm as lgb  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier  # noqa: E402
+from sklearn.linear_model import LogisticRegression  # noqa: E402
+
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+
 try:
     from catboost import CatBoostClassifier  # type: ignore
 except ModuleNotFoundError:
     CatBoostClassifier = None  # type: ignore
-from sklearn.metrics import (
-    classification_report,
-    precision_recall_curve,
-    roc_auc_score,
+from imblearn.over_sampling import SMOTE  # noqa: E402
+from imblearn.pipeline import Pipeline as ImbPipeline  # noqa: E402
+from sklearn.metrics import (  # noqa: E402
     average_precision_score,
+    classification_report,
     confusion_matrix,
+    roc_auc_score,
 )
-from sklearn.model_selection import StratifiedKFold, cross_val_score, cross_validate
-from sklearn.preprocessing import StandardScaler
-from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline as ImbPipeline
+from sklearn.model_selection import StratifiedKFold, cross_validate  # noqa: E402
+from sklearn.preprocessing import StandardScaler  # noqa: E402
+
 try:
     from sklearn.frozen import FrozenEstimator  # type: ignore
 except ImportError:
     FrozenEstimator = None  # type: ignore
 
-from src.trusted_io import save_trusted_pickle
-
-from persistence_utils import ensure_persistence_column
-from utils.quarter_utils import (
-    quarter_to_int,
+from persistence_utils import ensure_persistence_column  # noqa: E402
+from utils.quarter_utils import (  # noqa: E402
     describe_quarter_range,
     filter_by_quarter,
-    snapshot_dataset,
     int_to_quarter,
+    quarter_to_int,
+    snapshot_dataset,
 )
 
+from src.trusted_io import save_trusted_pickle  # noqa: E402
 
 _PREFIT_CALIBRATION_WARNING_EMITTED = False
 
 
-def _wrap_prefit_calibrator(estimator: Any) -> tuple[Any, Dict[str, Any]]:
+def _wrap_prefit_calibrator(estimator: Any) -> tuple[Any, dict[str, Any]]:
     """Return estimator/kwargs combo suitable for calibrating a pre-fit model."""
     global _PREFIT_CALIBRATION_WARNING_EMITTED
     if FrozenEstimator is not None:
         frozen = FrozenEstimator(estimator)
         if hasattr(estimator, "_estimator_type"):
-            setattr(frozen, "_estimator_type", getattr(estimator, "_estimator_type"))
+            frozen._estimator_type = estimator._estimator_type
         return frozen, {}
 
     if not _PREFIT_CALIBRATION_WARNING_EMITTED:
@@ -101,7 +103,7 @@ def _wrap_prefit_calibrator(estimator: Any) -> tuple[Any, Dict[str, Any]]:
     return estimator, {'cv': 'prefit'}
 
 
-def _parse_lag_max_arg(value: Optional[str]) -> Optional[int]:
+def _parse_lag_max_arg(value: str | None) -> int | None:
     if value is None:
         return None
     if isinstance(value, int):
@@ -116,7 +118,7 @@ def _parse_lag_max_arg(value: Optional[str]) -> Optional[int]:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def compute_confusion_stats(pred_df: pd.DataFrame) -> Dict[str, float]:
+def compute_confusion_stats(pred_df: pd.DataFrame) -> dict[str, float]:
     tp = int(((pred_df['is_milestone_pred'] == 1) & (pred_df['is_milestone_true'] == 1)).sum())
     fp = int(((pred_df['is_milestone_pred'] == 1) & (pred_df['is_milestone_true'] == 0)).sum())
     fn = int(((pred_df['is_milestone_pred'] == 0) & (pred_df['is_milestone_true'] == 1)).sum())
@@ -137,7 +139,7 @@ def compute_confusion_stats(pred_df: pd.DataFrame) -> Dict[str, float]:
     }
 
 
-def summarize_detection_lag(pred_df: pd.DataFrame) -> Dict[str, float]:
+def summarize_detection_lag(pred_df: pd.DataFrame) -> dict[str, float]:
     positives = pred_df[pred_df['is_milestone_true'] == 1]
     if positives.empty:
         return {
@@ -145,7 +147,7 @@ def summarize_detection_lag(pred_df: pd.DataFrame) -> Dict[str, float]:
             "detection_lag_coverage": 0.0,
         }
 
-    def sorted_quarters(series: pd.Series) -> List[str]:
+    def sorted_quarters(series: pd.Series) -> list[str]:
         return sorted(series.tolist(), key=quarter_to_int)
 
     actual_map = positives.groupby('lineage_id')['quarter'].apply(sorted_quarters).to_dict()
@@ -156,7 +158,7 @@ def summarize_detection_lag(pred_df: pd.DataFrame) -> Dict[str, float]:
         .to_dict()
     )
 
-    lags: List[int] = []
+    lags: list[int] = []
     for lineage_id, actual_quarters in actual_map.items():
         preds = predicted_map.get(lineage_id)
         if not preds:
@@ -220,7 +222,7 @@ def add_detection_lag_column(pred_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def resolve_input_path(preferred: Path, legacy_tokens: List[Tuple[str, str]]) -> Path:
+def resolve_input_path(preferred: Path, legacy_tokens: list[tuple[str, str]]) -> Path:
     """
     Resolve preferred path, falling back to legacy replacements when needed.
     """
@@ -245,9 +247,9 @@ def load_and_merge_signals(
     semantic_velocity_path: Path,
     multisignal_features_path: Path,
     lineage_timeseries_path: Path,
-    labels_path: Optional[Path] = None,
-    n_samples: int = None,
-) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
+    labels_path: Path | None = None,
+    _n_samples: int = None,
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame]:
     """
     Load and merge all signal sources into unified feature matrix.
 
@@ -309,7 +311,7 @@ def load_and_merge_signals(
     merged['growth_rate'] = merged.groupby('lineage_id')['total_works'].pct_change()
     merged['growth_rate'] = merged['growth_rate'].fillna(0)
 
-    print(f"   Computed total_works and growth_rate from new_works")
+    print("   Computed total_works and growth_rate from new_works")
 
     print(f"   Merged dataset: {len(merged)} lineage-quarters")
     print(f"   Feature columns: {len(merged.columns)}")
@@ -328,10 +330,10 @@ def load_and_merge_signals(
 
 def construct_labels(
     features_df: pd.DataFrame,
-    labels_df: Optional[pd.DataFrame],
+    labels_df: pd.DataFrame | None,
     tight_mapping: pd.DataFrame,
     lag_min: int = 2,
-    lag_max: Optional[int] = 8
+    lag_max: int | None = 8
 ) -> pd.DataFrame:
     """
     Construct binary labels for each lineage-quarter.
@@ -489,10 +491,10 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def select_features(
     df: pd.DataFrame,
-    required_features: Optional[List[str]] = None,
+    required_features: list[str] | None = None,
     field_feature_mode: str = "auto",
     leakage_safe: bool = False,
-) -> Tuple[pd.DataFrame, List[str]]:
+) -> tuple[pd.DataFrame, list[str]]:
     """Select final feature set for training.
 
     Automatically includes context features if available.
@@ -566,7 +568,7 @@ def select_features(
                   "(field baselines computed on full corpus)")
             field_feature_mode = "off"
 
-    feature_columns: List[str] = []
+    feature_columns: list[str] = []
     if field_feature_mode != "only":
         feature_columns.extend(core_features)
 
@@ -582,20 +584,20 @@ def select_features(
     # Check which context features are available
     available_context = [col for col in context_feature_patterns if col in df.columns]
 
-    context_included: List[str] = []
+    context_included: list[str] = []
     if field_feature_mode != "only":
         if available_context:
             print(f"   Found {len(available_context)} context features (Task 2.1 integration)")
             feature_columns.extend(available_context)
             context_included = available_context
         else:
-            print(f"   No context features found (baseline mode)")
+            print("   No context features found (baseline mode)")
 
     # Convergence features (14 features from cross-front detection)
     # Automatically include if present (backward compatible)
     available_convergence = sorted([col for col in df.columns if col.startswith("conv_")])
 
-    convergence_included: List[str] = []
+    convergence_included: list[str] = []
     if field_feature_mode != "only":
         if available_convergence:
             print(f"   Found {len(available_convergence)} convergence features")
@@ -618,7 +620,7 @@ def select_features(
     field_feature_candidates = [c for c in field_feature_candidates if not (c in seen or seen.add(c))]
     available_field_features = [col for col in field_feature_candidates if col in df.columns]
 
-    field_included: List[str] = []
+    field_included: list[str] = []
     if field_feature_mode == "off":
         pass
     else:
@@ -651,7 +653,7 @@ def select_features(
         print(f"      Field-relative features: {len(field_included)}")
 
     # Show first 10 features as sample
-    print(f"   Sample features:")
+    print("   Sample features:")
     for feat in available_features[:10]:
         print(f"      - {feat}")
     if len(available_features) > 10:
@@ -687,8 +689,8 @@ def train_models(
     cat_border_count: int = 128,
     cat_thread_count: int = -1,
     cat_task_type: str = 'CPU',
-    external_test_data: Optional[Tuple[pd.DataFrame, pd.Series]] = None
-) -> Dict:
+    external_test_data: tuple[pd.DataFrame, pd.Series] | None = None
+) -> dict:
     """
     Train ensemble models with class imbalance handling and optional calibration.
 
@@ -744,7 +746,7 @@ def train_models(
     if use_smote and y_train.sum() > 5:  # Need at least 6 positive samples
         smote = SMOTE(random_state=random_state, k_neighbors=min(5, y_train.sum() - 1))
         steps.append(('smote', smote))
-        print(f"   Using SMOTE for oversampling")
+        print("   Using SMOTE for oversampling")
 
     # Model
     if model_type == 'logistic':
@@ -795,24 +797,7 @@ def train_models(
             f"n_estimators={n_estimators}, max_depth={max_depth}, "
             f"min_child_samples={min_samples_leaf}, learning_rate={learning_rate}"
         )
-    elif model_type == 'catboost':
-        if CatBoostClassifier is None:
-            raise ValueError("CatBoost is not installed. Please `pip install catboost` to use this model.")
-        model = CatBoostClassifier(
-            iterations=n_estimators,
-            depth=max_depth,
-            learning_rate=learning_rate,
-            l2_leaf_reg=cat_l2,
-            border_count=cat_border_count,
-            random_seed=random_state,
-            verbose=False,
-            loss_function='Logloss',
-            eval_metric='Logloss',
-            auto_class_weights='Balanced',
-            thread_count=cat_thread_count,
-            task_type=cat_task_type
-        )
-    elif model_type == 'catboost':
+    elif model_type == 'catboost' or model_type == 'catboost':
         if CatBoostClassifier is None:
             raise ValueError("CatBoost is not installed. Please `pip install catboost` to use this model.")
         model = CatBoostClassifier(
@@ -866,7 +851,7 @@ def train_models(
             )
             calibrated_pipeline.fit(X_test_matrix, y_test)
         pipeline = calibrated_pipeline
-        print(f"   Calibration complete")
+        print("   Calibration complete")
 
     # Predictions
     y_pred_train = pipeline.predict(X_train_matrix)
@@ -875,7 +860,7 @@ def train_models(
     y_prob_train = pipeline.predict_proba(X_train_matrix)[:, 1]
     y_prob_test = pipeline.predict_proba(X_test_matrix)[:, 1]
 
-    print(f"   Training complete")
+    print("   Training complete")
 
     return {
         'pipeline': pipeline,
@@ -909,7 +894,7 @@ def evaluate_with_cv(
     cat_border_count: int = 128,
     cat_thread_count: int = -1,
     cat_task_type: str = 'CPU',
-) -> Dict:
+) -> dict:
     """
     Evaluate model using k-fold cross-validation for robust performance estimates.
 
@@ -1043,14 +1028,14 @@ def evaluate_with_cv(
 
     # Aggregate results
     print(f"\n   === CROSS-VALIDATION RESULTS ({cv_folds} folds) ===")
-    print(f"\n   Test Performance (mean ± std):")
+    print("\n   Test Performance (mean ± std):")
     for metric in ['precision', 'recall', 'f1', 'roc_auc', 'average_precision']:
         test_scores = cv_results[f'test_{metric}']
         mean_score = test_scores.mean()
         std_score = test_scores.std()
         print(f"      {metric:20s}: {mean_score:.3f} ± {std_score:.3f}")
 
-    print(f"\n   Train Performance (mean ± std):")
+    print("\n   Train Performance (mean ± std):")
     for metric in ['precision', 'recall', 'f1']:
         train_scores = cv_results[f'train_{metric}']
         mean_score = train_scores.mean()
@@ -1058,7 +1043,7 @@ def evaluate_with_cv(
         print(f"      {metric:20s}: {mean_score:.3f} ± {std_score:.3f}")
 
     # Train final model on full data
-    print(f"\n   Training final model on full dataset...")
+    print("\n   Training final model on full dataset...")
     pipeline.fit(X_matrix, y)
 
     # Optionally calibrate final model
@@ -1072,7 +1057,7 @@ def evaluate_with_cv(
         )
         pipeline.fit(X_matrix, y)
 
-    print(f"   Training complete")
+    print("   Training complete")
 
     # Package results
     metrics = {
@@ -1105,7 +1090,7 @@ def evaluate_with_cv(
 # ---------------------------------------------------------------------------
 
 
-def evaluate_model(results: Dict, feature_names: List[str]) -> Dict:
+def evaluate_model(results: dict, feature_names: list[str]) -> dict:
     """
     Evaluate model performance with metrics appropriate for imbalanced data.
     """
@@ -1115,7 +1100,7 @@ def evaluate_model(results: Dict, feature_names: List[str]) -> Dict:
     y_test = results['y_test']
     y_pred_train = results['y_pred_train']
     y_pred_test = results['y_pred_test']
-    y_prob_train = results['y_prob_train']
+    results['y_prob_train']
     y_prob_test = results['y_prob_test']
 
     # Classification reports
@@ -1126,7 +1111,7 @@ def evaluate_model(results: Dict, feature_names: List[str]) -> Dict:
     print(classification_report(y_test, y_pred_test, target_names=['Negative', 'Positive'], zero_division=0))
 
     # Confusion matrices
-    cm_train = confusion_matrix(y_train, y_pred_train)
+    confusion_matrix(y_train, y_pred_train)
     cm_test = confusion_matrix(y_test, y_pred_test)
 
     print("\n   Confusion Matrix (Test):")
@@ -1177,7 +1162,7 @@ def evaluate_model(results: Dict, feature_names: List[str]) -> Dict:
             print(f"      {i+1:2d}. {feature_names[idx]:30s} {coefs[idx]:.4f}")
 
     # Metrics summary
-    from sklearn.metrics import precision_score, recall_score, f1_score
+    from sklearn.metrics import f1_score, precision_score, recall_score
 
     metrics = {
         'precision_train': float(precision_score(y_train, y_pred_train, zero_division=0)),
@@ -1203,7 +1188,7 @@ def generate_predictions(
     df: pd.DataFrame,
     X: pd.DataFrame,
     pipeline,
-    feature_names: List[str],
+    _feature_names: list[str],
     output_dir: Path,
     threshold: float = 0.70,
     persistence_window: int = 2,
@@ -1273,12 +1258,12 @@ def generate_predictions(
 
 def save_model_and_metrics(
     pipeline,
-    metrics: Dict,
-    feature_names: List[str],
+    metrics: dict,
+    feature_names: list[str],
     output_dir: Path,
     threshold: float = 0.70,
     lag_min: int = 2,
-    lag_max: Optional[int] = 8,
+    lag_max: int | None = 8,
     calibrated: bool = False,
     calibration_method: str = None
 ):
@@ -1338,23 +1323,23 @@ def main():
     )
     parser.add_argument(
         '--tight-mapping',
-        default='data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv'
+        default=None,
     )
     parser.add_argument(
         '--semantic-velocity',
-        default='data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv'
+        default=None,
     )
     parser.add_argument(
         '--multisignal',
-        default='data/out/02_lineage_tracking/lineage_multisignal_features.csv'
+        default=None,
     )
     parser.add_argument(
         '--timeseries',
-        default='data/out/02_lineage_tracking/lineage_timeseries.csv'
+        default=None,
     )
     parser.add_argument(
         '--output-dir',
-        default='data/out/experiments/multi_signal_detector'
+        default=None,
     )
 
     # Model configuration
@@ -1434,7 +1419,20 @@ def main():
                             'CD disruption index, field-relative metrics). '
                             'Use for prospective evaluation experiments.')
 
+    add_domain_args(parser)
     args = parser.parse_args()
+
+    paths = resolve_script_paths(args, _REPO)
+    if args.tight_mapping is None:
+        args.tight_mapping = str(paths.experiments / "stage0_tight_mapping" / "milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
+    if args.semantic_velocity is None:
+        args.semantic_velocity = str(paths.experiments / "stage1_quarterly_embeddings" / "semantic_velocity.csv") if paths else "data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv"
+    if args.multisignal is None:
+        args.multisignal = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
+    if args.timeseries is None:
+        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
+    if args.output_dir is None:
+        args.output_dir = str(paths.experiments / "multi_signal_detector") if paths else "data/out/experiments/multi_signal_detector"
     if args.disable_field_features and args.field_features_only:
         parser.error("Cannot combine --disable-field-features with --field-features-only.")
     if args.model == 'catboost':
@@ -1451,7 +1449,7 @@ def main():
     print("="*70)
     print()
 
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"   Model: {args.model}")
     if args.model in ['random_forest', 'gradient_boosting']:
         print(f"   Regularization: max_depth={args.max_depth}, min_samples_leaf={args.min_samples_leaf if args.model == 'random_forest' else 'N/A'}")
@@ -1496,7 +1494,6 @@ def main():
         multisignal_path,
         timeseries_path,
         labels_path=labels_path,
-        n_samples=None  # Always load full dataset for proper labeling
     )
 
     # Step 2: Construct labels
@@ -1504,7 +1501,6 @@ def main():
 
     # Stratified sampling for testing (after labeling)
     if args.n_samples and args.n_samples < len(features_df):
-        from sklearn.model_selection import train_test_split
         print(f"\n[SAMPLING] Stratified sampling to {args.n_samples} samples...")
 
         n_positive = features_df['is_milestone'].sum()
@@ -1639,7 +1635,7 @@ def main():
 
     # Attach configuration metadata for reproducibility
     metrics['model_type'] = args.model
-    model_params: Dict[str, Any] = {}
+    model_params: dict[str, Any] = {}
     if args.model in {'random_forest', 'gradient_boosting', 'lightgbm'}:
         model_params.update({
             'n_estimators': args.n_estimators,
@@ -1710,21 +1706,21 @@ def main():
         print(f"   ROC-AUC:   {metrics['cv_roc_auc_mean']:.3f} ± {metrics['cv_roc_auc_std']:.3f}")
         print(f"   PR-AUC:    {metrics['cv_pr_auc_mean']:.3f} ± {metrics['cv_pr_auc_std']:.3f}")
 
-        print(f"\nStage 0 Baseline: 6.8% recall")
+        print("\nStage 0 Baseline: 6.8% recall")
         print(f"MSD Recall:   {metrics['cv_recall_mean']*100:.1f}%")
 
         if metrics['cv_recall_mean'] > 0.068:
             improvement = (metrics['cv_recall_mean'] - 0.068) / 0.068 * 100
             print(f"Improvement:      +{improvement:.1f}%")
     else:
-        print(f"\nTest Set Performance:")
+        print("\nTest Set Performance:")
         print(f"   Precision: {metrics['precision_test']:.3f}")
         print(f"   Recall:    {metrics['recall_test']:.3f}")
         print(f"   F1 Score:  {metrics['f1_test']:.3f}")
         print(f"   ROC-AUC:   {metrics['roc_auc_test']:.3f}")
         print(f"   PR-AUC:    {metrics['pr_auc_test']:.3f}")
 
-        print(f"\nStage 0 Baseline: 6.8% recall")
+        print("\nStage 0 Baseline: 6.8% recall")
         print(f"MSD Recall:   {metrics['recall_test']*100:.1f}%")
 
         if metrics['recall_test'] > 0.068:

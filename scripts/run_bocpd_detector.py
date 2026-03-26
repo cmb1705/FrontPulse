@@ -31,12 +31,9 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from src.bocpd import BOCPDConfig, run_bocpd_on_fronts  # noqa: E402
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-# Default paths following the front-level series contract
-_DEFAULT_INPUT = "data/out/04_front_aggregation/front_onset_series.csv"
-_DEFAULT_OUTPUT = "data/out/04_front_aggregation/bocpd_results.csv"
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,13 +46,13 @@ def parse_args() -> argparse.Namespace:
     # I/O
     parser.add_argument(
         "--input",
-        default=_DEFAULT_INPUT,
-        help="Path to front-level series CSV (default: %(default)s)",
+        default=None,
+        help="Path to front-level series CSV",
     )
     parser.add_argument(
         "--output",
-        default=_DEFAULT_OUTPUT,
-        help="Path for BOCPD results CSV (default: %(default)s)",
+        default=None,
+        help="Path for BOCPD results CSV",
     )
     parser.add_argument(
         "--merge",
@@ -113,6 +110,7 @@ def parse_args() -> argparse.Namespace:
         help="Enable verbose logging",
     )
 
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -153,6 +151,12 @@ def load_front_series(path: str) -> pd.DataFrame:
 def main() -> None:
     """Run BOCPD detector on front-level series."""
     args = parse_args()
+
+    paths = resolve_script_paths(args, _REPO)
+    if args.input is None:
+        args.input = str(paths.front_aggregation / "front_onset_series.csv") if paths else "data/out/04_front_aggregation/front_onset_series.csv"
+    if args.output is None:
+        args.output = str(paths.front_aggregation / "bocpd_results.csv") if paths else "data/out/04_front_aggregation/bocpd_results.csv"
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

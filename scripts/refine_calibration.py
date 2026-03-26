@@ -32,11 +32,9 @@ from src.calibration_tracker import (  # noqa: E402
     load_calibration_history,
     save_calibration_history,
 )
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_HISTORY = "data/out/assessments/assessment_history.csv"
-_DEFAULT_CAL_HISTORY = "data/out/assessments/calibration_history.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,16 +43,16 @@ def parse_args() -> argparse.Namespace:
         description="Refine MSD calibration with operational data.",
     )
     parser.add_argument(
-        "--history", default=_DEFAULT_HISTORY,
-        help="Path to assessment history CSV (default: %(default)s)",
+        "--history", default=None,
+        help="Path to assessment history CSV",
     )
     parser.add_argument(
         "--model-version", required=True,
         help="Model version to evaluate (e.g., v_20260323_001)",
     )
     parser.add_argument(
-        "--cal-history", default=_DEFAULT_CAL_HISTORY,
-        help="Path to calibration history JSON (default: %(default)s)",
+        "--cal-history", default=None,
+        help="Path to calibration history JSON",
     )
     parser.add_argument(
         "--fit-calibrator", action="store_true",
@@ -65,6 +63,7 @@ def parse_args() -> argparse.Namespace:
         help="Std devs for degradation threshold (default: %(default)s)",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -75,6 +74,12 @@ def main() -> None:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    paths = resolve_script_paths(args, _REPO)
+    if args.history is None:
+        args.history = str(paths.assessments / "assessment_history.csv") if paths else "data/out/assessments/assessment_history.csv"
+    if args.cal_history is None:
+        args.cal_history = str(paths.assessments / "calibration_history.json") if paths else "data/out/assessments/calibration_history.json"
 
     # Load assessment history
     history = load_history(Path(args.history))

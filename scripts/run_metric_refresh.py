@@ -7,6 +7,7 @@ outputs, and maintains the central manifest file.
 
 Usage:
     python scripts/run_metric_refresh.py
+    python scripts/run_metric_refresh.py --domain crispr
     python scripts/run_metric_refresh.py --limit-quarters 4
     python scripts/run_metric_refresh.py --metrics author_influx citation_velocity
     python scripts/run_metric_refresh.py --dry-run
@@ -19,7 +20,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
 
 # Windows-safe symbols
 CHECK = "[OK]"
@@ -27,10 +27,10 @@ CROSS = "[FAIL]"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.insert(0, str(REPO_ROOT))
 
-from src.metrics.common import load_manifest, verify_manifest_entry
-
+from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.metrics.common import verify_manifest_entry  # noqa: E402
 
 # Metric scripts in execution order
 METRIC_SCRIPTS = [
@@ -48,15 +48,39 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--slices-dir",
-        default="data/current_ingest/slices",
+        default=None,
         type=Path,
         help="Directory containing quarterly slice parquet files",
     )
     parser.add_argument(
         "--out-dir",
-        default="data/out/metrics",
+        default=None,
         type=Path,
         help="Output directory for metrics",
+    )
+    parser.add_argument(
+        "--graphs-dir",
+        default=None,
+        type=Path,
+        help="Directory containing graph files",
+    )
+    parser.add_argument(
+        "--registry",
+        default=None,
+        type=Path,
+        help="Path to front_id_registry_cumulative.json",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        type=Path,
+        help="Path to partition cache directory",
+    )
+    parser.add_argument(
+        "--ingest-path",
+        default=None,
+        type=Path,
+        help="Path to ingest.parquet",
     )
     parser.add_argument(
         "--limit-quarters",
@@ -80,6 +104,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Only validate existing outputs against manifest",
     )
+    add_domain_args(parser)
     return parser.parse_args()
 
 
@@ -95,9 +120,14 @@ def run_metric_script(
     script_path: Path,
     slices_dir: Path,
     out_dir: Path,
-    limit_quarters: Optional[int] = None,
+    limit_quarters: int | None = None,
     dry_run: bool = False,
-) -> Dict[str, any]:
+    domain: str | None = None,
+    graphs_dir: Path | None = None,
+    registry: Path | None = None,
+    cache_dir: Path | None = None,
+    ingest_path: Path | None = None,
+) -> dict[str, any]:
     """
     Execute a single metric script.
 
@@ -107,6 +137,11 @@ def run_metric_script(
         out_dir: Output directory
         limit_quarters: Optional limit on quarters processed
         dry_run: If True, don't actually execute
+        domain: Optional domain identifier to forward
+        graphs_dir: Optional graphs directory for cross_cluster_bridging
+        registry: Optional registry path for cross_cluster_bridging
+        cache_dir: Optional cache directory for cross_cluster_bridging
+        ingest_path: Optional ingest parquet path for cross_cluster_bridging
 
     Returns:
         Dictionary with execution results
@@ -118,13 +153,27 @@ def run_metric_script(
         str(script_path),
     ]
 
-    if metric_name != "cross_cluster_bridging":
+    if metric_name == "cross_cluster_bridging":
+        # cross_cluster_bridging uses --graphs-dir, --registry, --cache-dir
+        if graphs_dir is not None:
+            cmd.append(f"--graphs-dir={graphs_dir}")
+        if registry is not None:
+            cmd.append(f"--registry={registry}")
+        if cache_dir is not None:
+            cmd.append(f"--cache-dir={cache_dir}")
+        if ingest_path is not None:
+            cmd.append(f"--ingest-path={ingest_path}")
+    else:
         cmd.append(f"--slices-dir={slices_dir}")
 
     cmd.append(f"--out-dir={out_dir}")
 
     if limit_quarters is not None:
         cmd.append(f"--limit={limit_quarters}")
+
+    # Forward --domain to child scripts
+    if domain is not None:
+        cmd.append(f"--domain={domain}")
 
     result = {
         "metric": metric_name,
@@ -190,7 +239,7 @@ def run_metric_script(
     return result
 
 
-def validate_outputs(out_dir: Path, metric_names: List[str]) -> Dict[str, any]:
+def validate_outputs(out_dir: Path, metric_names: list[str]) -> dict[str, any]:
     """
     Validate metric outputs against manifest.
 
@@ -270,6 +319,27 @@ def validate_outputs(out_dir: Path, metric_names: List[str]) -> Dict[str, any]:
 def main() -> None:
     args = parse_args()
 
+    # Resolve domain paths (returns None when --domain is omitted)
+    dpaths = resolve_script_paths(args, REPO_ROOT)
+
+    # Apply domain defaults for paths not explicitly provided
+    args.slices_dir = args.slices_dir or (dpaths.slices if dpaths else Path("data/current_ingest/slices"))
+    args.out_dir = args.out_dir or (dpaths.out / "metrics" if dpaths else Path("data/out/metrics"))
+    args.graphs_dir = args.graphs_dir or (dpaths.graphs if dpaths else Path("data/current_graphs"))
+    args.registry = args.registry or (
+        dpaths.out / "front_id_registry_cumulative.json"
+        if dpaths
+        else Path("data/out/front_id_registry_cumulative.json")
+    )
+    args.cache_dir = args.cache_dir or (
+        dpaths.cache_cum / "partitions_cum" if dpaths else Path("data/out/cache_cum/partitions_cum")
+    )
+    args.ingest_path = args.ingest_path or (
+        dpaths.ingest / "ingest.parquet"
+        if dpaths
+        else Path("data/current_ingest/ingest.parquet")
+    )
+
     # Determine which metrics to run
     scripts_to_run = []
     if args.metrics:
@@ -301,10 +371,12 @@ def main() -> None:
 
     # Execute metrics
     print(f"\n{'=' * 70}")
-    print(f"Metric Refresh Orchestrator")
+    print("Metric Refresh Orchestrator")
     print(f"{'=' * 70}")
     print(f"Slices directory: {args.slices_dir}")
     print(f"Output directory: {args.out_dir}")
+    if getattr(args, "domain", None):
+        print(f"Domain: {args.domain}")
     print(f"Limit quarters: {args.limit_quarters if args.limit_quarters else 'None (all)'}")
     print(f"Metrics to run: {', '.join(metric_names)}")
     print(f"Dry run: {args.dry_run}")
@@ -330,6 +402,11 @@ def main() -> None:
             args.out_dir,
             args.limit_quarters,
             args.dry_run,
+            domain=getattr(args, "domain", None),
+            graphs_dir=args.graphs_dir,
+            registry=args.registry,
+            cache_dir=args.cache_dir,
+            ingest_path=args.ingest_path,
         )
         results.append(result)
 
