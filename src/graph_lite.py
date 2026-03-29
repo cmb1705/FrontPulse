@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
 
 import networkx as nx
 import numpy as np
@@ -20,7 +20,7 @@ class LiteGraph:
     edge_dst: np.ndarray  # dtype=int32
     weight_total: np.ndarray  # dtype=float32
     edge_type: np.ndarray  # dtype=uint8 (0=citation,1=coupling,2=hybrid)
-    coupling_stats: Dict[str, object]
+    coupling_stats: dict[str, object]
 
     @property
     def n_nodes(self) -> int:
@@ -73,7 +73,7 @@ class LiteGraph:
 
         if self.coupling_stats:
             # Ensure JSON-serialisable copy
-            stats: Dict[str, object] = {}
+            stats: dict[str, object] = {}
             for key, value in self.coupling_stats.items():
                 if isinstance(value, np.generic):
                     stats[key] = value.item()
@@ -82,7 +82,7 @@ class LiteGraph:
             G.graph["coupling_stats"] = stats
         return G
 
-    def save(self, path: Path, *, coupling_stats_path: Optional[Path] = None) -> None:
+    def save(self, path: Path, *, coupling_stats_path: Path | None = None) -> None:
         arrays = {
             "node_ids": self.node_ids,
             "pub_ts": self.pub_ts,
@@ -140,10 +140,7 @@ class LiteGraph:
         weight_total = data["weight_total"]
         edge_type = data["edge_type"]
         stats_path = path.with_suffix(".json")
-        if stats_path.exists():
-            coupling_stats = json.loads(stats_path.read_text())
-        else:
-            coupling_stats = {}
+        coupling_stats = json.loads(stats_path.read_text()) if stats_path.exists() else {}
         return cls(
             node_ids=node_ids,
             pub_ts=pub_ts,
@@ -189,10 +186,8 @@ class LiteGraph:
             # Capture pub_year (useful for windowing)
             year_val = data.get("pub_year")
             if year_val is not None:
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     pub_year[idx] = int(year_val)
-                except (ValueError, TypeError):
-                    pass
 
         num_edges = G.number_of_edges()
         edge_src = np.empty(num_edges, dtype=np.int32)
@@ -224,7 +219,7 @@ class LiteGraph:
         )
 
 
-def _parse_publication_ts(value: Optional[object]) -> Optional[int]:
+def _parse_publication_ts(value: object | None) -> int | None:
     if value is None:
         return None
     if isinstance(value, (pd.Timestamp, )):

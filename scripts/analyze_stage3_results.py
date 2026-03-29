@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Analyze Phase 3 c-TF-IDF results."""
 
-import pandas as pd
-import numpy as np
 from collections import Counter
+
+import numpy as np
+import pandas as pd
 
 # Load data
 terms_df = pd.read_csv('data/out/02_lineage_tracking/lineage_ctfidf_terms.csv')
@@ -13,7 +14,7 @@ sim_df = pd.read_csv('data/out/03_milestone_mapping/lineage_front_term_similarit
 front_cols = [col for col in sim_df.columns if col != 'lineage_id']
 results = []
 
-for idx, row in sim_df.iterrows():
+for _idx, row in sim_df.iterrows():
     lineage_id = int(row['lineage_id'])
     similarities = row[front_cols].values
     max_sim = float(similarities.max())
@@ -66,7 +67,7 @@ with open('data/out/phase3_analysis.txt', 'w', encoding='utf-8') as f:
     f.write('=' * 100 + '\n\n')
 
     sims = [r['max_similarity'] for r in results]
-    f.write(f'Max similarity across all lineages:\n')
+    f.write('Max similarity across all lineages:\n')
     f.write(f'  - Mean:   {np.mean(sims):.4f}\n')
     f.write(f'  - Median: {np.median(sims):.4f}\n')
     f.write(f'  - Min:    {np.min(sims):.4f}\n')
@@ -74,7 +75,7 @@ with open('data/out/phase3_analysis.txt', 'w', encoding='utf-8') as f:
     f.write(f'  - Std:    {np.std(sims):.4f}\n\n')
 
     # Similarity thresholds
-    f.write(f'Lineages by similarity threshold:\n')
+    f.write('Lineages by similarity threshold:\n')
     f.write(f'  - > 0.0100 (strong match):   {sum(1 for s in sims if s > 0.01):3d} ({100*sum(1 for s in sims if s > 0.01)/len(sims):5.1f}%)\n')
     f.write(f'  - > 0.0050 (moderate match): {sum(1 for s in sims if s > 0.005):3d} ({100*sum(1 for s in sims if s > 0.005)/len(sims):5.1f}%)\n')
     f.write(f'  - > 0.0025 (weak match):     {sum(1 for s in sims if s > 0.0025):3d} ({100*sum(1 for s in sims if s > 0.0025)/len(sims):5.1f}%)\n')

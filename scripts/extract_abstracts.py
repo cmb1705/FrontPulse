@@ -21,14 +21,13 @@ need to rebuild the index for every process.
 """
 
 from __future__ import annotations
-import hashlib
-import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-from collections import defaultdict
 
-from src.raw_store import RawStore
+import hashlib
+from pathlib import Path
+from typing import Any
+
 from src import trusted_io
+from src.raw_store import RawStore
 
 _CACHE_VERSION = 1
 
@@ -49,7 +48,7 @@ class AbstractExtractor:
     efficient lineage-level text aggregation.
     """
 
-    def __init__(self, raw_dir: Path | str, cache_path: Optional[Path | str] = None):
+    def __init__(self, raw_dir: Path | str, cache_path: Path | str | None = None):
         """
         Initialize extractor with path to raw JSONL directory.
 
@@ -62,7 +61,7 @@ class AbstractExtractor:
             self.cache_path = _default_cache_path(self.raw_dir)
         else:
             self.cache_path = Path(cache_path)
-        self._stores: Dict[str, RawStore] = {}
+        self._stores: dict[str, RawStore] = {}
         self._load_stores()
 
     def _load_stores(self):
@@ -91,12 +90,12 @@ class AbstractExtractor:
         cache_loaded = self._try_load_cache(manifest)
 
         if not cache_loaded:
-            print(f"[AbstractExtractor] Building global index (cache miss)...")
+            print("[AbstractExtractor] Building global index (cache miss)...")
             self._work_to_store = {}
             self._doi_to_work = {}  # DOI → work_id mapping
 
             for store_id, store in self._stores.items():
-                for work_id in store._index.keys():
+                for work_id in store._index:
                     self._work_to_store[work_id] = store_id
 
                     # Also build DOI → work_id mapping
@@ -115,8 +114,8 @@ class AbstractExtractor:
         print(f"[AbstractExtractor] Ready: {total_records} total records, {len(self._work_to_store)} indexed")
         print(f"[AbstractExtractor] DOI index: {len(self._doi_to_work)} DOIs mapped")
 
-    def _build_manifest(self, jsonl_files: List[Path]) -> Dict[str, Tuple[float, int]]:
-        manifest: Dict[str, Tuple[float, int]] = {}
+    def _build_manifest(self, jsonl_files: list[Path]) -> dict[str, tuple[float, int]]:
+        manifest: dict[str, tuple[float, int]] = {}
         for jsonl_path in jsonl_files:
             base = jsonl_path.resolve()
             index_path = jsonl_path.with_name(jsonl_path.stem + '_index.csv').resolve()
@@ -126,11 +125,11 @@ class AbstractExtractor:
                     manifest[str(candidate)] = (stat.st_mtime, stat.st_size)
         return manifest
 
-    def _try_load_cache(self, manifest: Dict[str, Tuple[float, int]]) -> bool:
+    def _try_load_cache(self, manifest: dict[str, tuple[float, int]]) -> bool:
         if not self.cache_path:
             return False
         try:
-            data: Dict[str, Any] = trusted_io.load_trusted_pickle(
+            data: dict[str, Any] = trusted_io.load_trusted_pickle(
                 self.cache_path, description="abstract index cache",
             )
         except FileNotFoundError:
@@ -159,7 +158,7 @@ class AbstractExtractor:
         print(f"[AbstractExtractor] Loaded cached index from {self.cache_path}")
         return True
 
-    def _save_cache(self, manifest: Dict[str, Tuple[float, int]]) -> None:
+    def _save_cache(self, manifest: dict[str, tuple[float, int]]) -> None:
         if not self.cache_path:
             return
         try:
@@ -178,7 +177,7 @@ class AbstractExtractor:
         except Exception as exc:
             print(f"[AbstractExtractor] Warning: failed to write cache {self.cache_path}: {exc}")
 
-    def _find_work(self, work_id: str) -> Optional[Dict]:
+    def _find_work(self, work_id: str) -> dict | None:
         """
         Find a work across all raw stores (O(1) lookup via global index).
 
@@ -200,7 +199,7 @@ class AbstractExtractor:
         return store.get_json(work_id)
 
     @staticmethod
-    def reconstruct_abstract(inverted_index: Dict[str, List[int]]) -> str:
+    def reconstruct_abstract(inverted_index: dict[str, list[int]]) -> str:
         """
         Reconstruct abstract text from OpenAlex inverted index format.
 
@@ -227,7 +226,7 @@ class AbstractExtractor:
         # Join words with spaces
         return ' '.join(words)
 
-    def get_text(self, work_id: str, include_title: bool = True) -> Optional[str]:
+    def get_text(self, work_id: str, include_title: bool = True) -> str | None:
         """
         Get combined title + abstract text for a work.
 
@@ -257,7 +256,7 @@ class AbstractExtractor:
 
         return '. '.join(parts) if parts else None
 
-    def get_text_by_doi(self, doi: str, include_title: bool = True) -> Optional[str]:
+    def get_text_by_doi(self, doi: str, include_title: bool = True) -> str | None:
         """
         Get combined title + abstract text for a work by DOI.
 
@@ -281,10 +280,10 @@ class AbstractExtractor:
 
     def get_texts_batch(
         self,
-        work_ids: List[str],
+        work_ids: list[str],
         include_title: bool = True,
         verbose: bool = False
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Batch extraction for multiple works (optimized for lineage processing).
 
@@ -316,7 +315,7 @@ class AbstractExtractor:
 
         return texts
 
-    def get_metadata(self, work_id: str) -> Optional[Dict]:
+    def get_metadata(self, work_id: str) -> dict | None:
         """
         Get metadata for a work (without reconstructing abstract).
 

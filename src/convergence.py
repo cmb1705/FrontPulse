@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -24,9 +23,9 @@ LOG = logging.getLogger(__name__)
 
 
 def compute_pairwise_semantic_similarity(
-    embeddings: Dict[int, np.ndarray],
+    embeddings: dict[int, np.ndarray],
     top_k: int = 20,
-) -> Dict[int, List[Tuple[int, float]]]:
+) -> dict[int, list[tuple[int, float]]]:
     """Top-k most similar lineages per lineage via cosine similarity.
 
     Uses brute-force pairwise cosine distance (tractable for N <= ~500
@@ -55,7 +54,7 @@ def compute_pairwise_semantic_similarity(
     matrix = matrix / norms
     sim_matrix = matrix @ matrix.T
 
-    result: Dict[int, List[Tuple[int, float]]] = {}
+    result: dict[int, list[tuple[int, float]]] = {}
     for i, lid in enumerate(ids):
         row = sim_matrix[i].copy()
         row[i] = -1.0  # exclude self
@@ -72,8 +71,8 @@ def compute_pairwise_semantic_similarity(
 
 
 def compute_author_overlap(
-    lineage_authors: Dict[int, Set[str]],
-) -> Dict[int, Dict[str, float]]:
+    lineage_authors: dict[int, set[str]],
+) -> dict[int, dict[str, float]]:
     """Author migration features per lineage.
 
     For each lineage, count how many of its authors also publish in at
@@ -86,12 +85,12 @@ def compute_author_overlap(
         lineage_id -> {conv_author_migration_count, conv_author_migration_rate}.
     """
     # Build inverted index: author -> set of lineages
-    author_lineages: Dict[str, Set[int]] = defaultdict(set)
+    author_lineages: dict[str, set[int]] = defaultdict(set)
     for lid, authors in lineage_authors.items():
         for aid in authors:
             author_lineages[aid].add(lid)
 
-    result: Dict[int, Dict[str, float]] = {}
+    result: dict[int, dict[str, float]] = {}
     for lid, authors in lineage_authors.items():
         total = len(authors)
         if total == 0:
@@ -118,10 +117,10 @@ def compute_author_overlap(
 
 
 def compute_citation_bridges(
-    lineage_papers: Dict[int, Set[str]],
-    paper_references: Dict[str, List[str]],
-    paper_lineage: Dict[str, int],
-) -> Dict[int, Dict[str, float]]:
+    lineage_papers: dict[int, set[str]],
+    paper_references: dict[str, list[str]],
+    paper_lineage: dict[str, int],
+) -> dict[int, dict[str, float]]:
     """Count papers that cite works from 2+ distinct lineages.
 
     A paper is a "bridge" if its outbound references span at least two
@@ -136,7 +135,7 @@ def compute_citation_bridges(
     Returns:
         lineage_id -> {conv_citation_bridge_count, conv_citation_bridge_rate}.
     """
-    result: Dict[int, Dict[str, float]] = {}
+    result: dict[int, dict[str, float]] = {}
 
     for lid, papers in lineage_papers.items():
         total = len(papers)
@@ -169,10 +168,10 @@ def compute_citation_bridges(
 
 
 def compute_terminology_jaccard(
-    lineage_terms: Dict[int, Set[str]],
-    nearest_neighbors: Dict[int, List[Tuple[int, float]]],
+    lineage_terms: dict[int, set[str]],
+    nearest_neighbors: dict[int, list[tuple[int, float]]],
     top_n: int = 5,
-) -> Dict[int, Dict[str, float]]:
+) -> dict[int, dict[str, float]]:
     """Jaccard similarity of term sets with nearest semantic neighbors.
 
     For each lineage, compute the mean Jaccard index of its term set
@@ -187,7 +186,7 @@ def compute_terminology_jaccard(
     Returns:
         lineage_id -> {conv_terminology_overlap}.
     """
-    result: Dict[int, Dict[str, float]] = {}
+    result: dict[int, dict[str, float]] = {}
 
     for lid, terms_a in lineage_terms.items():
         neighbors = nearest_neighbors.get(lid, [])[:top_n]
@@ -195,7 +194,7 @@ def compute_terminology_jaccard(
             result[lid] = {"conv_terminology_overlap": 0.0}
             continue
 
-        jaccards: List[float] = []
+        jaccards: list[float] = []
         for nid, _ in neighbors:
             terms_b = lineage_terms.get(nid, set())
             if not terms_b:
@@ -218,12 +217,12 @@ def compute_terminology_jaccard(
 
 
 def aggregate_convergence_features(
-    semantic_sim: Dict[int, List[Tuple[int, float]]],
-    prev_semantic_sim: Optional[Dict[int, List[Tuple[int, float]]]],
-    author_overlap: Dict[int, Dict[str, float]],
-    citation_bridges: Dict[int, Dict[str, float]],
-    terminology_jaccard: Dict[int, Dict[str, float]],
-) -> Dict[int, Dict[str, float]]:
+    semantic_sim: dict[int, list[tuple[int, float]]],
+    prev_semantic_sim: dict[int, list[tuple[int, float]]] | None,
+    author_overlap: dict[int, dict[str, float]],
+    citation_bridges: dict[int, dict[str, float]],
+    terminology_jaccard: dict[int, dict[str, float]],
+) -> dict[int, dict[str, float]]:
     """Combine all four channels into per-lineage feature dict.
 
     Args:
@@ -242,12 +241,12 @@ def aggregate_convergence_features(
     all_ids.update(terminology_jaccard.keys())
 
     # Build lookup for previous quarter max similarity
-    prev_max: Dict[int, float] = {}
+    prev_max: dict[int, float] = {}
     if prev_semantic_sim:
         for lid, neighbors in prev_semantic_sim.items():
             prev_max[lid] = neighbors[0][1] if neighbors else 0.0
 
-    result: Dict[int, Dict[str, float]] = {}
+    result: dict[int, dict[str, float]] = {}
     for lid in all_ids:
         # Semantic channel
         neighbors = semantic_sim.get(lid, [])
@@ -301,10 +300,10 @@ _ROLLING_TARGETS = ("conv_composite_score", "conv_max_semantic_sim")
 
 
 def compute_rolling_convergence_features(
-    quarterly_features: Dict[str, Dict[int, Dict[str, float]]],
-    quarters_sorted: List[str],
-    lineage_ids: Set[int],
-) -> Dict[Tuple[int, str], Dict[str, float]]:
+    quarterly_features: dict[str, dict[int, dict[str, float]]],
+    quarters_sorted: list[str],
+    lineage_ids: set[int],
+) -> dict[tuple[int, str], dict[str, float]]:
     """Compute trailing rolling-window derivatives.
 
     For each target feature, compute 2-quarter and 4-quarter trailing
@@ -319,11 +318,11 @@ def compute_rolling_convergence_features(
         (lineage_id, quarter) -> dict with ``_roll_2q``, ``_roll_4q``,
         ``_max_dev_4q`` suffixed features, plus all base features.
     """
-    result: Dict[Tuple[int, str], Dict[str, float]] = {}
+    result: dict[tuple[int, str], dict[str, float]] = {}
 
     for lid in lineage_ids:
         # Collect per-quarter values for this lineage
-        history: Dict[str, Dict[str, float]] = {}
+        history: dict[str, dict[str, float]] = {}
         for q in quarters_sorted:
             qf = quarterly_features.get(q, {})
             if lid in qf:
@@ -335,7 +334,7 @@ def compute_rolling_convergence_features(
             base = dict(history[q])  # copy base features
 
             for target in _ROLLING_TARGETS:
-                val = base.get(target, 0.0)
+                base.get(target, 0.0)
 
                 # 2-quarter trailing mean
                 window_2 = [
@@ -369,7 +368,7 @@ def compute_rolling_convergence_features(
 # ---------------------------------------------------------------------------
 
 #: All convergence feature names with their zero-defaults.
-CONVERGENCE_FEATURE_DEFAULTS: Dict[str, float] = {
+CONVERGENCE_FEATURE_DEFAULTS: dict[str, float] = {
     "conv_max_semantic_sim": 0.0,
     "conv_mean_top5_sim": 0.0,
     "conv_semantic_velocity": 0.0,

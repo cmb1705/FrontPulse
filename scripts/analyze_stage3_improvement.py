@@ -1,6 +1,5 @@
 """Analyze Phase 3 improvements after alias expansion."""
 import pandas as pd
-import numpy as np
 
 # Load Phase 3 similarity matrix
 df = pd.read_csv('data/out/03_milestone_mapping/lineage_front_term_similarity.csv', index_col=0)

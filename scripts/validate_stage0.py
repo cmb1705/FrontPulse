@@ -8,11 +8,11 @@ Validates:
 4. Computes precision, recall, F1 vs random baseline
 """
 
-from pathlib import Path
-import pandas as pd
-import numpy as np
 import json
 import shutil
+from pathlib import Path
+
+import pandas as pd
 
 STAGE0_DIR = Path('data/out/experiments/stage0_tight_mapping')
 LEGACY_PHASE0_DIR = Path('data/out/experiments/phase0_tight_mapping')
@@ -28,7 +28,6 @@ def resolve_tight_mapping_path() -> Path:
     raise FileNotFoundError(
         "Tight mapping not found. Run stage0_semantic_milestone_mapping.py first."
     )
-import shutil
 
 STAGE0_DIR = Path('data/out/experiments/stage0_tight_mapping')
 LEGACY_PHASE0_DIR = Path('data/out/experiments/phase0_tight_mapping')
@@ -47,7 +46,7 @@ def validate_tight_mapping(mapping_path: Path) -> dict:
     max_lineage_count = lineage_counts.max()
     duplicate_lineages = lineage_counts[lineage_counts > 1]
 
-    print(f"[1/3] Uniqueness constraint:")
+    print("[1/3] Uniqueness constraint:")
     print(f"   Total lineages: {df['lineage_id'].nunique()}")
     print(f"   Max appearances per lineage: {max_lineage_count}")
 
@@ -57,7 +56,7 @@ def validate_tight_mapping(mapping_path: Path) -> dict:
             print(f"      - Lineage {lid}: {count} times")
         uniqueness_passed = False
     else:
-        print(f"   [PASSED] Each lineage appears exactly once")
+        print("   [PASSED] Each lineage appears exactly once")
         uniqueness_passed = True
 
     # Check 2: Each milestone has exactly K lineages
@@ -65,20 +64,20 @@ def validate_tight_mapping(mapping_path: Path) -> dict:
     min_lineages = milestone_counts.min()
     max_lineages = milestone_counts.max()
 
-    print(f"\n[2/3] K-per-milestone constraint (K=3):")
+    print("\n[2/3] K-per-milestone constraint (K=3):")
     print(f"   Total milestones: {df['event_id'].nunique()}")
     print(f"   Min lineages per milestone: {min_lineages}")
     print(f"   Max lineages per milestone: {max_lineages}")
 
     if min_lineages == 3 and max_lineages == 3:
-        print(f"   [PASSED] All milestones have exactly 3 lineages")
+        print("   [PASSED] All milestones have exactly 3 lineages")
         k_constraint_passed = True
     else:
-        print(f"   [FAILED] Not all milestones have exactly 3 lineages")
+        print("   [FAILED] Not all milestones have exactly 3 lineages")
         k_constraint_passed = False
 
     # Check 3: Similarity scores
-    print(f"\n[3/3] Similarity score distribution:")
+    print("\n[3/3] Similarity score distribution:")
     print(f"   Mean: {df['similarity'].mean():.3f}")
     print(f"   Median: {df['similarity'].median():.3f}")
     print(f"   Min: {df['similarity'].min():.3f}")
@@ -97,9 +96,9 @@ def validate_tight_mapping(mapping_path: Path) -> dict:
     }
 
     if uniqueness_passed and k_constraint_passed:
-        print(f"\n[VALIDATION PASSED] Tight mapping satisfies all constraints")
+        print("\n[VALIDATION PASSED] Tight mapping satisfies all constraints")
     else:
-        print(f"\n[VALIDATION FAILED] Tight mapping violates constraints")
+        print("\n[VALIDATION FAILED] Tight mapping violates constraints")
 
     return validation_result
 
@@ -124,14 +123,14 @@ def rerun_detection_experiment(
 
     # Load tight mapping
     mapping_df = pd.read_csv(tight_mapping_path)
-    print(f"[1/4] Loaded tight mapping:")
+    print("[1/4] Loaded tight mapping:")
     print(f"   {len(mapping_df)} milestone-lineage pairs")
     print(f"   {mapping_df['event_id'].nunique()} milestones")
     print(f"   {mapping_df['lineage_id'].nunique()} unique lineages")
 
     # Load signals
     signals_df = pd.read_csv(signals_path)
-    print(f"\n[2/4] Loaded lineage signals:")
+    print("\n[2/4] Loaded lineage signals:")
     print(f"   {len(signals_df)} lineage-quarters")
     print(f"   {signals_df['lineage_id'].nunique()} lineages")
     print(f"   {signals_df['quarter'].nunique()} quarters")
@@ -139,11 +138,11 @@ def rerun_detection_experiment(
     # Count flagged lineage-quarters
     n_flagged = signals_df['flagged'].sum()
     flagged_rate = n_flagged / len(signals_df)
-    print(f"\n[3/4] Signal flagging rate:")
+    print("\n[3/4] Signal flagging rate:")
     print(f"   Flagged quarters: {n_flagged}/{len(signals_df)} ({flagged_rate*100:.2f}%)")
 
     # Test detection on tight mapping
-    print(f"\n[4/4] Testing detection...")
+    print("\n[4/4] Testing detection...")
 
     detections = []
     for _, milestone in mapping_df.iterrows():
@@ -183,7 +182,7 @@ def rerun_detection_experiment(
 
     recall = true_positives / total_milestones if total_milestones > 0 else 0
 
-    print(f"\n   === MILESTONE-LEVEL DETECTION ===")
+    print("\n   === MILESTONE-LEVEL DETECTION ===")
     print(f"   True Positives: {true_positives}")
     print(f"   False Negatives: {false_negatives}")
     print(f"   Recall: {recall*100:.1f}% ({true_positives}/{total_milestones})")
@@ -202,7 +201,7 @@ def rerun_detection_experiment(
     total_flagged = signals_df['flagged'].sum()
     precision_lq = milestone_flagged / total_flagged if total_flagged > 0 else 0
 
-    print(f"\n   === LINEAGE-QUARTER LEVEL ===")
+    print("\n   === LINEAGE-QUARTER LEVEL ===")
     print(f"   Milestone lineages flagged: {milestone_flagged}")
     print(f"   Non-milestone lineages flagged: {non_milestone_flagged}")
     print(f"   Total flagged: {total_flagged}")
@@ -213,7 +212,7 @@ def rerun_detection_experiment(
     print(f"   F1 Score: {f1*100:.1f}%")
 
     # Random baseline comparison
-    print(f"\n   === RANDOM BASELINE ===")
+    print("\n   === RANDOM BASELINE ===")
 
     # Expected recall if we randomly flag at rate p=flagged_rate
     # For each milestone with 3 lineages, each with ~5 quarters in window
@@ -230,14 +229,14 @@ def rerun_detection_experiment(
     print(f"   Improvement over random: {recall/random_recall:.2f}x" if random_recall > 0 else "   N/A")
 
     # Detected milestones
-    print(f"\n   Detected milestones:")
+    print("\n   Detected milestones:")
     for event_id, was_detected in milestone_detected.items():
         if was_detected:
             event_quarter = detections_df[detections_df['event_id'] == event_id]['event_quarter'].iloc[0]
             # Get which ranks detected it
             detected_ranks = detections_df[
                 (detections_df['event_id'] == event_id) &
-                (detections_df['was_flagged'] == True)
+                (detections_df['was_flagged'])
             ]['rank'].tolist()
             print(f"      - {event_id} ({event_quarter}) [ranks: {detected_ranks}]")
 

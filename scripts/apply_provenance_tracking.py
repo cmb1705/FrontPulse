@@ -9,6 +9,7 @@ matching the pattern implemented in metric_author_influx.py.
 import re
 from pathlib import Path
 
+
 def patch_metric_script(script_path: Path, compute_func_name: str) -> bool:
     """
     Patch a metric script to add provenance tracking.
@@ -133,9 +134,9 @@ def main():
         if path.exists():
             print(f"Patching {script_path}...")
             if patch_metric_script(path, compute_func):
-                print(f"  ✓ Applied provenance tracking")
+                print("  ✓ Applied provenance tracking")
             else:
-                print(f"  ✗ No changes made (already patched or different structure)")
+                print("  ✗ No changes made (already patched or different structure)")
         else:
             print(f"  ✗ File not found: {script_path}")
 

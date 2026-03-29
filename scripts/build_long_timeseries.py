@@ -15,8 +15,9 @@ Outputs:
     - data/out/04_front_aggregation/front_timeseries_delta_long.csv
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 
 def melt_wide_to_long(path_in: Path, path_out: Path, value_name: str) -> None:

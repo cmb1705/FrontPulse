@@ -10,7 +10,6 @@ import pytest
 
 from src.timeliness_scoring import (
     PROFILES,
-    TimelinessResult,
     compute_arl0,
     compute_arl1,
     compute_edd,

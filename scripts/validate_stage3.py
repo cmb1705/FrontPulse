@@ -14,16 +14,14 @@ Usage:
 
 import json
 from pathlib import Path
-from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import yaml
 
 
-def validate_data_integrity(terms_df: pd.DataFrame, similarity_df: pd.DataFrame) -> Dict:
+def validate_data_integrity(terms_df: pd.DataFrame, similarity_df: pd.DataFrame) -> dict:
     """
     Run data integrity checks on Phase 3 outputs.
 
@@ -151,7 +149,7 @@ def generate_top_terms_showcase(terms_df: pd.DataFrame, similarity_df: pd.DataFr
     ax.axis('off')
 
     y_pos = 0.95
-    for i, row in enumerate(showcase_data):
+    for _i, row in enumerate(showcase_data):
         # Lineage header
         header = f"{row['lineage']} -> {row['front']} (sim={row['similarity']:.3f})"
         ax.text(0.05, y_pos, header, fontsize=10, fontweight='bold',
@@ -215,7 +213,7 @@ def generate_score_distributions(terms_df: pd.DataFrame, similarity_df: pd.DataF
     stats_text = f"Mean: {ctfidf_scores.mean():.2f}\nMedian: {np.median(ctfidf_scores):.2f}\nMax: {ctfidf_scores.max():.2f}"
     ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 2: Similarity score distribution
     ax = axes[0, 1]
@@ -238,7 +236,7 @@ def generate_score_distributions(terms_df: pd.DataFrame, similarity_df: pd.DataF
     if len(nonzero_similarities) > 0:
         ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
                 fontsize=9, verticalalignment='top', horizontalalignment='right',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+                bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 3: Terms per lineage distribution
     ax = axes[1, 0]
@@ -252,7 +250,7 @@ def generate_score_distributions(terms_df: pd.DataFrame, similarity_df: pd.DataF
     stats_text = f"Mean: {terms_per_lineage.mean():.1f}\nMedian: {terms_per_lineage.median():.1f}\nMax: {terms_per_lineage.max()}"
     ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 4: Matches per front distribution
     ax = axes[1, 1]
@@ -274,7 +272,7 @@ def generate_score_distributions(terms_df: pd.DataFrame, similarity_df: pd.DataF
     print(f"  [OK] Saved score distributions: {output_path}")
 
 
-def generate_markdown_report(checks: Dict, output_path: Path):
+def generate_markdown_report(checks: dict, output_path: Path):
     """
     Generate markdown summary report.
     """
@@ -385,7 +383,7 @@ def main():
     # Validate data integrity
     print("\n[2/5] Running data integrity checks...")
     checks = validate_data_integrity(terms_df, similarity_df)
-    print(f"  [OK] Completed {len([k for k in checks.keys() if k.endswith('_ok') or k.endswith('_nulls')])} checks")
+    print(f"  [OK] Completed {len([k for k in checks if k.endswith('_ok') or k.endswith('_nulls')])} checks")
 
     # Generate visualizations
     output_dir = Path('data/out/06_validation/phase3')
@@ -424,7 +422,7 @@ def main():
     else:
         print("\n[FAIL] SOME VALIDATION CHECKS FAILED")
 
-    print(f"\nOutputs:")
+    print("\nOutputs:")
     print(f"  - {output_dir / 'phase_3_similarity_heatmap.png'}")
     print(f"  - {output_dir / 'phase_3_top_terms.png'}")
     print(f"  - {output_dir / 'phase_3_distributions.png'}")

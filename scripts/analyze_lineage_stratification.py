@@ -8,10 +8,10 @@ Examines:
 - Filtering thresholds and their impact
 """
 
-import pandas as pd
-from pathlib import Path
-from collections import defaultdict
 import json
+from pathlib import Path
+
+import pandas as pd
 
 print("=" * 80)
 print("LINEAGE STRATIFICATION ANALYSIS")
@@ -128,13 +128,13 @@ print("-" * 80)
 
 # After filtering 0-4 quarters
 filtered_5plus = lineages[lineages['lifetime_quarters'] >= 5]
-print(f"\nFiltering out 0-4 quarter lineages (short-lived):")
+print("\nFiltering out 0-4 quarter lineages (short-lived):")
 print(f"  - Removes: {len(lineages) - len(filtered_5plus)} lineages ({100*(len(lineages) - len(filtered_5plus))/len(lineages):.1f}%)")
 print(f"  - Keeps: {len(filtered_5plus)} lineages ({100*len(filtered_5plus)/len(lineages):.1f}%)")
 
 # Critical expansion period (2013-2016) with 5+ quarters
 expansion_5q = expansion_lineages[expansion_lineages['lifetime_quarters'] >= 5]
-print(f"\nCritical expansion period (2013-2016) with 5+ quarters:")
+print("\nCritical expansion period (2013-2016) with 5+ quarters:")
 print(f"  - Count: {len(expansion_5q)} lineages")
 print(f"  - Mean lifetime: {expansion_5q['lifetime_quarters'].mean():.1f} quarters")
 print(f"  - Median lifetime: {expansion_5q['lifetime_quarters'].median():.1f} quarters")
@@ -142,13 +142,13 @@ print(f"  - Max lifetime: {expansion_5q['lifetime_quarters'].max():.0f} quarters
 
 # Current analysis (20+ quarters)
 current = lineages[lineages['lifetime_quarters'] >= 20]
-print(f"\nCurrent analysis threshold (20+ quarters):")
+print("\nCurrent analysis threshold (20+ quarters):")
 print(f"  - Count: {len(current)} lineages")
 print(f"  - This represents {100*len(current)/len(lineages):.1f}% of all lineages")
 print(f"  - This represents {100*len(current)/len(filtered_5plus):.1f}% of 5+ quarter lineages")
 
 # Distribution of current 20+ set by first year
-print(f"\nTemporal distribution of 20+ quarter lineages:")
+print("\nTemporal distribution of 20+ quarter lineages:")
 for min_year, max_year, label in periods:
     period_count = len(current[(current['first_year'] >= min_year) & (current['first_year'] <= max_year)])
     print(f"  - {label}: {period_count} lineages")

@@ -12,14 +12,14 @@ stdout (and optionally to CSV).
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
 
 
-def parse_float_list(value: str, *, default: List[float]) -> List[float]:
+def parse_float_list(value: str, *, default: list[float]) -> list[float]:
     if value is None:
         return default
     parts = [s.strip() for s in value.split(",") if s.strip()]
@@ -106,11 +106,11 @@ def run_sweep(
     min_score: float,
     parallel_workers: int,
 ) -> pd.DataFrame:
-    combos: List[Tuple[float, float]] = [(b, l) for b in beta_values for l in decay_values]
+    combos: list[tuple[float, float]] = [(b, l) for b in beta_values for l in decay_values]
     if parallel_workers and parallel_workers > 1 and len(combos) > 1:
         from concurrent.futures import ThreadPoolExecutor
 
-        results: List[dict] = []
+        results: list[dict] = []
         try:
             with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
                 for res in executor.map(

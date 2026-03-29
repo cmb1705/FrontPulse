@@ -5,9 +5,9 @@ Diagnose why tripwire z-scores are so low.
 Check if the Negative Binomial expected activity model is overestimating baseline rates.
 """
 
+
 import pandas as pd
-import numpy as np
-from pathlib import Path
+
 
 def main():
     # Load alerts with z-scores
@@ -26,7 +26,7 @@ def main():
     print("=" * 70)
 
     # Overall z-score distribution
-    print(f"\n[Z-SCORE DISTRIBUTION]")
+    print("\n[Z-SCORE DISTRIBUTION]")
     print(f"  Mean:   {alerts['z_score'].mean():.3f}")
     print(f"  Median: {alerts['z_score'].median():.3f}")
     print(f"  Std:    {alerts['z_score'].std():.3f}")
@@ -34,7 +34,7 @@ def main():
     print(f"  Max:    {alerts['z_score'].max():.3f}")
 
     # Alerts by significance level
-    print(f"\n[SIGNIFICANCE BREAKDOWN]")
+    print("\n[SIGNIFICANCE BREAKDOWN]")
     print(f"  z > 3:    {(alerts['z_score'] > 3).sum():3d} ({100*(alerts['z_score'] > 3).sum()/len(alerts):5.1f}%)")
     print(f"  z > 2:    {(alerts['z_score'] > 2).sum():3d} ({100*(alerts['z_score'] > 2).sum()/len(alerts):5.1f}%)")
     print(f"  z > 1:    {(alerts['z_score'] > 1).sum():3d} ({100*(alerts['z_score'] > 1).sum()/len(alerts):5.1f}%)")
@@ -44,7 +44,7 @@ def main():
     # Check a sample front: inverted_architecture (should have strongest signals)
     sample_front = "inverted_architecture"
     front_alerts = alerts[alerts['community_id'] == sample_front].sort_values('quarter')
-    front_counts = counts[counts['front'] == sample_front].sort_values('quarter')
+    counts[counts['front'] == sample_front].sort_values('quarter')
 
     print(f"\n[SAMPLE FRONT: {sample_front}]")
     print(f"  Total alerts: {len(front_alerts)}")
@@ -56,13 +56,13 @@ def main():
     # z = (observed - expected) / sqrt(variance)
     # For NB: variance = mu + mu^2/r
 
-    print(f"\n[TOP 10 ALERTS BY Z-SCORE]")
+    print("\n[TOP 10 ALERTS BY Z-SCORE]")
     top_alerts = alerts.nlargest(10, 'z_score')[
         ['quarter', 'community_id', 'z_score', 'composite_score', 'significant']
     ]
     print(top_alerts.to_string(index=False))
 
-    print(f"\n[BOTTOM 10 ALERTS BY Z-SCORE]")
+    print("\n[BOTTOM 10 ALERTS BY Z-SCORE]")
     bottom_alerts = alerts.nsmallest(10, 'z_score')[
         ['quarter', 'community_id', 'z_score', 'composite_score', 'significant']
     ]
@@ -70,26 +70,26 @@ def main():
 
     # Check if there's a time trend (are later periods worse?)
     alerts['year'] = alerts['quarter'].str[:4].astype(int)
-    print(f"\n[Z-SCORE BY TIME PERIOD]")
+    print("\n[Z-SCORE BY TIME PERIOD]")
     time_summary = alerts.groupby('year')['z_score'].agg(['mean', 'median', 'count'])
     print(time_summary.to_string())
 
-    print(f"\n[RECOMMENDATION]")
+    print("\n[RECOMMENDATION]")
     mean_z = alerts['z_score'].mean()
     sig_rate = 100 * alerts['significant'].sum() / len(alerts)
 
     if mean_z < 0:
         print(f"  WARNING: Negative mean z-score ({mean_z:.3f}) indicates model")
-        print(f"           is systematically overestimating expected activity.")
-        print(f"  LIKELY CAUSE: mu_floor parameter too high, or NB model poorly fit")
+        print("           is systematically overestimating expected activity.")
+        print("  LIKELY CAUSE: mu_floor parameter too high, or NB model poorly fit")
     elif mean_z < 0.5:
         print(f"  WARNING: Low mean z-score ({mean_z:.3f}) indicates weak signal detection")
-        print(f"  LIKELY CAUSE: Model variance estimates too high, or data is very noisy")
+        print("  LIKELY CAUSE: Model variance estimates too high, or data is very noisy")
 
     if sig_rate < 5:
         print(f"  WARNING: FDR control rejecting {100-sig_rate:.1f}% of alerts")
-        print(f"  LIKELY CAUSE: FDR q=0.1 too strict for this application")
-        print(f"  SUGGESTION: Try q=0.2 or use raw z-score threshold (z > 1.5)")
+        print("  LIKELY CAUSE: FDR q=0.1 too strict for this application")
+        print("  SUGGESTION: Try q=0.2 or use raw z-score threshold (z > 1.5)")
 
 if __name__ == "__main__":
     main()

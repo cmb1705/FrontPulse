@@ -16,12 +16,13 @@ Usage:
 """
 
 import json
+from collections import Counter
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pathlib import Path
 from scipy.stats import entropy
-from collections import Counter
-import matplotlib.pyplot as plt
 
 
 class StageWeightCalibrator:
@@ -333,7 +334,7 @@ class StageWeightCalibrator:
         print(f"  Phase2-Phase4 agreement: {agreement['stage2_stage4_agreement']:.1%}")
         print(f"  Phase3-Phase4 agreement: {agreement['stage3_stage4_agreement']:.1%}")
         print(f"  Unanimous (all 3):       {agreement['unanimous_agreement_rate']:.1%}")
-        print(f"\n  Odd-one-out counts:")
+        print("\n  Odd-one-out counts:")
         print(f"    Phase2: {agreement['stage2_odd_out_count']} times")
         print(f"    Phase3: {agreement['stage3_odd_out_count']} times")
         print(f"    Phase4: {agreement['stage4_odd_out_count']} times")
@@ -360,7 +361,7 @@ class StageWeightCalibrator:
         weights_result = self.compute_optimal_weights(discrimination, agreement, calibration)
         weights = weights_result['recommended_weights']
 
-        print(f"\nCurrent (equal):     stage2=1.00, stage3=1.00, stage4=1.00")
+        print("\nCurrent (equal):     stage2=1.00, stage3=1.00, stage4=1.00")
         print(f"Recommended:         stage2={weights['stage2']:.2f}, stage3={weights['stage3']:.2f}, stage4={weights['stage4']:.2f}")
 
         print("\nReasoning:")
@@ -430,7 +431,7 @@ class StageWeightCalibrator:
         # Add text annotations
         for i in range(3):
             for j in range(3):
-                text = ax.text(j, i, f'{agreement_matrix[i, j]:.2f}',
+                ax.text(j, i, f'{agreement_matrix[i, j]:.2f}',
                              ha="center", va="center", color="black", fontweight='bold')
 
         plt.colorbar(im, ax=ax)

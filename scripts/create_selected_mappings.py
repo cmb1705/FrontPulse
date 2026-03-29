@@ -15,8 +15,10 @@ You can manually edit the output file to add back any vetted low-confidence
 mappings that you determine are legitimate.
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 
 def main():
     SRC = Path("data/out/03_milestone_mapping/lineage_front_mappings.csv")
@@ -31,7 +33,7 @@ def main():
     print(f"\nLoaded {len(df)} total mappings from {SRC.name}")
 
     # Show distribution
-    print(f"\nConfidence distribution:")
+    print("\nConfidence distribution:")
     for conf, count in df['confidence'].value_counts().items():
         pct = 100 * count / len(df)
         print(f"  {conf:10s}: {count:3d} ({pct:5.1f}%)")
@@ -49,10 +51,10 @@ def main():
     print(f"\n{'=' * 70}")
     print("CURATION COMPLETE")
     print("=" * 70)
-    print(f"\nNext steps:")
+    print("\nNext steps:")
     print(f"1. (Optional) Review {DST.name} and manually add back any")
-    print(f"   low-confidence mappings you've vetted as legitimate")
-    print(f"2. Run: python scripts/aggregate_lineages_to_fronts.py")
+    print("   low-confidence mappings you've vetted as legitimate")
+    print("2. Run: python scripts/aggregate_lineages_to_fronts.py")
     print()
 
 if __name__ == "__main__":

@@ -7,15 +7,14 @@ measurement of semantic velocity over time.
 This addresses the Stage 0 limitation where we used growth volatility as a proxy.
 """
 
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from transformers import AutoTokenizer, AutoModel
-import torch
-from collections import defaultdict
 import json
 import shutil
-from typing import Dict, List
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import torch
+from transformers import AutoModel, AutoTokenizer
 
 STAGE1_OUTPUT_DIR = Path('data/out/experiments/stage1_quarterly_embeddings')
 LEGACY_PHASE1_OUTPUT_DIR = Path('data/out/experiments/phase1_quarterly_embeddings')
@@ -125,7 +124,7 @@ def compute_quarterly_embeddings(
     agg_df: pd.DataFrame,
     model_name: str = 'allenai/scibert_scivocab_uncased',
     batch_size: int = 32
-) -> Dict:
+) -> dict:
     """
     Compute SciBERT embeddings for each lineage-quarter.
 
@@ -181,7 +180,7 @@ def compute_quarterly_embeddings(
 
 
 def compute_semantic_velocity(
-    embeddings: Dict,
+    embeddings: dict,
     agg_df: pd.DataFrame
 ) -> pd.DataFrame:
     """
@@ -235,7 +234,7 @@ def compute_semantic_velocity(
 
 
 def save_embeddings_and_velocity(
-    embeddings: Dict,
+    embeddings: dict,
     velocity_df: pd.DataFrame,
     output_dir: Path
 ):
@@ -264,8 +263,8 @@ def save_embeddings_and_velocity(
     # Summary statistics
     summary = {
         'n_embeddings': len(embeddings),
-        'n_lineages': len(set(k[0] for k in keys)),
-        'n_quarters': len(set(k[1] for k in keys)),
+        'n_lineages': len({k[0] for k in keys}),
+        'n_quarters': len({k[1] for k in keys}),
         'velocity_mean': float(velocity_df['semantic_velocity'].mean()),
         'velocity_median': float(velocity_df['semantic_velocity'].median()),
         'velocity_std': float(velocity_df['semantic_velocity'].std()),
@@ -276,12 +275,12 @@ def save_embeddings_and_velocity(
     with open(output_dir / 'quarterly_embeddings_summary.json', 'w') as f:
         json.dump(summary, f, indent=2)
 
-    print(f"   Saved:")
+    print("   Saved:")
     print(f"      - quarterly_embeddings.npz ({len(embeddings)} embeddings)")
     print(f"      - semantic_velocity.csv ({len(velocity_df)} rows)")
-    print(f"      - quarterly_embeddings_summary.json")
+    print("      - quarterly_embeddings_summary.json")
 
-    print(f"\n   Summary:")
+    print("\n   Summary:")
     for key, value in summary.items():
         print(f"      {key}: {value}")
 
@@ -349,7 +348,7 @@ def main():
     milestone_lineages = set(tight_mapping['lineage_id'].unique())
 
     # Check coverage
-    embedded_lineages = set(k[0] for k in embeddings.keys())
+    embedded_lineages = {k[0] for k in embeddings}
     coverage = len(milestone_lineages & embedded_lineages)
 
     print(f"   Milestone lineages: {len(milestone_lineages)}")

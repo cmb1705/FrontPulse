@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -12,8 +12,8 @@ def apply_slices(
     df: pd.DataFrame,
     slices_yaml: str | Path,
     *,
-    cutoff: Optional[pd.Timestamp] = None
-) -> Dict[str, pd.DataFrame]:
+    cutoff: pd.Timestamp | None = None
+) -> dict[str, pd.DataFrame]:
     """
     Apply slicing rules from YAML configuration to create data partitions.
 
@@ -34,17 +34,17 @@ def apply_slices(
         >>> slices = apply_slices(df, "config/slices.yaml", cutoff=pd.Timestamp("2022-12-31"))
         >>> slices["by_quarter__2020Q1"]  # DataFrame for 2020 Q1
     """
-    cfg: Dict[str, Any] = yaml.safe_load(Path(slices_yaml).read_text())
-    out: Dict[str, pd.DataFrame] = {}
-    env: Dict[str, Any] = {}
+    cfg: dict[str, Any] = yaml.safe_load(Path(slices_yaml).read_text())
+    out: dict[str, pd.DataFrame] = {}
+    env: dict[str, Any] = {}
 
     if cutoff is None:
         cutoff = pd.Timestamp.today() - pd.Timedelta(days=365 * 2)
     env["cutoff"] = cutoff
 
     for name, spec in (cfg.get("slices") or {}).items():
-        expr: Optional[str] = spec.get("expr")
-        groupby: Optional[Union[str, list]] = spec.get("groupby")
+        expr: str | None = spec.get("expr")
+        groupby: str | list | None = spec.get("groupby")
 
         if expr and groupby:
             sub: pd.DataFrame = df.query(expr, local_dict=env)

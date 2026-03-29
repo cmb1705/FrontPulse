@@ -16,8 +16,8 @@ Options:
 import argparse
 import subprocess
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 
 def run_script(script_path: Path, description: str) -> bool:
@@ -31,7 +31,7 @@ def run_script(script_path: Path, description: str) -> bool:
     print(f"{'='*70}\n")
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             [sys.executable, str(script_path)],
             check=True,
             capture_output=False,

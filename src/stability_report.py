@@ -13,20 +13,19 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from src.stable_lineage_filter import compute_lineage_lifespans
 
-
 # -- Lifespan diagnostics -----------------------------------------------------
 
 
 def compute_lifespan_stats(
     timeseries_df: pd.DataFrame,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute lifespan distribution statistics.
 
     Args:
@@ -43,7 +42,7 @@ def compute_lifespan_stats(
     total = len(values)
 
     # Summary stats
-    stats: Dict[str, Any] = {
+    stats: dict[str, Any] = {
         "total_lineages": total,
         "mean_lifespan": round(float(np.mean(values)), 1),
         "median_lifespan": int(np.median(values)),
@@ -70,7 +69,7 @@ def compute_lifespan_stats(
         ("33_64_quarters", 33, 64),
         ("65_plus_quarters", 65, None),
     ]
-    bucket_stats: List[Dict[str, Any]] = []
+    bucket_stats: list[dict[str, Any]] = []
     for label, lo, hi in buckets:
         if hi is None:
             count = int(np.sum(values >= lo))
@@ -92,7 +91,7 @@ def compute_lifespan_stats(
 def compute_vi_stats(
     timeseries_df: pd.DataFrame,
     vi_column: str = "VI_vs_prev_quarter",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute Variation of Information statistics across quarters.
 
     Args:
@@ -118,7 +117,7 @@ def compute_vi_stats(
     values = quarter_vi.values.astype(float)
     quarters = list(quarter_vi.index)
 
-    stats: Dict[str, Any] = {
+    stats: dict[str, Any] = {
         "available": True,
         "n_quarters": len(values),
         "mean_vi": round(float(np.mean(values)), 3),
@@ -149,7 +148,7 @@ def compute_vi_stats(
 def compute_pia_stats(
     timeseries_df: pd.DataFrame,
     pia_column: str = "pia_rate",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute Paper Identity Alignment statistics.
 
     Args:
@@ -187,7 +186,7 @@ def compute_pia_stats(
 def compute_activity_stats(
     timeseries_df: pd.DataFrame,
     activity_column: str = "new_works",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute activity (new works) statistics per lineage-quarter.
 
     Args:
@@ -222,7 +221,7 @@ def compute_stability_report(
     vi_column: str = "VI_vs_prev_quarter",
     pia_column: str = "pia_rate",
     activity_column: str = "new_works",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute a full stability report from a lineage timeseries.
 
     Args:
@@ -242,7 +241,7 @@ def compute_stability_report(
     }
 
 
-def format_report_text(report: Dict[str, Any]) -> str:
+def format_report_text(report: dict[str, Any]) -> str:
     """Format a stability report as human-readable text.
 
     Args:
@@ -251,7 +250,7 @@ def format_report_text(report: Dict[str, Any]) -> str:
     Returns:
         Multi-line text string.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("=" * 60)
     lines.append("COMMUNITY STABILITY REPORT")
     lines.append("=" * 60)

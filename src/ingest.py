@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -11,9 +11,9 @@ from .openalex import fetch_openalex, results_to_df
 
 
 def apply_source_overrides(
-    source: Dict[str, Any],
-    overrides: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    source: dict[str, Any],
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Return a datasource config merged with runtime overrides."""
     merged = dict(source)
     if not overrides:
@@ -29,7 +29,7 @@ def apply_source_overrides(
     return merged
 
 
-def _read_one(src: Dict[str, Any]) -> Tuple[pd.DataFrame, Optional[List[Dict[str, Any]]]]:
+def _read_one(src: dict[str, Any]) -> tuple[pd.DataFrame, list[dict[str, Any]] | None]:
     """
     Read data from a single source configuration.
 
@@ -80,8 +80,8 @@ def _read_one(src: Dict[str, Any]) -> Tuple[pd.DataFrame, Optional[List[Dict[str
 
 def ingest(
     datasources_yaml: str | Path,
-    source_overrides: Optional[Dict[str, Any]] = None,
-) -> Tuple[pd.DataFrame, Optional[List[Dict[str, Any]]]]:
+    source_overrides: dict[str, Any] | None = None,
+) -> tuple[pd.DataFrame, list[dict[str, Any]] | None]:
     """
     Load data from datasources configuration file.
 

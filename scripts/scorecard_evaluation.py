@@ -5,23 +5,22 @@ Calculates performance metrics for all prediction files in the scorecard.
 
 import argparse
 import json
-from datetime import datetime
-from pathlib import Path
 import shutil
 import warnings
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
-    average_precision_score,
-    precision_recall_curve,
     auc,
+    average_precision_score,
+    confusion_matrix,
+    f1_score,
+    precision_recall_curve,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
-    roc_curve,
-    confusion_matrix
 )
 
 warnings.filterwarnings('ignore')
@@ -223,7 +222,7 @@ def main():
     args = parse_args()
     scorecard_path = args.scorecard.resolve()
 
-    with open(scorecard_path, 'r') as f:
+    with open(scorecard_path) as f:
         scorecard = json.load(f)
 
     print(f"Evaluating {len(scorecard['prediction_files'])} prediction files...")

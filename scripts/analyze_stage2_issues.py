@@ -20,7 +20,7 @@ fronts_with_anchors.sort(key=lambda x: x[1], reverse=True)
 
 total_dois = sum(count for _, count in fronts_with_anchors)
 print(f"\nTotal anchor DOIs across all fronts: {total_dois}")
-print(f"\nDOIs per front:")
+print("\nDOIs per front:")
 for front, count in fronts_with_anchors:
     print(f"  {front:35s}: {count:3d} DOIs")
 
@@ -50,6 +50,7 @@ print("=" * 60)
 
 # Load embeddings
 import numpy as np
+
 data = np.load('data/out/02_lineage_tracking/lineage_embeddings.npz', allow_pickle=True)
 front_centroids = data['front_centroids'].item()
 
@@ -71,11 +72,11 @@ for i, front1 in enumerate(front_names):
 # Sort by similarity (most similar pairs first)
 sorted_pairs = sorted(centroid_sims.items(), key=lambda x: x[1], reverse=True)
 
-print(f"\nMost similar front pairs (top 10):")
+print("\nMost similar front pairs (top 10):")
 for (f1, f2), sim in sorted_pairs[:10]:
     print(f"  {f1:30s} <-> {f2:30s}: {sim:.4f}")
 
-print(f"\nLeast similar front pairs (bottom 10):")
+print("\nLeast similar front pairs (bottom 10):")
 for (f1, f2), sim in sorted_pairs[-10:]:
     print(f"  {f1:30s} <-> {f2:30s}: {sim:.4f}")
 

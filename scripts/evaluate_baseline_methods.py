@@ -35,7 +35,6 @@ import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,14 +69,14 @@ class MethodConfig:
     name: str
     path: Path
     score_column: str
-    pred_column: Optional[str] = None
+    pred_column: str | None = None
 
 
 @dataclass
 class MethodMetrics:
     name: str
     pr_auc: float
-    roc_auc: Optional[float]
+    roc_auc: float | None
     best_threshold: float
     best_f1: float
     best_precision: float
@@ -87,15 +86,15 @@ class MethodMetrics:
     default_f1: float
     positives: int
     negatives: int
-    detection_lag_median: Optional[float]
-    detection_lag_mean: Optional[float]
-    detection_lag_pct_le_2: Optional[float]
-    detection_lag_coverage: Optional[float]
+    detection_lag_median: float | None
+    detection_lag_mean: float | None
+    detection_lag_pct_le_2: float | None
+    detection_lag_coverage: float | None
 
 
-def load_config(path: Path) -> List[MethodConfig]:
+def load_config(path: Path) -> list[MethodConfig]:
     raw = json.loads(path.read_text())
-    configs: List[MethodConfig] = []
+    configs: list[MethodConfig] = []
     for entry in raw:
         configs.append(
             MethodConfig(
@@ -108,7 +107,7 @@ def load_config(path: Path) -> List[MethodConfig]:
     return configs
 
 
-def best_threshold_from_scores(y_true: np.ndarray, scores: np.ndarray) -> Tuple[float, float, float, float]:
+def best_threshold_from_scores(y_true: np.ndarray, scores: np.ndarray) -> tuple[float, float, float, float]:
     unique_scores = np.unique(scores[np.isfinite(scores)])
     if len(unique_scores) > 400:
         unique_scores = np.linspace(np.nanmin(scores), np.nanmax(scores), 400)
@@ -124,7 +123,7 @@ def best_threshold_from_scores(y_true: np.ndarray, scores: np.ndarray) -> Tuple[
     return best["threshold"], best["f1"], best["precision"], best["recall"]
 
 
-def compute_detection_lag(df: pd.DataFrame, pred_col: str) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+def compute_detection_lag(df: pd.DataFrame, pred_col: str) -> tuple[float | None, float | None, float | None, float | None]:
     if pred_col not in df.columns:
         return None, None, None, None
     df = df.copy()
@@ -156,7 +155,7 @@ def compute_detection_lag(df: pd.DataFrame, pred_col: str) -> Tuple[Optional[flo
     return median, mean, pct_le_2, coverage
 
 
-def evaluate_method(config: MethodConfig) -> Tuple[MethodMetrics, Dict[str, List[float]]]:
+def evaluate_method(config: MethodConfig) -> tuple[MethodMetrics, dict[str, list[float]]]:
     df = pd.read_csv(config.path)
     scores = df[config.score_column].replace([np.inf, -np.inf], np.nan)
     mask = scores.notna()
@@ -219,7 +218,7 @@ def evaluate_method(config: MethodConfig) -> Tuple[MethodMetrics, Dict[str, List
     return metrics, curves
 
 
-def plot_curves(curves: Dict[str, Dict[str, List[float]]], output_dir: Path) -> None:
+def plot_curves(curves: dict[str, dict[str, list[float]]], output_dir: Path) -> None:
     fig, ax = plt.subplots()
     for name, data in curves.items():
         ax.plot(data["recall"], data["precision"], label=name)
@@ -250,8 +249,8 @@ def run(args: argparse.Namespace) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     configs = load_config(Path(args.methods_config))
-    leaderboard: Dict[str, Dict[str, float]] = {}
-    curves_for_plot: Dict[str, Dict[str, List[float]]] = {}
+    leaderboard: dict[str, dict[str, float]] = {}
+    curves_for_plot: dict[str, dict[str, list[float]]] = {}
     input_hashes = {}
 
     for cfg in configs:

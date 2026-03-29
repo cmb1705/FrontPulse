@@ -8,12 +8,11 @@ Quick experiment to validate the feasibility of the lineage-centric approach.
 """
 
 import argparse
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from scipy.spatial.distance import cosine
-from collections import defaultdict
 import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 
 def parse_args() -> argparse.Namespace:
@@ -127,7 +126,7 @@ def compute_embedding_velocity(
         else:
             velocity = [0] * len(group)
 
-        for i, (idx, row) in enumerate(group.iterrows()):
+        for i, (_idx, row) in enumerate(group.iterrows()):
             results.append({
                 'lineage_id': lineage_id,
                 'quarter': row['quarter'],
@@ -145,7 +144,7 @@ def load_milestones(milestone_path: Path) -> pd.DataFrame:
 
     df = pd.read_csv(milestone_path)
     # Filter to detectable milestones only
-    df = df[df['detectable'] == True].copy()
+    df = df[df['detectable']].copy()
 
     print(f"   Loaded {len(df)} detectable milestones")
     print(f"   Date range: {df['event_quarter'].min()} to {df['event_quarter'].max()}")
@@ -261,12 +260,12 @@ def test_two_signal_detection(
     n_detected = unique_milestones.sum()
     n_total = len(unique_milestones)
 
-    print(f"\n   === DETECTION RESULTS ===")
+    print("\n   === DETECTION RESULTS ===")
     print(f"   Milestones detected: {n_detected}/{n_total} ({n_detected/n_total*100:.1f}%)")
-    print(f"   (vs current tripwire: 3/56 = 5.4%)")
+    print("   (vs current tripwire: 3/56 = 5.4%)")
 
     # Breakdown by milestone
-    print(f"\n   Detected milestones:")
+    print("\n   Detected milestones:")
     for event_id, was_detected in unique_milestones.items():
         if was_detected:
             event_quarter = detections_df[detections_df['event_id'] == event_id]['event_quarter'].iloc[0]
@@ -325,7 +324,7 @@ def generate_report(results: dict, output_dir: Path):
     report.append("")
     report.append(f"**Detection Rate: {results['n_detected']}/{results['n_total']} = {results['recall']*100:.1f}%**")
     report.append("")
-    report.append(f"- Baseline (current tripwire): 3/56 = 5.4%")
+    report.append("- Baseline (current tripwire): 3/56 = 5.4%")
     report.append(f"- This approach: {results['n_detected']}/{results['n_total']} = {results['recall']*100:.1f}%")
     report.append(f"- **Improvement factor: {summary['improvement_factor']:.2f}x**")
     report.append("")
@@ -350,14 +349,14 @@ def generate_report(results: dict, output_dir: Path):
 
     if results['recall'] > 0.1:
         report.append(f"**Promising results!** This simple 2-signal approach detects {results['recall']*100:.1f}% of milestones,")
-        report.append(f"compared to the current tripwire's 5.4%. This suggests the lineage-level")
-        report.append(f"multi-signal approach has merit and warrants full implementation.")
+        report.append("compared to the current tripwire's 5.4%. This suggests the lineage-level")
+        report.append("multi-signal approach has merit and warrants full implementation.")
     else:
         report.append(f"**Mixed results.** Detection rate of {results['recall']*100:.1f}% is only marginally better")
-        report.append(f"than the current tripwire (5.4%). This could be due to:")
-        report.append(f"- Embedding velocity proxy being too crude (need true temporal embeddings)")
-        report.append(f"- Milestone-lineage mapping being incomplete")
-        report.append(f"- Need for additional signals (disruption, novelty, network metrics)")
+        report.append("than the current tripwire (5.4%). This could be due to:")
+        report.append("- Embedding velocity proxy being too crude (need true temporal embeddings)")
+        report.append("- Milestone-lineage mapping being incomplete")
+        report.append("- Need for additional signals (disruption, novelty, network metrics)")
 
     report.append("")
     report.append("## Next Steps")
@@ -378,10 +377,10 @@ def generate_report(results: dict, output_dir: Path):
         f.write('\n'.join(report))
 
     print(f"\n[Report] Saved to {output_dir}/")
-    print(f"   - experiment_summary.json")
-    print(f"   - experiment_report.md")
-    print(f"   - milestone_detections.csv")
-    print(f"   - lineage_signals.csv")
+    print("   - experiment_summary.json")
+    print("   - experiment_report.md")
+    print("   - milestone_detections.csv")
+    print("   - lineage_signals.csv")
 
 
 def main():
@@ -394,7 +393,6 @@ def main():
 
     # Paths
     timeseries_path = args.timeseries
-    embeddings_path = args.embeddings
     milestones_path = args.milestones
     mappings_path = args.mappings
     output_dir = args.output_dir

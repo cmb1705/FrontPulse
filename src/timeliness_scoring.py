@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # NAB profile weights
@@ -42,7 +41,7 @@ class NABProfile:
     A_fn: float
 
 
-PROFILES: Dict[str, NABProfile] = {
+PROFILES: dict[str, NABProfile] = {
     "standard": NABProfile("standard", A_tp=1.0, A_fp=0.22, A_fn=1.0),
     "reward_low_FP": NABProfile("reward_low_FP", A_tp=1.0, A_fp=1.0, A_fn=1.0),
     "reward_low_FN": NABProfile("reward_low_FN", A_tp=1.0, A_fp=0.11, A_fn=2.0),
@@ -71,10 +70,10 @@ class TimelinessResult:
         n_false_alarms: Total false positive alerts.
     """
 
-    nab_scores: Dict[str, float]
-    edd: Optional[float]
-    arl0: Optional[float]
-    arl1: Optional[float]
+    nab_scores: dict[str, float]
+    edd: float | None
+    arl0: float | None
+    arl1: float | None
     n_true_onsets: int
     n_detected: int
     n_false_alarms: int
@@ -98,7 +97,7 @@ def _sigmoid(y: float) -> float:
 
 
 def nab_score_single_window(
-    detection_position: Optional[float],
+    detection_position: float | None,
     profile: NABProfile,
 ) -> float:
     """Score a single anomaly window (one true onset event).
@@ -125,10 +124,10 @@ def nab_score_false_positive(profile: NABProfile) -> float:
 
 
 def compute_nab_scores(
-    detection_positions: Sequence[Optional[float]],
+    detection_positions: Sequence[float | None],
     n_false_positives: int,
-    profiles: Optional[Dict[str, NABProfile]] = None,
-) -> Dict[str, float]:
+    profiles: dict[str, NABProfile] | None = None,
+) -> dict[str, float]:
     """Compute NAB scores across all profiles.
 
     Args:
@@ -144,7 +143,7 @@ def compute_nab_scores(
     if profiles is None:
         profiles = PROFILES
 
-    results: Dict[str, float] = {}
+    results: dict[str, float] = {}
     for name, profile in profiles.items():
         raw = 0.0
         for pos in detection_positions:
@@ -171,7 +170,7 @@ def compute_nab_scores(
 # ---------------------------------------------------------------------------
 
 
-def compute_edd(detection_lags: Sequence[int]) -> Optional[float]:
+def compute_edd(detection_lags: Sequence[int]) -> float | None:
     """Compute Expected Detection Delay.
 
     Args:
@@ -189,7 +188,7 @@ def compute_edd(detection_lags: Sequence[int]) -> Optional[float]:
 def compute_arl0(
     total_quarters: int,
     n_false_alarms: int,
-) -> Optional[float]:
+) -> float | None:
     """Compute ARL0: average quarters between false alarms.
 
     Higher is better (fewer false alarms per unit time).
@@ -206,7 +205,7 @@ def compute_arl0(
     return total_quarters / n_false_alarms
 
 
-def compute_arl1(detection_lags: Sequence[int]) -> Optional[float]:
+def compute_arl1(detection_lags: Sequence[int]) -> float | None:
     """Compute ARL1: average quarters from onset to first detection.
 
     Equivalent to EDD when detection always occurs.  Lower is better.
@@ -227,9 +226,9 @@ def compute_arl1(detection_lags: Sequence[int]) -> Optional[float]:
 
 
 def score_timeliness(
-    true_onset_quarters: List[int],
-    detection_quarters: List[Optional[int]],
-    alert_quarters: List[int],
+    true_onset_quarters: list[int],
+    detection_quarters: list[int | None],
+    alert_quarters: list[int],
     total_quarters: int,
     window_size: int = 8,
 ) -> TimelinessResult:
@@ -266,8 +265,8 @@ def score_timeliness(
     n_true = len(true_onset_quarters)
 
     # Identify true positive and missed detections.
-    detection_lags: List[int] = []
-    detection_positions: List[Optional[float]] = []
+    detection_lags: list[int] = []
+    detection_positions: list[float | None] = []
 
     for onset_q, detect_q in zip(true_onset_quarters, detection_quarters):
         if detect_q is None:

@@ -11,11 +11,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
-from utils.quarter_utils import quarter_to_int, int_to_quarter
+from utils.quarter_utils import quarter_to_int
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,7 +45,7 @@ def ensure_dir(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def bucket_lag(lag: Optional[int]) -> str:
+def bucket_lag(lag: int | None) -> str:
     if lag is None:
         return "no_milestone"
     abs_lag = abs(lag)
@@ -60,8 +58,8 @@ def bucket_lag(lag: Optional[int]) -> str:
     return ">=12q"
 
 
-def build_milestone_lookup(df: pd.DataFrame) -> Dict[int, List[Dict[str, object]]]:
-    lookup: Dict[int, List[Dict[str, object]]] = {}
+def build_milestone_lookup(df: pd.DataFrame) -> dict[int, list[dict[str, object]]]:
+    lookup: dict[int, list[dict[str, object]]] = {}
     for _, row in df.iterrows():
         try:
             lineage_id = int(row["lineage_id"])
@@ -82,8 +80,8 @@ def build_milestone_lookup(df: pd.DataFrame) -> Dict[int, List[Dict[str, object]
 def find_nearest(
     lineage_id: int,
     inflection_q: int,
-    lookup: Dict[int, List[Dict[str, object]]],
-) -> Tuple[Optional[Dict[str, object]], Optional[int]]:
+    lookup: dict[int, list[dict[str, object]]],
+) -> tuple[dict[str, object] | None, int | None]:
     candidates = lookup.get(lineage_id)
     if not candidates:
         return None, None
@@ -114,7 +112,7 @@ def main() -> None:
     inflections["lineage_id"] = inflections["lineage_id"].astype(int)
     inflections["inflection_quarter_int"] = inflections["quarter"].astype(str).apply(quarter_to_int)
 
-    records: List[Dict[str, object]] = []
+    records: list[dict[str, object]] = []
     for _, row in inflections.iterrows():
         lineage_id = int(row["lineage_id"])
         inflection_q = int(row["inflection_quarter_int"])
@@ -149,7 +147,7 @@ def main() -> None:
         .to_dict(orient="records")
     )
 
-    category_stats: List[Dict[str, object]] = []
+    category_stats: list[dict[str, object]] = []
     category_df = analysis_df.dropna(subset=["milestone_category"])
     if not category_df.empty:
         grouped = category_df.groupby(["milestone_category", "lag_bucket"]).size().unstack(fill_value=0)

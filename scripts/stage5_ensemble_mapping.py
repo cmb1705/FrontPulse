@@ -15,9 +15,8 @@ Outputs (relative to --output-root):
 """
 
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -72,7 +71,7 @@ class EnsembleFrontMapper:
 
         # Load front configuration
         print("[3/6] Loading front configuration...")
-        with open(front_config_path, 'r') as f:
+        with open(front_config_path) as f:
             self.fronts_config = yaml.safe_load(f)
 
         self.front_names = sorted(self.fronts_config.keys())
@@ -108,7 +107,7 @@ class EnsembleFrontMapper:
 
         print(f"  OK Validated: {len(common_lineages)} lineages, {len(common_fronts)} fronts")
 
-    def get_top_k_fronts(self, scores: Dict[str, float], k: int) -> List[Tuple[str, float]]:
+    def get_top_k_fronts(self, scores: dict[str, float], k: int) -> list[tuple[str, float]]:
         """
         Get top-k fronts by score.
 
@@ -122,7 +121,7 @@ class EnsembleFrontMapper:
         sorted_fronts = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         return sorted_fronts[:k]
 
-    def compute_agreement_level(self, votes: List[List[Tuple[str, float]]]) -> str:
+    def compute_agreement_level(self, votes: list[list[tuple[str, float]]]) -> str:
         """
         Compute agreement level from Stage votes.
 
@@ -158,10 +157,10 @@ class EnsembleFrontMapper:
     def get_evidence(
         self,
         lineage_id: int,
-        Stage2_votes: List[Tuple[str, float]],
-        Stage3_votes: List[Tuple[str, float]],
-        Stage4_votes: List[Tuple[str, float]]
-    ) -> Dict:
+        Stage2_votes: list[tuple[str, float]],
+        Stage3_votes: list[tuple[str, float]],
+        Stage4_votes: list[tuple[str, float]]
+    ) -> dict:
         """
         Generate evidence bundle for a lineage mapping.
 
@@ -197,7 +196,7 @@ class EnsembleFrontMapper:
 
         return evidence
 
-    def _get_matched_terms(self, lineage_id: int, front_name: str, n: int = 10) -> List[Tuple[str, float]]:
+    def _get_matched_terms(self, lineage_id: int, front_name: str, n: int = 10) -> list[tuple[str, float]]:
         """Get top matched terms for a lineage-front pair."""
         if front_name is None:
             return []
@@ -232,7 +231,7 @@ class EnsembleFrontMapper:
         matches.sort(key=lambda x: x[1], reverse=True)
         return matches[:n]
 
-    def _get_top_pairs(self, lineage_id: int, n: int = 5) -> List[Tuple[str, str, float]]:
+    def _get_top_pairs(self, lineage_id: int, n: int = 5) -> list[tuple[str, str, float]]:
         """Get top NPMI pairs for a lineage."""
         lineage_pairs = self.stage4_pairs[self.stage4_pairs['lineage_id'] == lineage_id]
 
@@ -247,7 +246,7 @@ class EnsembleFrontMapper:
             for _, row in top_pairs.iterrows()
         ]
 
-    def map_lineage(self, lineage_id: int) -> Dict:
+    def map_lineage(self, lineage_id: int) -> dict:
         """
         Map a single lineage to fronts using weighted ensemble voting.
 
@@ -264,11 +263,11 @@ class EnsembleFrontMapper:
         if lineage_id in self.stage3_sim.index:
             Stage3_scores = dict(self.stage3_sim.loc[lineage_id])
         else:
-            Stage3_scores = {front: 0.0 for front in self.front_names}
+            Stage3_scores = dict.fromkeys(self.front_names, 0.0)
         if lineage_id in self.stage4_sim.index:
             Stage4_scores = dict(self.stage4_sim.loc[lineage_id])
         else:
-            Stage4_scores = {front: 0.0 for front in self.front_names}
+            Stage4_scores = dict.fromkeys(self.front_names, 0.0)
 
         # Get top-k votes from each Stage
         Stage2_votes = self.get_top_k_fronts(Stage2_scores, self.top_k)
@@ -342,7 +341,7 @@ class EnsembleFrontMapper:
             'evidence': evidence
         }
 
-    def map_all_lineages(self) -> Tuple[pd.DataFrame, Dict[int, Dict]]:
+    def map_all_lineages(self) -> tuple[pd.DataFrame, dict[int, dict]]:
         """
         Map all lineages to fronts.
 
@@ -376,7 +375,7 @@ class EnsembleFrontMapper:
         high_conf = len(mappings_df[mappings_df['confidence'] == 'high'])
         medium_conf = len(mappings_df[mappings_df['confidence'] == 'medium'])
         low_conf = len(mappings_df[mappings_df['confidence'] == 'low'])
-        review_needed = len(mappings_df[mappings_df['review_needed'] == True])
+        review_needed = len(mappings_df[mappings_df['review_needed']])
         multi_label = len(mappings_df[mappings_df['alternative_fronts'].notna()])
 
         # Front distribution
@@ -471,7 +470,7 @@ def run_ensemble(
     store=None,  # Optional shared store (unused in Stage 5, but kept for consistency)
     validate: bool = True,  # Run validation checks and generate reports
     output_root: Path = Path('data/out')  # Base directory for outputs
-) -> Tuple[pd.DataFrame, Dict, Dict]:
+) -> tuple[pd.DataFrame, dict, dict]:
     """
     Run Stage 5 ensemble mapping.
 
@@ -550,7 +549,7 @@ def run_ensemble(
     print(f"High confidence: {len(mappings_df[mappings_df['confidence']=='high'])} ({100*len(mappings_df[mappings_df['confidence']=='high'])/len(mappings_df):.1f}%)")
     print(f"Medium confidence: {len(mappings_df[mappings_df['confidence']=='medium'])} ({100*len(mappings_df[mappings_df['confidence']=='medium'])/len(mappings_df):.1f}%)")
     print(f"Low confidence: {len(mappings_df[mappings_df['confidence']=='low'])} ({100*len(mappings_df[mappings_df['confidence']=='low'])/len(mappings_df):.1f}%)")
-    print(f"Review needed: {len(mappings_df[mappings_df['review_needed']==True])}")
+    print(f"Review needed: {len(mappings_df[mappings_df['review_needed']])}")
     print("\nOutputs:")
     print(f"  - {mappings_path}")
     print(f"  - {evidence_dir}/")
@@ -573,7 +572,7 @@ def run_ensemble(
 # VALIDATION FUNCTIONS (integrated from validate_stage5.py)
 # ============================================================================
 
-def run_Stage5_validation(mappings_df: pd.DataFrame, evidence_dict: Dict) -> Dict:
+def run_Stage5_validation(mappings_df: pd.DataFrame, evidence_dict: dict) -> dict:
     """
     Run Stage 5 validation checks and generate outputs.
 
@@ -585,8 +584,6 @@ def run_Stage5_validation(mappings_df: pd.DataFrame, evidence_dict: Dict) -> Dic
         Dictionary with validation results
     """
     # Lazy imports to avoid overhead when validation disabled
-    import matplotlib.pyplot as plt
-    import seaborn as sns
 
     # Create output directory
     output_dir = Path('data/out/06_validation/Stage5')
@@ -617,7 +614,7 @@ def run_Stage5_validation(mappings_df: pd.DataFrame, evidence_dict: Dict) -> Dic
     return checks
 
 
-def _validate_stage5_statistics(mappings_df: pd.DataFrame, evidence_dict: Dict) -> Dict:
+def _validate_stage5_statistics(mappings_df: pd.DataFrame, evidence_dict: dict) -> dict:
     """Compute validation statistics for Stage 5 outputs."""
     checks = {}
 
@@ -680,7 +677,7 @@ def _generate_Stage5_confidence_viz(mappings_df: pd.DataFrame, output_path: Path
     ax1.grid(axis='y', alpha=0.3)
 
     # Add counts on bars
-    for i, (conf, count) in enumerate(confidence_counts.items()):
+    for i, (_conf, count) in enumerate(confidence_counts.items()):
         ax1.text(i, count + 1, f'{count}\n({100*count/len(mappings_df):.1f}%)',
                 ha='center', va='bottom', fontweight='bold')
 
@@ -698,7 +695,7 @@ def _generate_Stage5_confidence_viz(mappings_df: pd.DataFrame, output_path: Path
 
     # Add counts on bars
     for i, (status, count) in enumerate(review_counts.items()):
-        label = labels_review[status]
+        labels_review[status]
         ax2.text(i, count + 1, f'{count}\n({100*count/len(mappings_df):.1f}%)',
                 ha='center', va='bottom', fontweight='bold')
 
@@ -716,7 +713,7 @@ def _generate_Stage5_front_distribution(mappings_df: pd.DataFrame, output_path: 
     front_counts = mappings_df['primary_front'].value_counts()
     colors = plt.cm.Set3(np.linspace(0, 1, len(front_counts)))
 
-    bars = ax.barh(range(len(front_counts)), front_counts.values, color=colors)
+    ax.barh(range(len(front_counts)), front_counts.values, color=colors)
     ax.set_yticks(range(len(front_counts)))
     ax.set_yticklabels(front_counts.index)
     ax.set_xlabel('Number of Lineages', fontsize=12, fontweight='bold')
@@ -724,7 +721,7 @@ def _generate_Stage5_front_distribution(mappings_df: pd.DataFrame, output_path: 
     ax.grid(axis='x', alpha=0.3)
 
     # Add counts and percentages
-    for i, (front, count) in enumerate(front_counts.items()):
+    for i, (_front, count) in enumerate(front_counts.items()):
         ax.text(count + 0.5, i, f'{count} ({100*count/len(mappings_df):.1f}%)',
                 va='center', fontweight='bold')
 
@@ -733,7 +730,7 @@ def _generate_Stage5_front_distribution(mappings_df: pd.DataFrame, output_path: 
     plt.close()
 
 
-def _generate_Stage5_report(checks: Dict, mappings_df: pd.DataFrame, output_path: Path):
+def _generate_Stage5_report(checks: dict, mappings_df: pd.DataFrame, output_path: Path):
     """Generate markdown validation report."""
     report = f"""# Stage 5 Validation Report
 **Ensemble Voting & Final Mapping Assignment**

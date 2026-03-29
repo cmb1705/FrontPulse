@@ -103,6 +103,7 @@ exclude = [
     "build",
     "dist",
     "data",
+    "scripts/migrate_data_out_structure.py",  # Incomplete legacy script (broken docstring)
 ]
 
 [tool.ruff.lint]
@@ -130,6 +131,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Allow unused imports in __init__.py
 "tests/*" = ["ARG", "SIM"]  # Less strict for tests
+# Legacy baseline (2026-03-28): suppress pre-existing violations to enable
+# enforcement on new code. Remove entries as legacy files are cleaned up.
+"src/*.py" = ["E701", "E702", "B904", "ARG"]  # Compact multi-statement, raise-from, interface args
+"scripts/*.py" = ["E402", "E702", "E722", "ARG", "B007", "B018", "SIM102", "SIM115"]  # Bootstrap E402, legacy style
 
 [tool.mypy]
 python_version = "3.9"

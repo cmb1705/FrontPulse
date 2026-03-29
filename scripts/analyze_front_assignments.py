@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Analyze lineage-to-front assignments across all phases."""
 
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
+
 # Define thresholds for each phase
-THRESHOLDS = { 
+THRESHOLDS = {
     'Phase 2 (SciBERT)': 0.747,     # Optimized for ~50% coverage with all fronts
     'Phase 3 (c-TF-IDF)': 0.002,    # Optimized for 20-40% coverage
     'Phase 4 (NPMI)': 0.0           # Use all non-zero values

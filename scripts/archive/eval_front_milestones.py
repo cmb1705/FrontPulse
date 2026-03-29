@@ -7,10 +7,11 @@ Usage:
     python scripts/eval_front_milestones.py [--alerts ALERTS_CSV] [--milestones MILESTONES_CSV]
 """
 
-import pandas as pd
-import numpy as np
 import argparse
-from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 
 def main():
     parser = argparse.ArgumentParser(description="Validate tripwire alerts against milestone catalog")
@@ -34,7 +35,7 @@ def main():
 
     # Load alerts
     alerts = pd.read_csv(args.alerts)
-    alerts_filtered = alerts[alerts['alert'] == True].copy()
+    alerts_filtered = alerts[alerts['alert']].copy()
 
     print(f"\n[1/4] Loaded {len(alerts_filtered)} alerts from {len(alerts)} total quarters")
     print(f"  Quarters with alerts: {alerts_filtered['quarter'].nunique()}")
@@ -42,7 +43,7 @@ def main():
 
     # Load milestones (filtered to 2010-2023)
     milestones = pd.read_csv(args.milestones)
-    detectable = milestones[milestones['detectable'] == True].copy()
+    detectable = milestones[milestones['detectable']].copy()
 
     print(f"\n[2/4] Loaded {len(detectable)} detectable milestones (2010-2023)")
 
@@ -65,7 +66,7 @@ def main():
     print(f"  Expanded to {len(milestone_df)} front-specific milestone events")
 
     # Match alerts to milestones
-    print(f"\n[3/4] Matching alerts to milestones...")
+    print("\n[3/4] Matching alerts to milestones...")
 
     matches = []
     for _, alert in alerts_filtered.iterrows():
@@ -91,7 +92,7 @@ def main():
     matches_df = pd.DataFrame(matches)
 
     # Calculate metrics
-    print(f"\n[4/4] RESULTS:")
+    print("\n[4/4] RESULTS:")
     print("="*70)
 
     if len(matches) > 0:
@@ -99,7 +100,7 @@ def main():
         print(f"  Unique milestone events detected: {matches_df['event_id'].nunique()}")
         print(f"  Detection rate: {matches_df['event_id'].nunique()}/{len(detectable)} = {matches_df['event_id'].nunique()/len(detectable)*100:.1f}%")
 
-        print(f"\nBy Event Type:")
+        print("\nBy Event Type:")
         for event_type in milestone_df['event_type'].unique():
             type_milestones = milestone_df[milestone_df['event_type'] == event_type]['event_id'].nunique()
             type_detected = matches_df[matches_df['event_id'].isin(
@@ -107,13 +108,13 @@ def main():
             )]['event_id'].nunique()
             print(f"  {event_type}: {type_detected}/{type_milestones} detected")
 
-        print(f"\nBy Magnitude:")
+        print("\nBy Magnitude:")
         for mag in sorted(milestone_df['magnitude'].unique(), reverse=True):
             mag_milestones = milestone_df[milestone_df['magnitude'] == mag]['event_id'].nunique()
             mag_detected = matches_df[matches_df['magnitude'] == mag]['event_id'].nunique()
             print(f"  Magnitude {int(mag)}: {mag_detected}/{mag_milestones} detected")
 
-        print(f"\nLead Time Statistics:")
+        print("\nLead Time Statistics:")
         lead_times = matches_df['lead_time_quarters'].dropna()
         if len(lead_times) > 0:
             print(f"  Mean: {lead_times.mean():.2f} quarters")
@@ -136,10 +137,7 @@ def main():
             print(f"    {quarter} {front}: p={alert_row.get('p_value', 'N/A'):.4f}, RR={alert_row.get('rr_obs_over_mu', 'N/A'):.2f}")
 
     # False negatives (milestones not matched to any alert)
-    if len(matches) > 0:
-        detected_events = set(matches_df['event_id'])
-    else:
-        detected_events = set()
+    detected_events = set(matches_df['event_id']) if len(matches) > 0 else set()
     missed_events = set(detectable['event_id']) - detected_events
 
     print(f"\nFalse Negatives: {len(missed_events)} milestones not detected")
@@ -151,7 +149,7 @@ def main():
     # Save results
     if len(matches) > 0:
         matches_df.to_csv('data/out/06_validation/archived/2025_11_01_intercept_fix/validation_matches.csv', index=False)
-        print(f"\nSaved matches to: data/out/06_validation/archived/2025_11_01_intercept_fix/validation_matches.csv")
+        print("\nSaved matches to: data/out/06_validation/archived/2025_11_01_intercept_fix/validation_matches.csv")
 
     print("="*70)
     print("VALIDATION COMPLETE")

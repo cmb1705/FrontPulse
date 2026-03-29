@@ -27,7 +27,6 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 from .trusted_io import load_trusted_pickle
 
@@ -68,9 +67,9 @@ class LineageTextStore:
         self,
         registry_path: Path,
         raw_dir: Path,
-        graphs_dir: Optional[Path] = None,
-        partitions_dir: Optional[Path] = None,
-        abstract_cache_path: Optional[Path] = None,
+        graphs_dir: Path | None = None,
+        partitions_dir: Path | None = None,
+        abstract_cache_path: Path | None = None,
         verbose: bool = True
     ):
         """
@@ -125,7 +124,7 @@ class LineageTextStore:
         if verbose:
             print(f"[LineageTextStore] Abstract extractor ready in {time.time()-t0:.2f}s")
 
-    def _build_lineage_index(self) -> Dict[int, Dict[str, Dict[str, int]]]:
+    def _build_lineage_index(self) -> dict[int, dict[str, dict[str, int]]]:
         """
         Invert registry from {quarter: {community_id: lineage_id}} to
         {lineage_id: {quarter: {community_id: lineage_id}}}.
@@ -156,8 +155,8 @@ class LineageTextStore:
     def get_lineage_papers(
         self,
         lineage_id,
-        quarter: Optional[str] = None
-    ) -> List[str]:
+        quarter: str | None = None
+    ) -> list[str]:
         """
         Get all paper IDs for a lineage using partition JSONs.
 
@@ -187,7 +186,7 @@ class LineageTextStore:
         self,
         lineage_id,
         mode: str = "cumulative"
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Load papers for a lineage from citation graph PKL files.
 
@@ -239,7 +238,7 @@ class LineageTextStore:
 
         return papers
 
-    def get_lineage_quarters(self, lineage_id) -> List[str]:
+    def get_lineage_quarters(self, lineage_id) -> list[str]:
         """
         Get all quarters where a lineage exists.
 
@@ -254,11 +253,11 @@ class LineageTextStore:
             return []
         return sorted(self.registry_by_lineage[lin_id_int].keys())
 
-    def get_all_lineages(self) -> Set[int]:
+    def get_all_lineages(self) -> set[int]:
         """Get set of all lineage IDs in the registry (as ints)."""
         return set(self.registry_by_lineage.keys())
 
-    def get_persistent_lineages(self, min_quarters: int = 12) -> List[int]:
+    def get_persistent_lineages(self, min_quarters: int = 12) -> list[int]:
         """
         Get lineages that persist for at least min_quarters.
 
@@ -276,7 +275,7 @@ class LineageTextStore:
 
 
 # Global shared store (set by pipeline driver)
-_SHARED_STORE: Optional[LineageTextStore] = None
+_SHARED_STORE: LineageTextStore | None = None
 
 
 def set_shared_store(store: LineageTextStore) -> None:
@@ -289,7 +288,7 @@ def set_shared_store(store: LineageTextStore) -> None:
     _SHARED_STORE = store
 
 
-def get_shared_store() -> Optional[LineageTextStore]:
+def get_shared_store() -> LineageTextStore | None:
     """
     Get the global shared store if available.
 
@@ -299,10 +298,10 @@ def get_shared_store() -> Optional[LineageTextStore]:
 
 
 def load_or_get_store(
-    registry_path: Optional[Path] = None,
-    raw_dir: Optional[Path] = None,
-    graphs_dir: Optional[Path] = None,
-    partitions_dir: Optional[Path] = None,
+    registry_path: Path | None = None,
+    raw_dir: Path | None = None,
+    graphs_dir: Path | None = None,
+    partitions_dir: Path | None = None,
     verbose: bool = True
 ) -> LineageTextStore:
     """

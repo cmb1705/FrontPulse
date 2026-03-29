@@ -24,11 +24,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 import pandas as pd
-
 
 FEATURE_KEYS = ["prob_z", "growth_z", "accel_z", "cumulative_z", "milestone_z"]
 DEFAULT_WEIGHTS = {
@@ -75,7 +73,7 @@ def prepare_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def compute_composite(
     df: pd.DataFrame,
-    weights: Dict[str, float] | None = None,
+    weights: dict[str, float] | None = None,
     assign_tiers: bool = True,
 ) -> pd.DataFrame:
     """Compute magnitude-aware composite score and, optionally, impact tiers."""
@@ -113,7 +111,7 @@ def precision_at_k(df: pd.DataFrame, k: int, score_col: str) -> float:
     return float(subset["is_inflection_true"].mean())
 
 
-def summarize_metrics(df: pd.DataFrame, ks: List[int]) -> Dict:
+def summarize_metrics(df: pd.DataFrame, ks: list[int]) -> dict:
     """Build summary metrics comparing composite vs probability rankings."""
     summary = {
         "n_rows": int(len(df)),
@@ -190,7 +188,7 @@ def parse_args() -> argparse.Namespace:
 
 def sample_weight_dict(
     rng: np.random.Generator, min_prob_weight: float
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Sample a valid weight dictionary satisfying the probability lower bound."""
     while True:
         vec = rng.random(len(FEATURE_KEYS))
@@ -202,8 +200,8 @@ def sample_weight_dict(
 
 def evaluate_weights(
     df: pd.DataFrame,
-    weights: Dict[str, float],
-    ks: List[int],
+    weights: dict[str, float],
+    ks: list[int],
 ) -> float:
     """Return mean precision@K for the given weight dictionary."""
     df_temp = df.copy()
@@ -221,11 +219,11 @@ def evaluate_weights(
 
 def optimize_weights(
     df: pd.DataFrame,
-    ks: List[int],
+    ks: list[int],
     n_iters: int,
     min_prob_weight: float,
     seed: int,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Random-search optimization for weight selection."""
     rng = np.random.default_rng(seed)
     best_weights = DEFAULT_WEIGHTS.copy()

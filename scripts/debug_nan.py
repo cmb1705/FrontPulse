@@ -1,6 +1,7 @@
 """Debug script to find NaN in Phase 4 output."""
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 # Load the file
 pairs_file = Path("data/out/02_lineage_tracking/lineage_npmi_pairs.csv")

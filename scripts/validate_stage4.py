@@ -15,7 +15,6 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,7 +22,7 @@ import pandas as pd
 import seaborn as sns
 
 
-def validate_data_integrity(pairs_df: pd.DataFrame, similarity_df: pd.DataFrame) -> Dict:
+def validate_data_integrity(pairs_df: pd.DataFrame, similarity_df: pd.DataFrame) -> dict:
     """Run data integrity checks on Phase 4 outputs."""
     checks = {}
 
@@ -248,7 +247,7 @@ def generate_top_matches_report(similarity_df: pd.DataFrame, pairs_df: pd.DataFr
                          for _, row in lineage_pairs.iterrows()][:3]
 
         report_lines.append(f"{i}. **Lineage {lineage_id}** → **{front}** (similarity: {score:.4f})")
-        report_lines.append(f"   Example co-terms: " +
+        report_lines.append("   Example co-terms: " +
                           ", ".join([f"({t1}, {t2})" for t1, t2, _ in example_pairs]))
         report_lines.append("")
 
@@ -256,7 +255,7 @@ def generate_top_matches_report(similarity_df: pd.DataFrame, pairs_df: pd.DataFr
 
 
 def generate_summary_report(
-    checks: Dict,
+    checks: dict,
     pairs_df: pd.DataFrame,
     similarity_df: pd.DataFrame,
     output_path: Path
@@ -439,7 +438,7 @@ def main():
     print(f"Lineages Processed: {checks['expected_lineages']}")
     print(f"Total Pairs: {len(pairs_df):,}")
     print(f"Coverage: {checks['coverage_pct']:.1f}% ({checks['lineages_with_matches']}/{checks['expected_lineages']} lineages matched)")
-    print(f"\nOutputs:")
+    print("\nOutputs:")
     print(f"  - {figures_dir / 'phase4_summary.md'}")
     print(f"  - {figures_dir / 'phase4_validation.json'}")
     print(f"  - {figures_dir / 'phase4_similarity_heatmap.png'}")

@@ -70,10 +70,10 @@ def create_key_result_figure(leaderboard_path: Path, output_path: Path):
     gap = msd_val - best_baseline
 
     ax1.annotate('', xy=(0, msd_val), xytext=(1, best_baseline),
-                arrowprops=dict(arrowstyle='<->', lw=2, color='red'))
+                arrowprops={'arrowstyle': '<->', 'lw': 2, 'color': 'red'})
     ax1.text(0.5, (msd_val + best_baseline) / 2, f'{gap:.1f}% gap\n({msd_val/best_baseline:.1f}× higher)',
             ha='center', va='center', fontsize=10, fontweight='bold', color='red',
-            bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='red', linewidth=2))
+            bbox={'boxstyle': 'round,pad=0.5', 'facecolor': 'white', 'edgecolor': 'red', 'linewidth': 2})
 
     ax1.set_ylabel('PR-AUC (%)', fontsize=12, fontweight='bold')
     ax1.set_title('A. PR-AUC Performance', fontsize=13, fontweight='bold', loc='left')

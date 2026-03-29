@@ -13,14 +13,12 @@ Outputs:
 """
 
 import json
-from collections import Counter
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.patches import Rectangle
 
 # Set style
 sns.set_style("whitegrid")
@@ -104,7 +102,7 @@ def load_mappings():
     evidence_dict = {}
     for evidence_file in evidence_dir.glob('lineage_*_evidence.json'):
         lineage_id = int(evidence_file.stem.split('_')[1])
-        with open(evidence_file, 'r') as f:
+        with open(evidence_file) as f:
             evidence_dict[lineage_id] = json.load(f)
 
     print(f"  Loaded {len(mappings)} mappings with evidence")
@@ -129,7 +127,7 @@ def create_confidence_distribution(mappings, output_dir):
     ax1.grid(axis='y', alpha=0.3)
 
     # Add counts on bars
-    for i, (conf, count) in enumerate(confidence_counts.items()):
+    for i, (_conf, count) in enumerate(confidence_counts.items()):
         ax1.text(i, count + 1, f'{count}\n({100*count/len(mappings):.1f}%)',
                 ha='center', va='bottom', fontweight='bold')
 
@@ -147,7 +145,7 @@ def create_confidence_distribution(mappings, output_dir):
 
     # Add counts on bars
     for i, (status, count) in enumerate(review_counts.items()):
-        label = labels_review[status]
+        labels_review[status]
         ax2.text(i, count + 1, f'{count}\n({100*count/len(mappings):.1f}%)',
                 ha='center', va='bottom', fontweight='bold')
 
@@ -167,7 +165,7 @@ def create_front_distribution(mappings, output_dir):
     front_counts = mappings['primary_front'].value_counts()
     colors = plt.cm.Set3(np.linspace(0, 1, len(front_counts)))
 
-    bars = ax.barh(range(len(front_counts)), front_counts.values, color=colors)
+    ax.barh(range(len(front_counts)), front_counts.values, color=colors)
     ax.set_yticks(range(len(front_counts)))
     ax.set_yticklabels(front_counts.index)
     ax.set_xlabel('Number of Lineages', fontsize=12, fontweight='bold')
@@ -175,7 +173,7 @@ def create_front_distribution(mappings, output_dir):
     ax.grid(axis='x', alpha=0.3)
 
     # Add counts and percentages
-    for i, (front, count) in enumerate(front_counts.items()):
+    for i, (_front, count) in enumerate(front_counts.items()):
         ax.text(count + 0.5, i, f'{count} ({100*count/len(mappings):.1f}%)',
                 va='center', fontweight='bold')
 
@@ -330,7 +328,7 @@ def create_multi_label_analysis(mappings, output_dir):
         ax2.set_title('Multi-Front Assignments by Confidence', fontsize=14, fontweight='bold')
         ax2.grid(axis='y', alpha=0.3)
 
-        for i, (conf, count) in enumerate(multi_conf.items()):
+        for i, (_conf, count) in enumerate(multi_conf.items()):
             ax2.text(i, count + 0.5, f'{count}', ha='center', va='bottom', fontweight='bold')
 
     plt.tight_layout()
@@ -352,7 +350,7 @@ def generate_validation_report(mappings, evidence_dict, score_columns=None):
     medium_conf = len(mappings[mappings['confidence'] == 'medium'])
     low_conf = len(mappings[mappings['confidence'] == 'low'])
     multi_label = len(mappings[mappings['alternative_fronts'].notna()])
-    review_needed = len(mappings[mappings['review_needed'] == True])
+    review_needed = len(mappings[mappings['review_needed']])
 
     # Compute phase agreement statistics
     unanimous = 0

@@ -37,7 +37,7 @@ import pathlib
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import networkx as nx
 import numpy as np
@@ -57,7 +57,6 @@ except ImportError:
     MEMORY_UTILS_AVAILABLE = False
 
 from src.trusted_io import save_trusted_pickle
-
 
 # Global default for parallel workers (matches run.py default)
 DEFAULT_PARALLEL_WORKERS = 12
@@ -89,12 +88,12 @@ class CouplingConfig:
     lambda_decay: float = _COUPLING_DEFAULTS.get("lambda_decay", 0.15)
     min_shared_refs: int = _COUPLING_DEFAULTS.get("min_shared_refs", 5)
     min_coupling_score: float = _COUPLING_DEFAULTS.get("min_coupling_score", 0.25)
-    max_year_diff: Optional[int] = _COUPLING_DEFAULTS.get("max_year_diff", 5)
-    cache_dir: Optional[pathlib.Path] = None
+    max_year_diff: int | None = _COUPLING_DEFAULTS.get("max_year_diff", 5)
+    cache_dir: pathlib.Path | None = None
     workers: int = DEFAULT_PARALLEL_WORKERS
 
 
-def _shared_counts_worker(args: Tuple[List[List[str]], Tuple[str, ...], bool]) -> Dict[Tuple[str, str], int]:
+def _shared_counts_worker(args: tuple[list[list[str]], tuple[str, ...], bool]) -> dict[tuple[str, str], int]:
     """Worker function for parallel bibliographic coupling calculation.
 
     Processes a batch of reference lists to count shared citations between pairs
@@ -112,7 +111,7 @@ def _shared_counts_worker(args: Tuple[List[List[str]], Tuple[str, ...], bool]) -
     """
     ref_lists, new_nodes_serialized, restrict_to_new = args
     new_nodes: set[str] = set(new_nodes_serialized)
-    counts: Dict[Tuple[str, str], int] = defaultdict(int)
+    counts: dict[tuple[str, str], int] = defaultdict(int)
     for nodes in ref_lists:
         if len(nodes) < 2:
             continue
@@ -142,7 +141,7 @@ EDGE_CACHE_MAX_BYTES = 1_000_000_000  # ~1 GB guardrail for cached edges
 CONFIG_CACHE_FILENAME = "coupling_config.json"
 
 
-def _normalize_refs(value: Any) -> List[Any]:
+def _normalize_refs(value: Any) -> list[Any]:
     """Normalize reference values from various formats into a consistent list.
 
     Handles multiple input types from DataFrame columns: None, NaN, lists, tuples,
@@ -170,7 +169,7 @@ def _normalize_refs(value: Any) -> List[Any]:
 def _load_edge_cache(
     cache_dir: pathlib.Path,
     *,
-    max_bytes: Optional[int] = None,
+    max_bytes: int | None = None,
 ) -> pd.DataFrame:
     path = cache_dir / EDGES_CACHE_FILENAME
     if not path.exists():
@@ -219,7 +218,7 @@ def _save_seen_nodes(cache_dir: pathlib.Path, nodes: Iterable[str]) -> None:
     path.write_text(json.dumps(sorted(set(nodes))))
 
 
-def _config_signature(config: CouplingConfig) -> Dict[str, float]:
+def _config_signature(config: CouplingConfig) -> dict[str, float]:
     return {
         "alpha": float(config.alpha),
         "beta": float(config.beta),
@@ -230,7 +229,7 @@ def _config_signature(config: CouplingConfig) -> Dict[str, float]:
     }
 
 
-def _load_cached_config(cache_dir: pathlib.Path) -> Optional[Dict[str, float]]:
+def _load_cached_config(cache_dir: pathlib.Path) -> dict[str, float] | None:
     path = cache_dir / CONFIG_CACHE_FILENAME
     if not path.exists():
         return None
@@ -241,7 +240,7 @@ def _load_cached_config(cache_dir: pathlib.Path) -> Optional[Dict[str, float]]:
         return None
 
 
-def _save_cached_config(cache_dir: pathlib.Path, signature: Dict[str, float]) -> None:
+def _save_cached_config(cache_dir: pathlib.Path, signature: dict[str, float]) -> None:
     path = cache_dir / CONFIG_CACHE_FILENAME
     safe = {k: float(v) for k, v in signature.items()}
     path.write_text(json.dumps(safe, sort_keys=True))
@@ -302,7 +301,7 @@ def strip_referenced_works(G: nx.DiGraph) -> None:
 def build_direct_citation_graph(
     df: pd.DataFrame,
     *,
-    coupling: Optional[CouplingConfig] = None,
+    coupling: CouplingConfig | None = None,
 ) -> nx.DiGraph:
     """Build a directed citation network with optional bibliographic coupling.
 
@@ -370,8 +369,8 @@ def build_direct_citation_graph(
         if cfg_dict.get("cache_dir") is not None:
             cfg_dict["cache_dir"] = str(cfg_dict["cache_dir"])
         G.graph["coupling_config"] = cfg_dict
-    node_refs_map: Dict[str, set[str]] = {}
-    node_year_map: Dict[str, Optional[int]] = {}
+    node_refs_map: dict[str, set[str]] = {}
+    node_year_map: dict[str, int | None] = {}
     # Minimal attributes for memory efficiency (91% reduction vs full metadata)
     # Rich metadata available via lookup in ingest.parquet
     attrs = [
@@ -389,7 +388,7 @@ def build_direct_citation_graph(
         wid = str(wid)
         G.add_node(wid)
         pub_year_val = getattr(row, "pub_year", None) if "pub_year" in df.columns else None
-        year_int: Optional[int] = None
+        year_int: int | None = None
         if pub_year_val is not None and not (isinstance(pub_year_val, float) and pd.isna(pub_year_val)):
             try:
                 year_int = int(pub_year_val)
@@ -458,11 +457,11 @@ def build_direct_citation_graph(
 
 def _augment_with_coupling(
     G: nx.DiGraph,
-    node_refs_map: Dict[str, set[str]],
-    node_year_map: Dict[str, Optional[int]],
+    node_refs_map: dict[str, set[str]],
+    node_year_map: dict[str, int | None],
     config: CouplingConfig,
     direct_counts: Counter,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     logger = logging.getLogger("2yp.graph_build")
 
     # Log configuration for coupling
@@ -484,7 +483,7 @@ def _augment_with_coupling(
 
     cached_edges = pd.DataFrame(columns=COUPLING_EDGE_COLUMNS)
     cached_nodes: set[str] = set()
-    cache_reset_reason: Optional[str] = None
+    cache_reset_reason: str | None = None
     if use_cache and cache_dir is not None:
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_path = cache_dir / EDGES_CACHE_FILENAME
@@ -527,7 +526,7 @@ def _augment_with_coupling(
 
     new_nodes = current_nodes - cached_nodes if use_cache else current_nodes
 
-    ref_to_nodes: Dict[str, List[str]] = defaultdict(list)
+    ref_to_nodes: dict[str, list[str]] = defaultdict(list)
     for node, refs in node_refs_map.items():
         if not refs:
             continue
@@ -559,7 +558,7 @@ def _augment_with_coupling(
         else:
             logger.info(f"Worker count: {config.workers} ({reason})")
 
-    pair_shared: Dict[Tuple[str, str], int]
+    pair_shared: dict[tuple[str, str], int]
     workers_used = 1
     if effective_workers > 1 and ref_lists:
         try:
@@ -567,7 +566,7 @@ def _augment_with_coupling(
 
             worker_count = min(effective_workers, len(ref_lists))
             chunk_size = max(1, int(math.ceil(len(ref_lists) / (worker_count * 2))))
-            chunks: List[List[List[str]]] = []
+            chunks: list[list[list[str]]] = []
             for idx in range(0, len(ref_lists), chunk_size):
                 chunks.append([list(nodes) for nodes in ref_lists[idx : idx + chunk_size]])
 
@@ -602,7 +601,7 @@ def _augment_with_coupling(
             logger.info("Running coupling calculation in single-worker mode (insufficient work for parallel processing)")
         pair_shared = _shared_counts_worker((ref_lists, new_nodes_serialized, restrict_to_new))
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     # LP-1: Add progress bar for coupling calculation
     pair_items = pair_shared.items()
     desc = f"Computing coupling scores ({len(pair_shared):,} pairs)"
@@ -711,7 +710,7 @@ def _augment_with_coupling(
 
     stats["coupling_pairs_retained"] = int(len(combined_retained))
 
-    pair_weights: List[float] = []
+    pair_weights: list[float] = []
 
     # LP-1: Add progress bar for adding coupling edges
     rows = list(combined_retained.itertuples(index=False))
@@ -811,7 +810,7 @@ def save_graph(
     *,
     write_pickle: bool = True,
     write_graphml: bool = True,
-    graphml_compression: Optional[str] = None,
+    graphml_compression: str | None = None,
 ) -> None:
     """Save NetworkX graph to disk in pickle and/or GraphML formats.
 
@@ -920,7 +919,7 @@ def export_annual_full(
     *,
     year: int,
     outdir: pathlib.Path,
-    coupling: Optional[CouplingConfig] = None,
+    coupling: CouplingConfig | None = None,
 ) -> pathlib.Path:
     """Build and save an annual cumulative citation graph up to a given year.
 
@@ -962,7 +961,7 @@ def export_quarter_delta(
     year: int,
     quarter: int,
     outdir: pathlib.Path,
-    coupling: Optional[CouplingConfig] = None,
+    coupling: CouplingConfig | None = None,
 ) -> pathlib.Path:
     """Build and save a quarterly delta citation graph for a specific period.
 

@@ -10,22 +10,20 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import List, Dict
 
 import numpy as np
 import pandas as pd
-
 from utils.quarter_utils import quarter_to_int
 
 
-def summarize_detection_lag(df: pd.DataFrame, preds: pd.Series) -> Dict[str, float]:
+def summarize_detection_lag(df: pd.DataFrame, preds: pd.Series) -> dict[str, float]:
     pred_df = df.copy()
     pred_df["is_milestone_pred"] = preds
     positives = pred_df[pred_df["is_milestone_true"] == 1]
     if positives.empty:
         return {"lag_coverage": 0.0}
 
-    def sorted_quarters(series: pd.Series) -> List[str]:
+    def sorted_quarters(series: pd.Series) -> list[str]:
         return sorted(series.tolist(), key=quarter_to_int)
 
     actual_map = positives.groupby("lineage_id")["quarter"].apply(sorted_quarters).to_dict()
@@ -58,7 +56,7 @@ def summarize_detection_lag(df: pd.DataFrame, preds: pd.Series) -> Dict[str, flo
     }
 
 
-def compute_metrics(df: pd.DataFrame, threshold: float) -> Dict[str, float]:
+def compute_metrics(df: pd.DataFrame, threshold: float) -> dict[str, float]:
     preds = (df["milestone_probability"] >= threshold).astype(int)
     labels = df["is_milestone_true"].astype(int)
 
@@ -119,7 +117,7 @@ def main() -> None:
         thresholds.append(round(t, 4))
         t += args.step
 
-    results: List[Dict[str, float]] = [compute_metrics(df, thr) for thr in thresholds]
+    results: list[dict[str, float]] = [compute_metrics(df, thr) for thr in thresholds]
     results_df = pd.DataFrame(results)
 
     print("=" * 70)

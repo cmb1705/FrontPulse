@@ -8,9 +8,11 @@ This script renames:
 4. front_id_registry_cumulative.json -> lineage_registry.json
 """
 
-import pandas as pd
 import shutil
 from pathlib import Path
+
+import pandas as pd
+
 
 def rename_pipeline_outputs():
     """Rename front terminology to lineage in all output files."""
@@ -33,7 +35,7 @@ def rename_pipeline_outputs():
 
         if 'front_id' in df.columns:
             df = df.rename(columns={'front_id': 'lineage_id'})
-            print(f"   Renamed front_id -> lineage_id")
+            print("   Renamed front_id -> lineage_id")
 
         df.to_csv(timeseries_new, index=False)
         print(f"   Saved to {timeseries_new.name}")
@@ -52,7 +54,7 @@ def rename_pipeline_outputs():
 
         if 'front_id' in df.columns:
             df = df.rename(columns={'front_id': 'lineage_id'})
-            print(f"   Renamed front_id -> lineage_id")
+            print("   Renamed front_id -> lineage_id")
 
         df.to_csv(metrics_new, index=False)
         print(f"   Saved to {metrics_new.name}")
@@ -68,7 +70,7 @@ def rename_pipeline_outputs():
     if registry_old.exists():
         shutil.copy2(registry_old, registry_new)
         print(f"   Copied to {registry_new.name}")
-        print(f"   Note: JSON structure unchanged (maps community_id -> lineage_id)")
+        print("   Note: JSON structure unchanged (maps community_id -> lineage_id)")
     else:
         print(f"   WARNING: {registry_old} not found")
 

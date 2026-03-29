@@ -16,19 +16,18 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List, Optional
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-
 DEFAULT_INPUT = Path("data/out/resolution_sweep_cumulative.json")
-DEFAULT_HTML_OUTPUT: Optional[Path] = None
+DEFAULT_HTML_OUTPUT: Path | None = None
 
 
-def load_sweep(path: Path) -> List[dict]:
+def load_sweep(path: Path) -> list[dict]:
     data = json.loads(path.read_text())
     if not isinstance(data, list):
         raise ValueError("resolution_sweep_cumulative JSON must contain a list.")
@@ -41,7 +40,7 @@ def reshape_quarter_metrics(entries: Iterable[dict]) -> pd.DataFrame:
     rows = []
     for entry in entries:
         res = entry["resolution"]
-        quarters: List[str] = entry["quarters"]
+        quarters: list[str] = entry["quarters"]
         clusters_by_q = entry["cluster_stats_by_quarter"]
         pia_by_q = entry.get("pia_by_quarter") or {}
         density_by_q = entry.get("graph_density_by_quarter") or {}
@@ -76,7 +75,7 @@ def reshape_vi_metrics(entries: Iterable[dict]) -> pd.DataFrame:
     rows = []
     for entry in entries:
         res = entry["resolution"]
-        quarters: List[str] = entry["quarters"]
+        quarters: list[str] = entry["quarters"]
         vi_qoq_by_q = entry.get("vi_qoq_by_quarter") or {}
         nvi_qoq_by_q = entry.get("nvi_qoq_by_quarter") or {}
         vi_qoq_2y_by_q = entry.get("vi_qoq_2y_by_quarter") or {}
@@ -121,8 +120,8 @@ def plot_resolution_sweep(
     vi_df: pd.DataFrame,
     final_df: pd.DataFrame,
     *,
-    html_output: Optional[Path] = None,
-    static_output: Optional[Path] = None,
+    html_output: Path | None = None,
+    static_output: Path | None = None,
     show: bool = True,
 ) -> None:
     quarter_df = quarter_df.copy()
@@ -214,8 +213,8 @@ def plot_resolution_sweep(
                 mode="lines+markers",
                 name=res_label if idx == 0 else None,
                 legendgroup=res_label,
-                marker=dict(color=color_map[res]),
-                line=dict(color=color_map[res]),
+                marker={"color": color_map[res]},
+                line={"color": color_map[res]},
                 customdata=clusters_custom,
                 hovertemplate=(
                     "<b>Clusters</b><br>"
@@ -240,8 +239,8 @@ def plot_resolution_sweep(
                 mode="lines+markers",
                 name=None,
                 legendgroup=res_label,
-                marker=dict(color=color_map[res]),
-                line=dict(color=color_map[res]),
+                marker={"color": color_map[res]},
+                line={"color": color_map[res]},
                 customdata=median_custom,
                 hovertemplate=(
                     "<b>Cluster size (median)</b><br>"
@@ -266,8 +265,8 @@ def plot_resolution_sweep(
                 mode="lines+markers",
                 name=None,
                 legendgroup=res_label,
-                marker=dict(color=color_map[res]),
-                line=dict(color=color_map[res], dash="dash"),
+                marker={"color": color_map[res]},
+                line={"color": color_map[res], "dash": "dash"},
                 customdata=mean_custom,
                 hovertemplate=(
                     "<b>Cluster size (mean)</b><br>"
@@ -292,8 +291,8 @@ def plot_resolution_sweep(
                 mode="lines+markers",
                 name=None,
                 legendgroup=res_label,
-                marker=dict(color=color_map[res]),
-                line=dict(color=color_map[res]),
+                marker={"color": color_map[res]},
+                line={"color": color_map[res]},
                 customdata=pia_custom,
                 hovertemplate=(
                     "<b>PIA rate</b><br>"
@@ -325,8 +324,8 @@ def plot_resolution_sweep(
                 mode="lines+markers",
                 name=res_label if idx == 0 else None,
                 legendgroup=f"{res_label}_vi",
-                marker=dict(color=color_map[res]),
-                line=dict(color=color_map[res]),
+                marker={"color": color_map[res]},
+                line={"color": color_map[res]},
                 customdata=vi_customdata,
                 hovertemplate=(
                     "<b>Normalized VI (QoQ)</b><br>"
@@ -359,8 +358,8 @@ def plot_resolution_sweep(
                     mode="lines+markers",
                     name=f"{res_label} nVI (5y)" if idx == 0 else None,
                     legendgroup=f"{res_label}_nvi",
-                    marker=dict(color=color_map[res]),
-                    line=dict(color=color_map[res]),
+                    marker={"color": color_map[res]},
+                    line={"color": color_map[res]},
                     customdata=nvi_customdata,
                     hovertemplate=(
                         "<b>Normalized VI (5-year)</b><br>"
@@ -382,7 +381,7 @@ def plot_resolution_sweep(
                 x=slider_x,
                 y=[0.0] * len(slider_x),
                 mode="lines",
-                line=dict(color="rgba(0,0,0,0)"),
+                line={"color": "rgba(0,0,0,0)"},
                 hoverinfo="skip",
                 showlegend=False,
             ),
@@ -392,8 +391,8 @@ def plot_resolution_sweep(
 
     fig.update_layout(
         height=1600,
-        margin=dict(l=60, r=20, t=80, b=40),
-        legend=dict(title="Resolution", orientation="h", x=0, y=1.05),
+        margin={"l": 60, "r": 20, "t": 80, "b": 40},
+        legend={"title": "Resolution", "orientation": "h", "x": 0, "y": 1.05},
         hovermode="x unified",
     )
     for axis_idx in range(1, 6):
@@ -407,7 +406,7 @@ def plot_resolution_sweep(
         col=1,
         showticklabels=False,
         showgrid=False,
-        rangeslider=dict(visible=True, bgcolor="rgba(0,0,0,0)", thickness=0.15),
+        rangeslider={"visible": True, "bgcolor": "rgba(0,0,0,0)", "thickness": 0.15},
     )
     fig.update_yaxes(title_text="Communities", row=1, col=1)
     fig.update_yaxes(title_text="Papers per cluster", row=2, col=1)

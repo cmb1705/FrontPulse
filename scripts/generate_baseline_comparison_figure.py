@@ -12,7 +12,6 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 from matplotlib.gridspec import GridSpec
@@ -88,7 +87,7 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
 
     # Load all predictions
     predictions = {}
-    for method_name in leaderboard.keys():
+    for method_name in leaderboard:
         if method_name == 'msd_lightgbm':
             method_dir = baselines_dir.parent / 'msd_training' / 'msd_inflection' / 'leakage_free'
         else:
@@ -275,7 +274,7 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
     bars = ax_lag.barh(y_pos, lag_data, color=lag_colors, alpha=0.7, edgecolor='black', linewidth=0.5)
 
     # Add value labels
-    for i, (bar, val) in enumerate(zip(bars, lag_data)):
+    for i, (_bar, val) in enumerate(zip(bars, lag_data)):
         ax_lag.text(val + 0.3 if val > 0 else val - 0.3,
                    i, f'{val:.0f}Q',
                    va='center', ha='left' if val > 0 else 'right',
@@ -292,10 +291,10 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
     # Add early/late labels
     ax_lag.text(-9, len(lag_labels), 'Early\ndetection', ha='center', va='center',
                fontsize=8, style='italic', color='green', weight='bold',
-               bbox=dict(boxstyle='round,pad=0.3', facecolor='lightgreen', alpha=0.3))
+               bbox={"boxstyle": 'round,pad=0.3', "facecolor": 'lightgreen', "alpha": 0.3})
     ax_lag.text(2, len(lag_labels), 'Late\ndetection', ha='center', va='center',
                fontsize=8, style='italic', color='red', weight='bold',
-               bbox=dict(boxstyle='round,pad=0.3', facecolor='lightcoral', alpha=0.3))
+               bbox={"boxstyle": 'round,pad=0.3', "facecolor": 'lightcoral', "alpha": 0.3})
 
     # === Panel E: Coverage Comparison ===
     ax_cov = fig.add_subplot(gs[2, 1])
@@ -316,7 +315,7 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
     bars = ax_cov.barh(y_pos, cov_data, color=cov_colors, alpha=0.7, edgecolor='black', linewidth=0.5)
 
     # Add value labels
-    for i, (bar, val) in enumerate(zip(bars, cov_data)):
+    for i, (_bar, val) in enumerate(zip(bars, cov_data)):
         ax_cov.text(val + 2, i, f'{val:.1f}%',
                    va='center', ha='left',
                    fontsize=9, fontweight='bold')
@@ -351,21 +350,21 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
 
     char_text += "\nKey Findings:\n"
     char_text += f"• MSD achieves {msd_pr_auc/max(baseline_pr_aucs):.1f}× higher\n"
-    char_text += f"  PR-AUC than best baseline\n"
-    char_text += f"• Baselines cluster at PR-AUC\n"
+    char_text += "  PR-AUC than best baseline\n"
+    char_text += "• Baselines cluster at PR-AUC\n"
     char_text += f"  {min(baseline_pr_aucs):.3f}-{max(baseline_pr_aucs):.3f}\n"
-    char_text += f"• Multi-signal approach essential\n"
-    char_text += f"  for high precision/recall"
+    char_text += "• Multi-signal approach essential\n"
+    char_text += "  for high precision/recall"
 
     ax_char.text(0.05, 0.95, char_text,
                 transform=ax_char.transAxes,
                 fontsize=8.5,
                 verticalalignment='top',
                 fontfamily='monospace',
-                bbox=dict(boxstyle='round,pad=0.8',
-                         facecolor='#F5F5F5',
-                         edgecolor='black',
-                         linewidth=1))
+                bbox={"boxstyle": 'round,pad=0.8',
+                         "facecolor": '#F5F5F5',
+                         "edgecolor": 'black',
+                         "linewidth": 1})
 
     ax_char.set_title('F. Summary', fontsize=12, fontweight='bold', loc='left')
 

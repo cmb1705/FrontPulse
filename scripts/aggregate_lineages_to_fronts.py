@@ -5,9 +5,9 @@ using Phase 5 lineage->front mappings.
 This creates the input needed for tripwire_nb_fdr.py.
 """
 
-import pandas as pd
 from pathlib import Path
-from collections import defaultdict
+
+import pandas as pd
 
 print("=" * 70)
 print("AGGREGATING LINEAGES TO RESEARCH FRONTS")
@@ -24,12 +24,12 @@ if mappings_path_selected.exists():
 else:
     mappings_path = mappings_path_full
     print(f"\n[1/4] Using full mappings (no curation yet): {mappings_path}")
-    print(f"  NOTE: Consider filtering to medium/high confidence and creating")
+    print("  NOTE: Consider filtering to medium/high confidence and creating")
     print(f"        {mappings_path_selected.name} for better quality")
 
 mappings = pd.read_csv(mappings_path)
 print(f"  Loaded {len(mappings)} lineage->front mappings")
-print(f"  Confidence distribution:")
+print("  Confidence distribution:")
 print(f"    {mappings['confidence'].value_counts().to_dict()}")
 
 # Load lineage timeseries
@@ -78,7 +78,7 @@ front_cumulative = (
 output_dir = Path("data/out/04_front_aggregation")
 output_dir.mkdir(parents=True, exist_ok=True)
 
-print(f"\n[4/4] Saving outputs (both wide and long formats)...")
+print("\n[4/4] Saving outputs (both wide and long formats)...")
 
 # Wide format (quarters x fronts) - for visualization
 delta_path = output_dir / "front_timeseries_delta.csv"
@@ -108,13 +108,13 @@ for front in sorted(front_cumulative.columns):
     print(f"{front:<30} {total:<15} {quarters_active}")
 
 print(f"\n{'=' * 70}")
-print(f"AGGREGATION COMPLETE")
+print("AGGREGATION COMPLETE")
 print(f"{'=' * 70}")
-print(f"\nOutputs:")
-print(f"  Wide format (visualization):")
+print("\nOutputs:")
+print("  Wide format (visualization):")
 print(f"    - {delta_path}")
 print(f"    - {cumulative_path}")
-print(f"  Long format (tripwire input):")
+print("  Long format (tripwire input):")
 print(f"    - {delta_long_path}")
 print(f"    - {cumulative_long_path}")
-print(f"\nReady for tripwire_nb_fdr.py (use *_long.csv files)!")
+print("\nReady for tripwire_nb_fdr.py (use *_long.csv files)!")

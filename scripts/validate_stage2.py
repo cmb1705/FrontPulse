@@ -14,18 +14,16 @@ Usage:
 
 import json
 from pathlib import Path
-from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import normalize
 
 
 def validate_data_integrity(embeddings_array: np.ndarray, metadata: pd.DataFrame,
-                             similarity_df: pd.DataFrame) -> Dict:
+                             similarity_df: pd.DataFrame) -> dict:
     """
     Run data integrity checks on Phase 2 outputs.
 
@@ -138,9 +136,9 @@ def generate_tsne_visualization(embeddings_array: np.ndarray, metadata: pd.DataF
     embeddings_2d = tsne.fit_transform(embeddings_array)
 
     # Get best matching front for each lineage
-    front_names = similarity_df.columns[1:].tolist()
+    similarity_df.columns[1:].tolist()
     best_fronts = similarity_df.iloc[:, 1:].idxmax(axis=1).values
-    best_scores = similarity_df.iloc[:, 1:].max(axis=1).values
+    similarity_df.iloc[:, 1:].max(axis=1).values
 
     # Create color map
     unique_fronts = sorted(set(best_fronts))
@@ -200,7 +198,7 @@ def generate_score_distributions(embeddings_array: np.ndarray, similarity_df: pd
     stats_text = f"Mean: {similarity_values.mean():.3f}\nMedian: {np.median(similarity_values):.3f}\nMax: {similarity_values.max():.3f}"
     ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 2: Embedding norm distribution
     ax = axes[0, 1]
@@ -223,7 +221,7 @@ def generate_score_distributions(embeddings_array: np.ndarray, similarity_df: pd
     stats_text = f"Mean: {norms.mean():.4f}\nStd: {norms.std():.4f}"
     ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     # Panel 3: Matches per front distribution (threshold = 0.747)
     ax = axes[1, 0]
@@ -253,7 +251,7 @@ def generate_score_distributions(embeddings_array: np.ndarray, similarity_df: pd
     stats_text = f"Mean: {best_similarities.mean():.3f}\nMedian: {best_similarities.median():.3f}\nMax: {best_similarities.max():.3f}"
     ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5})
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -262,7 +260,7 @@ def generate_score_distributions(embeddings_array: np.ndarray, similarity_df: pd
     print(f"  [OK] Saved score distributions: {output_path}")
 
 
-def generate_markdown_report(checks: Dict, output_path: Path):
+def generate_markdown_report(checks: dict, output_path: Path):
     """
     Generate markdown summary report.
     """
@@ -386,7 +384,7 @@ def main():
     # Validate data integrity
     print("\n[2/6] Running data integrity checks...")
     checks = validate_data_integrity(embeddings_array, metadata, similarity_df)
-    print(f"  [OK] Completed {len([k for k in checks.keys() if k.endswith('_ok') or k.endswith('_normalized') or k.endswith('_finite')])} checks")
+    print(f"  [OK] Completed {len([k for k in checks if k.endswith('_ok') or k.endswith('_normalized') or k.endswith('_finite')])} checks")
 
     # Generate visualizations
     output_dir = Path('data/out/06_validation/phase2')
@@ -431,7 +429,7 @@ def main():
     else:
         print("\n[FAIL] SOME VALIDATION CHECKS FAILED")
 
-    print(f"\nOutputs:")
+    print("\nOutputs:")
     print(f"  - {output_dir / 'phase_2_similarity_heatmap.png'}")
     print(f"  - {output_dir / 'phase_2_tsne.png'}")
     print(f"  - {output_dir / 'phase_2_distributions.png'}")

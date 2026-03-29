@@ -23,14 +23,18 @@ import argparse
 import hashlib
 import json
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, roc_auc_score
-
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 TRAIN_CUTOFF_DEFAULT = "2019Q4"
 WINDOW_REQUIREMENT_DEFAULT = 2
@@ -50,7 +54,7 @@ def quarter_to_int(q: str) -> int:
 @dataclass
 class VariantSpec:
     name: str
-    params: Dict[str, float]
+    params: dict[str, float]
     rule_type: str  # "single_ga" or "momentum_ga"
 
 
@@ -77,12 +81,12 @@ def hash_file(path: Path) -> str:
 
 def build_variants(
     train_df: pd.DataFrame,
-    ga_percentiles: Tuple[int, ...],
-) -> List[VariantSpec]:
+    ga_percentiles: tuple[int, ...],
+) -> list[VariantSpec]:
     ga_values = train_df["growth_acceleration_z"].dropna()
     ga_thresholds = {p: float(np.nanpercentile(ga_values, p)) for p in ga_percentiles}
 
-    variants: List[VariantSpec] = []
+    variants: list[VariantSpec] = []
     for ga_p, ga_thr in ga_thresholds.items():
         variants.append(
             VariantSpec(
@@ -101,7 +105,7 @@ def build_variants(
     return variants
 
 
-def compute_scores(df: pd.DataFrame, variant: VariantSpec, zscore_stats: Optional[Tuple[float, float]]) -> pd.Series:
+def compute_scores(df: pd.DataFrame, variant: VariantSpec, zscore_stats: tuple[float, float] | None) -> pd.Series:
     """Compute continuous heuristic score per row."""
     if variant.rule_type == "single_ga":
         ga_thr = variant.params["ga_threshold"]
@@ -118,7 +122,7 @@ def compute_scores(df: pd.DataFrame, variant: VariantSpec, zscore_stats: Optiona
 def evaluate_variant(
     df: pd.DataFrame,
     variant: VariantSpec,
-    zscore_stats: Optional[Tuple[float, float]],
+    zscore_stats: tuple[float, float] | None,
 ) -> VariantMetrics:
     score = compute_scores(df, variant, zscore_stats)
     score_filled = score.fillna(-np.inf)
@@ -146,7 +150,7 @@ def evaluate_variant(
     )
 
 
-def select_best_variant(metrics: List[VariantMetrics]) -> VariantMetrics:
+def select_best_variant(metrics: list[VariantMetrics]) -> VariantMetrics:
     """Choose best by PR-AUC, then F1, then precision."""
     metrics_sorted = sorted(
         metrics,
@@ -235,7 +239,7 @@ def run(args: argparse.Namespace) -> None:
     global_mean = float(train_df["growth_acceleration"].mean())
     global_std = float(train_df["growth_acceleration"].std(ddof=0))
 
-    def resolve_stats(label: str) -> Tuple[float, float]:
+    def resolve_stats(label: str) -> tuple[float, float]:
         row = group_stats[group_stats["group_label"] == label]
         if row.empty or row.iloc[0]["n_quarters"] < args.min_group_size:
             mean, std = global_mean, global_std
@@ -270,7 +274,7 @@ def run(args: argparse.Namespace) -> None:
         ga_percentiles=tuple(args.ga_percentiles),
     )
 
-    variant_metrics: List[VariantMetrics] = [
+    variant_metrics: list[VariantMetrics] = [
         evaluate_variant(train_df, variant, None) for variant in variants
     ]
     best = select_best_variant(variant_metrics)

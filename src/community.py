@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import networkx as nx
 
@@ -25,7 +25,7 @@ def _nx_to_igraph(G: nx.Graph, weight_attr: str = "weight_total"):
         edges = [(nid_map[u], nid_map[v]) for u, v in G.edges()]
         if edges:
             g.add_edges(edges)
-            weights: List[float] = []
+            weights: list[float] = []
             for u, v in G.edges():
                 data = G.edges[u, v]
                 weight = data.get(weight_attr, data.get("weight", 1.0))
@@ -60,7 +60,7 @@ def run_leiden(
     max_size: int = _COMMUNITY_DEFAULTS.get("max_size", 5000),
     *,
     use_rbconfig: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     _require_leiden()
     import leidenalg as la
     g = _nx_to_igraph(G, weight_attr="weight_total")
@@ -112,7 +112,7 @@ def run_ecg(
     ens_size: int = 16,
     min_weight: float = 0.05,
     final: str = "leiden",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run ECG ensemble clustering on a NetworkX graph.
 
     ECG (Ensemble Clustering for Graphs) runs an ensemble of randomized
@@ -161,7 +161,7 @@ def run_ecg(
     keep = {cid for cid, sz in cnt.items() if min_size <= sz <= max_size}
     kept_pairs = [(n, c) for (n, c) in pairs if c in keep]
 
-    comm_nodes: Dict[int, List[str]] = defaultdict(list)
+    comm_nodes: dict[int, list[str]] = defaultdict(list)
     for n, c in kept_pairs:
         comm_nodes[c].append(n)
     communities = [
@@ -169,7 +169,7 @@ def run_ecg(
         for cid, v in comm_nodes.items()
     ]
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "partition": kept_pairs,
         "communities": communities,
         "raw_n_communities": int(len(cnt)),
@@ -190,18 +190,18 @@ def adaptive_cluster_bounds(
     n_edges: int,
     *,
     min_size: int,
-    max_size: Optional[int],
+    max_size: int | None,
     adaptive_enabled: bool,
     max_fraction: float,
     max_floor: int,
     max_ceiling: int,
-    min_fraction: Optional[float] = None,
-    max_floor_fraction: Optional[float] = None,
-    max_ceiling_fraction: Optional[float] = None,
+    min_fraction: float | None = None,
+    max_floor_fraction: float | None = None,
+    max_ceiling_fraction: float | None = None,
     min_absolute_floor: int = 10,
     max_absolute_ceiling: int = 15000,
     avg_degree_threshold: float = 15.0,
-) -> Tuple[int, Optional[int]]:
+) -> tuple[int, int | None]:
     """
     Determine effective min/max cluster bounds with density-aware regime switching.
 
@@ -209,11 +209,10 @@ def adaptive_cluster_bounds(
     Dense graphs enforce adaptive floor/ceiling constraints to maintain interpretable cluster sizes.
     """
     if n_nodes <= 0:
-        density = 0.0
         avg_degree = 0.0
     else:
         max_possible_edges = n_nodes * (n_nodes - 1)
-        density = (n_edges / max_possible_edges) if max_possible_edges > 0 else 0.0
+        (n_edges / max_possible_edges) if max_possible_edges > 0 else 0.0
         avg_degree = n_edges / n_nodes
 
     min_eff = max(int(min_size), 1)
@@ -222,7 +221,7 @@ def adaptive_cluster_bounds(
         if adaptive_min > 0:
             min_eff = max(min_eff, adaptive_min)
 
-    max_eff: Optional[int] = None if max_size is None or max_size <= 0 else int(max_size)
+    max_eff: int | None = None if max_size is None or max_size <= 0 else int(max_size)
 
     if adaptive_enabled and n_nodes > 0:
         frac_cap = int(math.ceil(n_nodes * max(0.0, max_fraction)))
@@ -264,9 +263,9 @@ def adaptive_cluster_bounds(
 def _compute_silhouette_width(
     node: str,
     cluster_id: int,
-    partition_map: Dict[str, int],
+    partition_map: dict[str, int],
     G: nx.Graph,
-    cluster_nodes: Dict[int, List[str]]
+    cluster_nodes: dict[int, list[str]]
 ) -> float:
     """
     Compute silhouette width for a node using citation-based dissimilarity.
@@ -322,11 +321,11 @@ def _compute_silhouette_width(
 
 def compute_pia_flags(
     G: nx.DiGraph,
-    partition_map: Dict[str, int],
+    partition_map: dict[str, int],
     *,
     min_links: int = 20,
     within_ratio: float = 0.10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Estimate "PIA" (Probably Inaccurate Assignments) statistics for each community.
 
@@ -340,11 +339,11 @@ def compute_pia_flags(
     Reference: Waltman & van Eck (2012) "A new methodology for constructing
     a publication-level classification system of science"
     """
-    cluster_nodes: Dict[int, List[str]] = defaultdict(list)
+    cluster_nodes: dict[int, list[str]] = defaultdict(list)
     for node, cid in partition_map.items():
         cluster_nodes[int(cid)].append(str(node))
 
-    cluster_stats: Dict[int, Dict[str, Optional[float]]] = {}
+    cluster_stats: dict[int, dict[str, float | None]] = {}
     total_eligible = 0
     total_pia = 0
 

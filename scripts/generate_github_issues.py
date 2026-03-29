@@ -10,17 +10,17 @@ import argparse
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
 
-def parse_roadmap_items(roadmap_path: Path) -> List[Dict[str, Any]]:
+def parse_roadmap_items(roadmap_path: Path) -> list[dict[str, Any]]:
     """
     Parse a roadmap Markdown file and extract items marked as 🔴 (Not Started).
 
     Returns:
         List of dictionaries with issue data
     """
-    with open(roadmap_path, 'r', encoding='utf-8') as f:
+    with open(roadmap_path, encoding='utf-8') as f:
         content = f.read()
 
     issues = []

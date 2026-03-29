@@ -7,7 +7,7 @@ print(f'Total alerts: {len(alerts)}')
 print(f'Significant alerts: {alerts["significant"].sum()}')
 print(f'Max z-score: {alerts["z_score"].max():.1f}')
 print(f'Mean z-score: {alerts["z_score"].mean():.2f}')
-print(f'\nTop 10 z-scores:')
+print('\nTop 10 z-scores:')
 print(alerts.nlargest(10, 'z_score')[['quarter', 'community_id', 'z_score', 'expected', 'observed', 'significant']])
 
 sparse = alerts[alerts['z_score'] > 50]

@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 from pathlib import Path
+
 import pandas as pd
 
 # Remapping from milestone_remapping_proposal.md
@@ -171,7 +172,7 @@ def main():
     df_output.to_csv(output_path, index=False)
 
     # Summary report
-    print(f"\n[Remapping] Summary:")
+    print("\n[Remapping] Summary:")
     print(f"  Excluded (field-wide events): {len(excluded)}")
     for event_id in excluded:
         print(f"    - {event_id}")
@@ -193,7 +194,7 @@ def main():
     print(f"[Remapping] Multi-front assignments: {multi_front_count}")
 
     # Show front distribution
-    print(f"\n[Remapping] Front distribution:")
+    print("\n[Remapping] Front distribution:")
     front_counts = {}
     for fronts_str in df_output['mapped_fronts'].dropna():
         for front in str(fronts_str).split('|'):

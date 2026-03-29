@@ -8,7 +8,6 @@ import pytest
 
 from src.bocpd import BOCPDConfig, detect_changepoints, run_bocpd_on_fronts
 
-
 # -- BOCPDConfig defaults ----------------------------------------------------
 
 

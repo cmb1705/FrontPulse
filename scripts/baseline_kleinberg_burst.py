@@ -21,12 +21,16 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, roc_auc_score
-
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 TRAIN_CUTOFF_DEFAULT = "2019Q4"
 MIN_NONZERO_DEFAULT = 8
@@ -169,7 +173,7 @@ def evaluate_counts(
     )
 
 
-def select_best(metrics: List[BurstMetrics]) -> BurstMetrics:
+def select_best(metrics: list[BurstMetrics]) -> BurstMetrics:
     return sorted(metrics, key=lambda m: (m.pr_auc, m.f1_at_zero, m.precision_at_zero), reverse=True)[0]
 
 
@@ -224,7 +228,7 @@ def run(args: argparse.Namespace) -> None:
         for n_states in args.states_grid
     ]
 
-    grid_metrics: List[BurstMetrics] = [
+    grid_metrics: list[BurstMetrics] = [
         evaluate_counts(train_df, p, args.min_burst_len, args.max_burst_len, args.persistence) for p in param_grid
     ]
     best = select_best(grid_metrics)

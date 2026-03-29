@@ -5,8 +5,8 @@ Generate publication-ready HTML from markdown documents with embedded figures.
 
 import base64
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 
 def image_to_base64(image_path: Path) -> str:
@@ -162,9 +162,9 @@ def markdown_to_html(
             img_path = base_path / img_src
             if img_path.exists():
                 data_uri = image_to_base64(img_path)
-                html_lines.append(f'<figure>')
+                html_lines.append('<figure>')
                 html_lines.append(f'<img src="{data_uri}" alt="{alt_text}" style="max-width:100%; height:auto;">')
-                html_lines.append(f'</figure>')
+                html_lines.append('</figure>')
             else:
                 html_lines.append(f'<p><em>[Image not found: {img_src}]</em></p>')
             continue
@@ -567,11 +567,11 @@ def main():
         print(f"\nProcessing: {doc['input'].name}")
 
         if not doc["input"].exists():
-            print(f"  SKIP: File not found")
+            print("  SKIP: File not found")
             continue
 
         # Read markdown
-        with open(doc["input"], "r", encoding="utf-8") as f:
+        with open(doc["input"], encoding="utf-8") as f:
             md_content = f.read()
 
         # Generate HTML with base path for resolving images

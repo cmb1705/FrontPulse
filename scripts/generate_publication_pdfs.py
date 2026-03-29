@@ -78,10 +78,10 @@ def convert_with_python_markdown(input_path: Path, output_path: Path):
     """
     try:
         import markdown
-        from weasyprint import HTML, CSS
+        from weasyprint import HTML  # noqa: F401
 
         # Read markdown
-        with open(input_path, "r", encoding="utf-8") as f:
+        with open(input_path, encoding="utf-8") as f:
             md_content = f.read()
 
         # Convert to HTML with math support
@@ -190,7 +190,7 @@ def main():
         print(f"\nProcessing: {doc['input'].name}")
 
         if not doc["input"].exists():
-            print(f"  SKIP: File not found")
+            print("  SKIP: File not found")
             continue
 
         if has_pandoc:

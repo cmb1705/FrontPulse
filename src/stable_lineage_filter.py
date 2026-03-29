@@ -17,12 +17,10 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Set
-
 import pandas as pd
 
 
-def compute_lineage_lifespans(timeseries_df: pd.DataFrame) -> Dict[int, int]:
+def compute_lineage_lifespans(timeseries_df: pd.DataFrame) -> dict[int, int]:
     """Compute lifespan (number of quarters) for each lineage.
 
     Args:
@@ -39,8 +37,8 @@ def compute_lineage_lifespans(timeseries_df: pd.DataFrame) -> Dict[int, int]:
 def filter_stable_lineages(
     timeseries_df: pd.DataFrame,
     min_quarters: int = 8,
-    max_quarters: Optional[int] = None,
-) -> Set[int]:
+    max_quarters: int | None = None,
+) -> set[int]:
     """Return the set of lineage IDs that meet the minimum lifespan threshold.
 
     Args:
@@ -64,8 +62,8 @@ def filter_stable_lineages(
 def summarize_filter(
     timeseries_df: pd.DataFrame,
     min_quarters: int = 8,
-    max_quarters: Optional[int] = None,
-) -> Dict[str, object]:
+    max_quarters: int | None = None,
+) -> dict[str, object]:
     """Summarize the effect of a stable-lineage filter.
 
     Returns a dict with counts and percentages for reporting.

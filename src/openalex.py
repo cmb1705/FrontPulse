@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 import requests
@@ -11,7 +11,7 @@ from tqdm import tqdm
 BASE: str = "https://api.openalex.org"
 
 
-def _kv_to_filter(filters: Dict[str, Any]) -> str:
+def _kv_to_filter(filters: dict[str, Any]) -> str:
     """Convert filter dictionary to OpenAlex filter string format."""
     parts = []
     for k, v in (filters or {}).items():
@@ -28,14 +28,14 @@ def fetch_openalex(
     *,
     mailto: str | None = None,
     api_key: str | None = None,
-    filters: Optional[Dict[str, Any]] = None,
-    search: Optional[str] = None,
-    select: Optional[List[str]] = None,
-    sort: Optional[str] = None,
+    filters: dict[str, Any] | None = None,
+    search: str | None = None,
+    select: list[str] | None = None,
+    sort: str | None = None,
     per_page: int = 200,
-    max_records: Optional[int] = None,
+    max_records: int | None = None,
     sleep_s: float = 0.12,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Fetch entities from OpenAlex API using cursor pagination.
 
@@ -73,7 +73,7 @@ def fetch_openalex(
             ".env file or pass --mailto."
         )
 
-    params: Dict[str, Any] = {"per-page": per_page, "cursor": "*"}
+    params: dict[str, Any] = {"per-page": per_page, "cursor": "*"}
     if api_key:
         params["api_key"] = api_key
     if mailto:
@@ -89,7 +89,7 @@ def fetch_openalex(
         params["sort"] = sort
 
     url = f"{BASE}/{entity}"
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     sess = requests.Session()
     ua = "FrontPulse/1.0"
     if mailto:
@@ -162,7 +162,7 @@ def fetch_openalex(
         time.sleep(sleep_s)
     return out
 
-def flatten_work(w: Dict[str, Any]) -> Dict[str, Any]:
+def flatten_work(w: dict[str, Any]) -> dict[str, Any]:
     """
     Flatten nested OpenAlex 'works' entity into a flat dictionary.
 
@@ -183,7 +183,7 @@ def flatten_work(w: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Flattened dictionary with normalized field names
     """
-    row: Dict[str, Any] = {}
+    row: dict[str, Any] = {}
     row["work_id"] = (w.get("id") or "").split("/")[-1] or None
     row["work_id_url"] = w.get("id")
     row["doi"] = w.get("doi")
@@ -253,7 +253,7 @@ def flatten_work(w: Dict[str, Any]) -> Dict[str, Any]:
     row["ref_count"] = len(norm_refs)
     return row
 
-def results_to_df(entity: str, results: List[Dict[str, Any]]) -> pd.DataFrame:
+def results_to_df(entity: str, results: list[dict[str, Any]]) -> pd.DataFrame:
     """
     Convert OpenAlex API results to a pandas DataFrame.
 

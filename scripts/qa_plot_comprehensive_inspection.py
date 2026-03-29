@@ -4,10 +4,12 @@ Comprehensive QA Plot Inspection
 Automated triage and quality assessment of inflection point labels.
 """
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 
 def load_labels(labels_path: Path) -> pd.DataFrame:
     """Load inflection labels with validation."""
@@ -24,7 +26,7 @@ def compute_statistics(df: pd.DataFrame):
     print(f"\nTotal Labels: {len(df)}")
 
     # Detection method breakdown
-    print(f"\nDetection Method Breakdown:")
+    print("\nDetection Method Breakdown:")
     method_counts = df['inflection_type'].value_counts()
     for method, count in method_counts.items():
         pct = 100 * count / len(df)
@@ -42,7 +44,7 @@ def compute_statistics(df: pd.DataFrame):
 
         # Percentiles
         percentiles = [5, 10, 25, 50, 75, 90, 95]
-        print(f"\n  Percentiles:")
+        print("\n  Percentiles:")
         for p in percentiles:
             val = np.percentile(logistic_df['inflection_score'], p)
             print(f"    {p:2d}th: {val:.4f}")
@@ -54,7 +56,7 @@ def compute_statistics(df: pd.DataFrame):
         print(f"  Scores: {derivative_df['inflection_score'].value_counts().to_dict()}")
 
     # Milestone linkage
-    print(f"\nMilestone Linkage:")
+    print("\nMilestone Linkage:")
     milestone_counts = df['lag_bucket'].value_counts()
     for bucket, count in milestone_counts.items():
         pct = 100 * count / len(df)
@@ -80,7 +82,7 @@ def auto_triage(df: pd.DataFrame):
         'BIN_C_SUSPECT': []
     }
 
-    for idx, row in df.iterrows():
+    for _idx, row in df.iterrows():
         lineage_id = row['lineage_id']
         score = row['inflection_score']
         method = row['inflection_type']
@@ -131,20 +133,20 @@ def auto_triage(df: pd.DataFrame):
             })
 
     # Print summary
-    print(f"\nBIN A (Clear Accept - High Confidence):")
+    print("\nBIN A (Clear Accept - High Confidence):")
     print(f"  Count: {len(bins['BIN_A_CLEAR_ACCEPT'])}")
     print(f"  % of Total: {100 * len(bins['BIN_A_CLEAR_ACCEPT']) / len(df):.1f}%")
-    print(f"  Criteria: Logistic method with R^2 >= 0.90")
+    print("  Criteria: Logistic method with R^2 >= 0.90")
 
-    print(f"\nBIN B (Borderline - Needs Review):")
+    print("\nBIN B (Borderline - Needs Review):")
     print(f"  Count: {len(bins['BIN_B_BORDERLINE'])}")
     print(f"  % of Total: {100 * len(bins['BIN_B_BORDERLINE']) / len(df):.1f}%")
-    print(f"  Criteria: R^2 0.70-0.90 OR derivative method")
+    print("  Criteria: R^2 0.70-0.90 OR derivative method")
 
-    print(f"\nBIN C (Suspect - Likely Reject):")
+    print("\nBIN C (Suspect - Likely Reject):")
     print(f"  Count: {len(bins['BIN_C_SUSPECT'])}")
     print(f"  % of Total: {100 * len(bins['BIN_C_SUSPECT']) / len(df):.1f}%")
-    print(f"  Criteria: R^2 < 0.70")
+    print("  Criteria: R^2 < 0.70")
 
     return bins
 
@@ -204,7 +206,7 @@ def analyze_low_r2_cases(df: pd.DataFrame, bins: dict):
     print(f"\nTotal cases flagged: {len(review_df)}")
 
     # Breakdown by reason
-    print(f"\nBreakdown by reason:")
+    print("\nBreakdown by reason:")
     reason_counts = review_df['reason'].value_counts()
     for reason, count in reason_counts.items():
         pct = 100 * count / len(review_df)
@@ -223,7 +225,7 @@ def analyze_low_r2_cases(df: pd.DataFrame, bins: dict):
     derivative_review = review_df[review_df['method'] == 'derivative']
     if len(derivative_review) > 0:
         print(f"\nDerivative Method Cases: {len(derivative_review)}")
-        print(f"  All derivative cases require visual review")
+        print("  All derivative cases require visual review")
         print(f"  Sample lineage IDs: {derivative_review['lineage_id'].head(5).tolist()}")
 
 def main():
@@ -236,7 +238,7 @@ def main():
     df = load_labels(labels_path)
 
     # Step 1: Aggregate statistics
-    stats = compute_statistics(df)
+    compute_statistics(df)
 
     # Step 2: Automated triage
     bins = auto_triage(df)
@@ -252,36 +254,36 @@ def main():
     print("RECOMMENDATIONS")
     print("="*80)
 
-    print(f"\n1. IMMEDIATE ACTIONS:")
+    print("\n1. IMMEDIATE ACTIONS:")
     print(f"   - BIN A ({summary['bin_a_clear_accept']} cases): Auto-accept, no review needed")
     print(f"   - BIN B ({summary['bin_b_borderline']} cases): Manual review recommended")
     print(f"   - BIN C ({summary['bin_c_suspect']} cases): Strong candidates for removal")
 
     if summary['pct_review_needed'] > 20:
-        print(f"\n2. PARAMETER TUNING:")
+        print("\n2. PARAMETER TUNING:")
         print(f"   - {summary['pct_review_needed']:.1f}% of labels need review (>20% threshold)")
-        print(f"   - Consider increasing R^2 threshold in labeling script:")
-        print(f"     Current: r_squared_threshold = 0.70 (inferred)")
-        print(f"     Recommended: r_squared_threshold = 0.85")
-        print(f"   - This would reduce false positives in training data")
+        print("   - Consider increasing R^2 threshold in labeling script:")
+        print("     Current: r_squared_threshold = 0.70 (inferred)")
+        print("     Recommended: r_squared_threshold = 0.85")
+        print("   - This would reduce false positives in training data")
     else:
-        print(f"\n2. PARAMETER TUNING:")
+        print("\n2. PARAMETER TUNING:")
         print(f"   - {summary['pct_review_needed']:.1f}% need review (acceptable)")
-        print(f"   - Current thresholds appear well-calibrated")
+        print("   - Current thresholds appear well-calibrated")
 
-    print(f"\n3. ESTIMATED REVIEW TIME:")
+    print("\n3. ESTIMATED REVIEW TIME:")
     review_time_min = summary['review_required'] * 2 / 60  # 2 min per case
     review_time_max = summary['review_required'] * 3 / 60
     print(f"   - {summary['review_required']} cases × 2-3 min/case")
     print(f"   - Total: {review_time_min:.1f}-{review_time_max:.1f} hours")
 
-    print(f"\n4. WORKFLOW:")
-    print(f"   a. Review BIN C first (likely rejects): data/out/qa_inspection/qa_review_bin_c_suspect.csv")
-    print(f"   b. Review BIN B (borderline): data/out/qa_inspection/qa_review_bin_b_borderline.csv")
-    print(f"   c. Use 5-point checklist for each case")
-    print(f"   d. Document decisions and update labels.csv")
+    print("\n4. WORKFLOW:")
+    print("   a. Review BIN C first (likely rejects): data/out/qa_inspection/qa_review_bin_c_suspect.csv")
+    print("   b. Review BIN B (borderline): data/out/qa_inspection/qa_review_bin_b_borderline.csv")
+    print("   c. Use 5-point checklist for each case")
+    print("   d. Document decisions and update labels.csv")
 
-    print(f"\n" + "="*80)
+    print("\n" + "="*80)
     print("INSPECTION COMPLETE")
     print("="*80)
 

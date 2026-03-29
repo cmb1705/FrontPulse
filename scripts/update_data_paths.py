@@ -4,7 +4,6 @@ Systematic script to update all data/out/ paths in scripts to new directory stru
 """
 
 from pathlib import Path
-import re
 
 # Define path mappings (order matters - do more specific paths first!)
 PATH_MAPPINGS = [

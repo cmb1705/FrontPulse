@@ -8,15 +8,16 @@ This fixes the evaluation framework by eliminating the many-to-many mapping arti
 """
 
 import argparse
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from scipy.spatial.distance import cosine
-from typing import Dict, List, Tuple, Optional
 import json
 import shutil
-from transformers import AutoTokenizer, AutoModel
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+import pandas as pd
 import torch
+from scipy.spatial.distance import cosine
+from transformers import AutoModel, AutoTokenizer
 
 STAGE0_DIR = Path('data/out/experiments/stage0_tight_mapping')
 LEGACY_PHASE0_DIR = Path('data/out/experiments/phase0_tight_mapping')
@@ -40,7 +41,7 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-def load_lineage_embeddings(embedding_path: Path) -> Dict[int, np.ndarray]:
+def load_lineage_embeddings(embedding_path: Path) -> dict[int, np.ndarray]:
     """Load Stage 2 lineage embeddings."""
     print("[1/6] Loading lineage embeddings...")
     data = np.load(embedding_path)
@@ -55,7 +56,7 @@ def load_lineage_embeddings(embedding_path: Path) -> Dict[int, np.ndarray]:
 def embed_milestone_descriptions(
     milestones_df: pd.DataFrame,
     model_name: str = 'allenai/scibert_scivocab_uncased'
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """
     Embed milestone descriptions using SciBERT.
 
@@ -99,8 +100,8 @@ def embed_milestone_descriptions(
 
 
 def compute_similarity_matrix(
-    milestone_embeddings: Dict[str, np.ndarray],
-    lineage_embeddings: Dict[int, np.ndarray]
+    milestone_embeddings: dict[str, np.ndarray],
+    lineage_embeddings: dict[int, np.ndarray]
 ) -> pd.DataFrame:
     """
     Compute cosine similarity between all milestones and lineages.
@@ -225,7 +226,7 @@ def merge_with_milestone_metadata(
 def save_tight_mapping(
     mapping_df: pd.DataFrame,
     output_path: Path,
-    legacy_dirs: Optional[List[Path]] = None,
+    legacy_dirs: Optional[list[Path]] = None,
 ):
     """Save tight milestone-lineage mapping."""
     print(f"[6/6] Saving tight mapping to {output_path}...")
@@ -252,7 +253,7 @@ def save_tight_mapping(
     for key, value in summary.items():
         print(f"      {key}: {value}")
 
-    print(f"\n   Saved:")
+    print("\n   Saved:")
     print(f"      - {output_path}")
     print(f"      - {summary_path}")
 
@@ -282,7 +283,7 @@ def main():
 
     # Load data
     milestones_df = pd.read_csv(milestones_path)
-    milestones_df = milestones_df[milestones_df['detectable'] == True].copy()
+    milestones_df = milestones_df[milestones_df['detectable']].copy()
     print(f"Loaded {len(milestones_df)} detectable milestones\n")
 
     # Load lineage embeddings

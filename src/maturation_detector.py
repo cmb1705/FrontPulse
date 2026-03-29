@@ -15,7 +15,6 @@ upper elbow).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -38,14 +37,14 @@ class MaturationResult:
             quarters of available data (flagged for QA review).
     """
 
-    quarter: Optional[str]
+    quarter: str | None
     detected: bool
-    maturation_type: Optional[str]
+    maturation_type: str | None
     reason: str
-    growth_rate: Optional[float]
-    smoothed_count: Optional[float]
-    peak_quarter: Optional[str]
-    peak_count: Optional[float]
+    growth_rate: float | None
+    smoothed_count: float | None
+    peak_quarter: str | None
+    peak_count: float | None
     confirmation_length: int
     late_maturation: bool
 

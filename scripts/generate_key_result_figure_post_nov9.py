@@ -95,12 +95,12 @@ def create_key_result_figure(leaderboard_path: Path, output_path: Path):
     gap = msd_prod_val - best_baseline_val
 
     ax1.annotate('', xy=(0, msd_prod_val), xytext=(best_baseline_idx, best_baseline_val),
-                arrowprops=dict(arrowstyle='<->', lw=2, color='red'))
+                arrowprops={'arrowstyle': '<->', 'lw': 2, 'color': 'red'})
     mid_x = (0 + best_baseline_idx) / 2
     ax1.text(mid_x, (msd_prod_val + best_baseline_val) / 2,
             f'{gap:.1f}% gap\n({msd_prod_val/best_baseline_val:.1f}× higher)',
             ha='center', va='center', fontsize=9, fontweight='bold', color='red',
-            bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='red', linewidth=2))
+            bbox={'boxstyle': 'round,pad=0.5', 'facecolor': 'white', 'edgecolor': 'red', 'linewidth': 2})
 
     # Shade baseline region
     ax1.axhline(y=best_baseline_val, color='gray', linestyle=':', alpha=0.5, linewidth=1)

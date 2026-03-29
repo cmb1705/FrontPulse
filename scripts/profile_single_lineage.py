@@ -1,17 +1,15 @@
 """
 Profile a single lineage embedding computation with detailed timing.
 """
-import time
-import sys
-from pathlib import Path
 import json
-import pickle
+import sys
+import time
+from pathlib import Path
 
 # Add repo to path
 repo_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(repo_root))
 
-from scripts.extract_abstracts import AbstractExtractor
 from scripts.compute_lineage_embeddings import LineageEmbedder, load_lineage_papers_fast
 
 
@@ -29,7 +27,7 @@ def profile_single_lineage(lineage_id: int = 2):
     # Step 1: Load lineage registry
     print("[1/6] Loading lineage registry...")
     t0 = time.time()
-    with open(registry_path, 'r') as f:
+    with open(registry_path) as f:
         lineage_registry = json.load(f)
     t1 = time.time()
     print(f"      OK - Loaded in {t1-t0:.3f}s\n")
@@ -64,14 +62,14 @@ def profile_single_lineage(lineage_id: int = 2):
     print(f"[5/6] Filtering stopwords from {len(texts)} texts...")
     t8 = time.time()
     text_list = list(texts.values())
-    filtered_texts = [embedder.filter_stopwords(t) for t in text_list]
+    [embedder.filter_stopwords(t) for t in text_list]
     t9 = time.time()
     print(f"      OK - Filtered in {t9-t8:.3f}s\n")
 
     # Step 6: SciBERT embedding computation (GPU)
-    print(f"[6/6] Computing SciBERT embeddings (batch_size=32, GPU)...")
+    print("[6/6] Computing SciBERT embeddings (batch_size=32, GPU)...")
     t10 = time.time()
-    embeddings = embedder.embed_texts_batch(text_list, batch_size=32)
+    embedder.embed_texts_batch(text_list, batch_size=32)
     t11 = time.time()
     print(f"      OK - Computed embeddings in {t11-t10:.3f}s")
     print(f"        ({len(text_list)/(t11-t10):.1f} texts/second)\n")

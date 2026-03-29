@@ -10,7 +10,6 @@ file I/O -- so it can be tested with small synthetic count series.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -30,11 +29,11 @@ class OnsetResult:
             the lineage's existence (flagged for QA review).
     """
 
-    quarter: Optional[str]
+    quarter: str | None
     detected: bool
     reason: str
-    growth_rate: Optional[float]
-    smoothed_count: Optional[float]
+    growth_rate: float | None
+    smoothed_count: float | None
     confirmation_length: int
     early_onset: bool
 

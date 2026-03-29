@@ -18,11 +18,10 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
-import pandas as pd
 import numpy as np
-
+import pandas as pd
 
 # Expected core feature columns (from original implementation)
 CORE_FEATURES = [
@@ -85,7 +84,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def validate_schema(df: pd.DataFrame, check_context: bool) -> Dict[str, Any]:
+def validate_schema(df: pd.DataFrame, check_context: bool) -> dict[str, Any]:
     """Validate that expected columns are present."""
     result = {
         "status": "pass",
@@ -119,7 +118,7 @@ def validate_schema(df: pd.DataFrame, check_context: bool) -> Dict[str, Any]:
     return result
 
 
-def check_coverage(df: pd.DataFrame, features: List[str]) -> Dict[str, Any]:
+def check_coverage(df: pd.DataFrame, features: list[str]) -> dict[str, Any]:
     """Calculate coverage statistics for specified features."""
     result = {
         "total_rows": len(df),
@@ -158,7 +157,7 @@ def check_coverage(df: pd.DataFrame, features: List[str]) -> Dict[str, Any]:
     return result
 
 
-def check_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
+def check_data_quality(df: pd.DataFrame) -> dict[str, Any]:
     """Check for data quality issues."""
     result = {
         "status": "pass",
@@ -207,7 +206,7 @@ def check_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
     return result
 
 
-def check_context_feature_consistency(df: pd.DataFrame) -> Dict[str, Any]:
+def check_context_feature_consistency(df: pd.DataFrame) -> dict[str, Any]:
     """Check consistency of context features."""
     result = {
         "status": "pass",
@@ -324,7 +323,7 @@ def main() -> None:
         if stats["coverage"] < 0.9 and stats["status"] != "missing"
     ]
     if low_coverage_core:
-        print(f"\nFeatures with <90% coverage:")
+        print("\nFeatures with <90% coverage:")
         for feat in low_coverage_core:
             stats = core_coverage["coverage_by_feature"][feat]
             print(f"  {feat}: {stats['coverage']:.1%}")

@@ -4,10 +4,12 @@ Extract DOIs for paper milestones only (not certifications/records/events).
 """
 
 import argparse
-import pandas as pd
 import re
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Optional
+
+import pandas as pd
+
 
 def is_paper_milestone(description: str) -> bool:
     """Determine if milestone is a published paper (not certification/record/event)."""
@@ -39,7 +41,7 @@ def is_paper_milestone(description: str) -> bool:
 
     return has_journal and not has_exclude
 
-def extract_paper_metadata(description: str) -> Tuple[Optional[str], List[str]]:
+def extract_paper_metadata(description: str) -> tuple[Optional[str], list[str]]:
     """Extract author and keywords from description."""
 
     # Extract author (various patterns)
@@ -145,7 +147,7 @@ def main():
 
     # Filter to paper milestones only
     paper_milestones = []
-    for idx, milestone in milestones_df.iterrows():
+    for _idx, milestone in milestones_df.iterrows():
         if is_paper_milestone(milestone['description']):
             paper_milestones.append(milestone)
 
@@ -245,7 +247,7 @@ def main():
     output_path.parent.mkdir(parents=True, exist_ok=True)
     result_df.to_csv(output_path, index=False, encoding='utf-8')
 
-    print(f'\n=== DOI Matching Results (Papers Only) ===')
+    print('\n=== DOI Matching Results (Papers Only) ===')
     print(f'Total paper milestones: {len(result_df)}')
     print(f'DOIs found: {(result_df["DOI"] != "Not found").sum()}')
     print(f'  High confidence: {stats["high"]}')
@@ -255,9 +257,9 @@ def main():
     print(f'\nResults saved to: {output_path}')
 
     # Show sample matches
-    print(f'\n=== Sample High-Confidence Matches ===')
+    print('\n=== Sample High-Confidence Matches ===')
     high_conf = result_df[result_df['Confidence'] == 'HIGH'][['Author', 'Year', 'DOI', 'Title']].head(5)
-    for idx, row in high_conf.iterrows():
+    for _idx, row in high_conf.iterrows():
         print(f"\n{row['Author']} ({row['Year']})")
         print(f"  DOI: {row['DOI']}")
         print(f"  Title: {row['Title'][:80]}...")

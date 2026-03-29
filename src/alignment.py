@@ -9,12 +9,11 @@ Provides functions for:
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Tuple
 
 import networkx as nx
 
 
-def pagerank_core(G: nx.Graph, partition: List[Tuple[str,int]], core_frac: float = 0.10) -> Dict[int, set]:
+def pagerank_core(G: nx.Graph, partition: list[tuple[str,int]], core_frac: float = 0.10) -> dict[int, set]:
     """Identify core members of each community using PageRank centrality.
 
     Computes PageRank for all nodes in the graph and selects the top-ranked
@@ -37,10 +36,10 @@ def pagerank_core(G: nx.Graph, partition: List[Tuple[str,int]], core_frac: float
         {'0', '2', '4', ...}
     """
     pr = nx.pagerank(G) if len(G) else {}
-    by_comm: Dict[int, List[Tuple[str, float]]] = {}
+    by_comm: dict[int, list[tuple[str, float]]] = {}
     for n, c in partition:
         by_comm.setdefault(c, []).append((n, pr.get(n, 0.0)))
-    cores: Dict[int, set] = {}
+    cores: dict[int, set] = {}
     for cid, pairs in by_comm.items():
         pairs.sort(key=lambda x: x[1], reverse=True)
         k = max(1, int(math.ceil(core_frac * len(pairs)))) if pairs else 0
@@ -59,7 +58,7 @@ def _overlap(a: set, b: set) -> int:
     """
     return len(a & b)
 
-def match_by_cores(prev_cores: Dict[int,set], curr_cores: Dict[int,set]) -> List[Tuple[int,int,int]]:
+def match_by_cores(prev_cores: dict[int,set], curr_cores: dict[int,set]) -> list[tuple[int,int,int]]:
     """Match communities across time periods using core member overlap.
 
     Uses the Hungarian algorithm (via scipy.optimize.linear_sum_assignment) to find
@@ -108,7 +107,7 @@ def match_by_cores(prev_cores: Dict[int,set], curr_cores: Dict[int,set]) -> List
                 matches.append((prev_ids[i], curr_ids[j], ov))
         return matches
 
-def variation_of_information(labels_a: Dict[str,int], labels_b: Dict[str,int]) -> float:
+def variation_of_information(labels_a: dict[str,int], labels_b: dict[str,int]) -> float:
     """Compute Variation of Information (VI) metric between two partitions.
 
     VI is an information-theoretic metric that measures the distance between two
@@ -161,7 +160,7 @@ def variation_of_information(labels_a: Dict[str,int], labels_b: Dict[str,int]) -
         I += pij * math.log(pij/(pa*pb), 2) if pij > 0 else 0.0
     return Ha + Hb - 2*I
 
-def label_map_from_partition(partition: List[Tuple[str,int]]) -> Dict[str,int]:
+def label_map_from_partition(partition: list[tuple[str,int]]) -> dict[str,int]:
     """Convert partition list format to label dictionary format.
 
     Transforms the partition representation from a list of (node, community) tuples
@@ -180,4 +179,4 @@ def label_map_from_partition(partition: List[Tuple[str,int]]) -> Dict[str,int]:
         >>> label_map_from_partition(partition)
         {'A': 1, 'B': 1, 'C': 2}
     """
-    return {n: c for n, c in partition}
+    return dict(partition)

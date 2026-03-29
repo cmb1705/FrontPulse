@@ -1,10 +1,14 @@
 # scripts/report_communities.py  (PowerShell-safe; run from repo root)
 from __future__ import annotations
-import argparse, json
-from pathlib import Path
-import pandas as pd
-import matplotlib.pyplot as plt
+
+import argparse
+import json
 from collections import defaultdict
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
 
 def loadj(p: Path) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}

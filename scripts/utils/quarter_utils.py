@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Tuple
 
 import pandas as pd
 
@@ -20,7 +19,7 @@ def normalize_quarter(label: str) -> str:
     return f"{year}Q{q}"
 
 
-def quarter_key(q: str) -> Tuple[int, int]:
+def quarter_key(q: str) -> tuple[int, int]:
     normalized = normalize_quarter(q)
     return int(normalized[:4]), int(normalized[-1])
 
@@ -38,7 +37,7 @@ def int_to_quarter(value: int) -> str:
     return f"{year}Q{quarter}"
 
 
-def describe_quarter_range(start: Optional[str], end: Optional[str]) -> str:
+def describe_quarter_range(start: str | None, end: str | None) -> str:
     if start and end:
         return f"{normalize_quarter(start)} to {normalize_quarter(end)}"
     if start:
@@ -48,8 +47,8 @@ def describe_quarter_range(start: Optional[str], end: Optional[str]) -> str:
     return "full history"
 
 
-def _range_slug(start: Optional[str], end: Optional[str]) -> str:
-    def normalize(value: Optional[str], fallback: str) -> str:
+def _range_slug(start: str | None, end: str | None) -> str:
+    def normalize(value: str | None, fallback: str) -> str:
         if not value:
             return fallback
         return normalize_quarter(value).lower()
@@ -57,7 +56,7 @@ def _range_slug(start: Optional[str], end: Optional[str]) -> str:
     return f"{normalize(start, 'min')}_{normalize(end, 'max')}"
 
 
-def snapshot_dataset(df: pd.DataFrame, directory: Path, prefix: str, start: Optional[str], end: Optional[str]) -> None:
+def snapshot_dataset(df: pd.DataFrame, directory: Path, prefix: str, start: str | None, end: str | None) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     slug = _range_slug(start, end)
     path = directory / f"{prefix}_{slug}.parquet"
@@ -71,8 +70,8 @@ def snapshot_dataset(df: pd.DataFrame, directory: Path, prefix: str, start: Opti
 
 def filter_by_quarter(
     df: pd.DataFrame,
-    start: Optional[str] = None,
-    end: Optional[str] = None,
+    start: str | None = None,
+    end: str | None = None,
     label: str = "dataset",
 ) -> pd.DataFrame:
     if not start and not end:

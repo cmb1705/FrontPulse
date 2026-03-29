@@ -19,8 +19,8 @@ Example:
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
-from typing import List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -125,7 +125,7 @@ def main() -> None:
     persistence_mismatch.to_csv(persistence_path, index=False)
 
     # Markdown summary
-    md_lines: List[str] = []
+    md_lines: list[str] = []
     md_lines.append("# Label QA Queue\n")
     md_lines.append("## Summary\n")
     md_lines.append(f"- Predictions file: `{args.predictions}`")

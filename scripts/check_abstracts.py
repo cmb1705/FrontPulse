@@ -9,7 +9,7 @@ total = 0
 sample_abstract = None
 sample_id = None
 
-with open(jsonl_path, 'r') as f:
+with open(jsonl_path) as f:
     for i, line in enumerate(f):
         if i >= 100:  # Check first 100 records
             break
@@ -30,7 +30,7 @@ if sample_abstract:
     print(f"\nSample abstract from {sample_id}:")
     print(f"Type: {type(sample_abstract)}")
     print(f"First 10 terms: {list(sample_abstract.keys())[:10]}")
-    print(f"\nInverted index sample (first term):")
+    print("\nInverted index sample (first term):")
     first_term = list(sample_abstract.keys())[0]
     print(f"  '{first_term}': {sample_abstract[first_term]}")
 else:

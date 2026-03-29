@@ -21,12 +21,16 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, roc_auc_score
-
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 TRAIN_CUTOFF_DEFAULT = "2019Q4"
 
@@ -79,7 +83,7 @@ def load_embeddings(npz_path: Path) -> pd.DataFrame:
 def compute_change_scores(df: pd.DataFrame) -> pd.DataFrame:
     """Add change_score column (1 - cosine similarity to previous quarter)."""
     rows = []
-    for lineage_id, group in df.sort_values(["lineage_id", "quarter_int"]).groupby("lineage_id"):
+    for _lineage_id, group in df.sort_values(["lineage_id", "quarter_int"]).groupby("lineage_id"):
         emb = np.stack(group["embedding"].to_numpy())
         norms = np.linalg.norm(emb, axis=1)
         dot = np.sum(emb[1:] * emb[:-1], axis=1)
@@ -108,9 +112,9 @@ def evaluate_params(df: pd.DataFrame, params: ParamSet, min_size: int) -> ParamM
     except ImportError as exc:
         raise SystemExit("ruptures is required for semantic changepoint baseline. Install with `pip install ruptures`.") from exc
 
-    preds_list: List[np.ndarray] = []
-    scores_list: List[np.ndarray] = []
-    y_list: List[np.ndarray] = []
+    preds_list: list[np.ndarray] = []
+    scores_list: list[np.ndarray] = []
+    y_list: list[np.ndarray] = []
 
     for _, g in df.sort_values(["lineage_id", "quarter_int"]).groupby("lineage_id"):
         emb = np.stack(g["embedding"].to_numpy())
@@ -157,7 +161,7 @@ def evaluate_params(df: pd.DataFrame, params: ParamSet, min_size: int) -> ParamM
     )
 
 
-def select_best(metrics: List[ParamMetrics]) -> ParamMetrics:
+def select_best(metrics: list[ParamMetrics]) -> ParamMetrics:
     return sorted(metrics, key=lambda m: (m.pr_auc, m.f1_at_zero, m.precision_at_zero), reverse=True)[0]
 
 
@@ -204,7 +208,7 @@ def run(args: argparse.Namespace) -> None:
     train_df = merged[merged["quarter_int"] <= quarter_to_int(args.train_cutoff)].copy()
 
     grid = [ParamSet(pen, d, args.min_segment) for pen in args.penalties for d in args.dilation]
-    metrics_grid: List[ParamMetrics] = [evaluate_params(train_df, params, args.min_segment) for params in grid]
+    metrics_grid: list[ParamMetrics] = [evaluate_params(train_df, params, args.min_segment) for params in grid]
     best = select_best(metrics_grid)
 
     merged_sorted = merged.sort_values(["lineage_id", "quarter_int"]).copy()
@@ -215,8 +219,8 @@ def run(args: argparse.Namespace) -> None:
     except ImportError as exc:
         raise SystemExit("ruptures is required for semantic changepoint baseline. Install with `pip install ruptures`.") from exc
 
-    preds_list: List[np.ndarray] = []
-    idx_list: List[np.ndarray] = []
+    preds_list: list[np.ndarray] = []
+    idx_list: list[np.ndarray] = []
     for _, g in merged_sorted.groupby("lineage_id"):
         emb = np.stack(g["embedding"].to_numpy())
         n = len(emb)

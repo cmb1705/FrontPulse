@@ -23,7 +23,7 @@ Usage:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -35,7 +35,7 @@ class ConfigurationError(Exception):
     pass
 
 
-def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
+def load_config(config_path: Path | None = None) -> dict[str, Any]:
     """
     Load configuration from YAML file.
 
@@ -62,7 +62,7 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         raise ConfigurationError(f"Invalid YAML in configuration file: {e}")
 
 
-def get_metric_config(metric_name: str, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_metric_config(metric_name: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get configuration for a specific metric.
 
@@ -87,7 +87,7 @@ def get_metric_config(metric_name: str, config: Optional[Dict[str, Any]] = None)
     return metrics_config[metric_name]
 
 
-def get_enabled_metrics(config: Optional[Dict[str, Any]] = None) -> List[str]:
+def get_enabled_metrics(config: dict[str, Any] | None = None) -> list[str]:
     """
     Get list of enabled metrics.
 
@@ -113,7 +113,7 @@ def get_enabled_metrics(config: Optional[Dict[str, Any]] = None) -> List[str]:
     return result
 
 
-def get_feature_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_feature_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get feature engineering configuration.
 
@@ -129,7 +129,7 @@ def get_feature_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any
     return config.get('features', {})
 
 
-def get_context_features_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_context_features_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get context features configuration.
 
@@ -143,7 +143,7 @@ def get_context_features_config(config: Optional[Dict[str, Any]] = None) -> Dict
     return feature_config.get('context_features', {})
 
 
-def get_model_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_model_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get model training configuration.
 
@@ -159,7 +159,7 @@ def get_model_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     return config.get('model', {})
 
 
-def get_tuning_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_tuning_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get meta-learning / hyperparameter tuning configuration.
 
@@ -175,7 +175,7 @@ def get_tuning_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]
     return config.get('tuning', {})
 
 
-def get_pipeline_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_pipeline_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get pipeline integration configuration.
 
@@ -191,7 +191,7 @@ def get_pipeline_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, An
     return config.get('pipeline', {})
 
 
-def get_validation_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_validation_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get validation and monitoring configuration.
 
@@ -207,7 +207,7 @@ def get_validation_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, 
     return config.get('validation', {})
 
 
-def get_logging_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_logging_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Get logging and audit trail configuration.
 
@@ -223,7 +223,7 @@ def get_logging_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any
     return config.get('logging', {})
 
 
-def validate_config(config: Optional[Dict[str, Any]] = None) -> List[str]:
+def validate_config(config: dict[str, Any] | None = None) -> list[str]:
     """
     Validate configuration and return list of warnings/errors.
 
@@ -273,7 +273,7 @@ def validate_config(config: Optional[Dict[str, Any]] = None) -> List[str]:
     return issues
 
 
-def get_config_summary(config: Optional[Dict[str, Any]] = None) -> str:
+def get_config_summary(config: dict[str, Any] | None = None) -> str:
     """
     Generate human-readable summary of configuration.
 
@@ -362,7 +362,7 @@ def get_config_summary(config: Optional[Dict[str, Any]] = None) -> str:
 
 
 # Convenience function for CLI tools
-def print_config_summary(config_path: Optional[Path] = None):
+def print_config_summary(config_path: Path | None = None):
     """
     Load and print configuration summary.
 

@@ -10,8 +10,9 @@ Usage:
 
 import re
 from pathlib import Path
-from fpdf import FPDF
+
 import markdown
+from fpdf import FPDF
 
 
 class AcademicPDF(FPDF):

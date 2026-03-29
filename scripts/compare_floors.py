@@ -19,13 +19,13 @@ comparison = pd.merge(
     suffixes=('_orig', '_02')
 )
 
-still_lost = comparison[(comparison['detected_orig'] == True) & (comparison['detected_02'] == False)]
-print(f"\nStill missing with mu_floor=0.2 (lost from original):")
+still_lost = comparison[(comparison['detected_orig']) & (not comparison['detected_02'])]
+print("\nStill missing with mu_floor=0.2 (lost from original):")
 print(still_lost[['event_id', 'event_quarter']].to_string(index=False))
 
-recovered = comparison[(comparison['detected_orig'] == False) & (comparison['detected_02'] == True)]
+recovered = comparison[(not comparison['detected_orig']) & (comparison['detected_02'])]
 if len(recovered) > 0:
-    print(f"\nGained with mu_floor=0.2 (vs original):")
+    print("\nGained with mu_floor=0.2 (vs original):")
     print(recovered[['event_id', 'event_quarter']].to_string(index=False))
 
 # Compare floor_10 to floor_02
@@ -36,6 +36,6 @@ comparison2 = pd.merge(
     suffixes=('_10', '_02')
 )
 
-recovered_from_10 = comparison2[(comparison2['detected_10'] == False) & (comparison2['detected_02'] == True)]
-print(f"\nRecovered when relaxing floor from 1.0 to 0.2:")
+recovered_from_10 = comparison2[(not comparison2['detected_10']) & (comparison2['detected_02'])]
+print("\nRecovered when relaxing floor from 1.0 to 0.2:")
 print(recovered_from_10[['event_id', 'event_quarter']].to_string(index=False))

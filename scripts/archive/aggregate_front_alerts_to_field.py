@@ -10,9 +10,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 ALERT_COL_CANDIDATES = ["field_alert", "alert", "alerted"]
@@ -20,7 +18,7 @@ FRONT_COL_CANDIDATES = ["front", "front_id", "community", "community_id", "linea
 DATE_COL_CANDIDATES = ["quarter", "period", "date", "time", "year_q"]
 
 
-def _find_column(df: pd.DataFrame, candidates: list[str]) -> Optional[str]:
+def _find_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
     lower = {c.lower(): c for c in df.columns}
     for name in candidates:
         if name.lower() in lower:
@@ -145,7 +143,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> Tuple[pd.DataFrame, pd.DataFrame]:
+def main() -> tuple[pd.DataFrame, pd.DataFrame]:
     args = parse_args()
 
     alerts = load_front_alerts(args.alerts)

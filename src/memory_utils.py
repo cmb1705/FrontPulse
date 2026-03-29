@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 try:
     import psutil
@@ -52,7 +52,7 @@ def get_memory_info() -> dict[str, float]:
     }
 
 
-def check_memory_availability(logger: Optional[logging.Logger] = None) -> bool:
+def check_memory_availability(logger: logging.Logger | None = None) -> bool:
     """
     Check if sufficient memory is available and issue warnings if needed.
 
@@ -119,7 +119,7 @@ def log_memory_usage(logger: logging.Logger, context: str = ""):
     )
 
 
-def memory_monitor(func: Optional[Callable] = None, *, logger: Optional[logging.Logger] = None) -> Callable:
+def memory_monitor(func: Callable | None = None, *, logger: logging.Logger | None = None) -> Callable:
     """
     Decorator to monitor memory usage before and after function execution.
 
@@ -259,7 +259,7 @@ def suggest_worker_count_for_memory(
     node_count: int,
     total_refs: int,
     max_workers: int,
-    logger: Optional[logging.Logger] = None
+    logger: logging.Logger | None = None
 ) -> tuple[int, str]:
     """
     Suggest optimal worker count based on available memory and workload size.
@@ -349,7 +349,7 @@ def suggest_graph_worker_count(
     num_graphs: int,
     max_workers: int,
     coupling_workers: int = 0,
-    logger: Optional[logging.Logger] = None
+    logger: logging.Logger | None = None
 ) -> tuple[int, str]:
     """
     Suggest optimal graph worker count for parallel graph building based on memory.

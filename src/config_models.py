@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     from pydantic import BaseModel, Field, validator
@@ -29,21 +29,21 @@ class OpenAlexSourceConfig(BaseModel):
     """OpenAlex API source configuration."""
     kind: str = Field(..., pattern="^openalex$")
     entity: str = Field(default="works", pattern="^(works|authors|institutions|topics)$")
-    mailto: Optional[str] = Field(default=None, description="Contact email for API compliance")
-    filters: Optional[Dict[str, Any]] = None
-    search: Optional[str] = None
-    select: Optional[List[str]] = None
-    sort: Optional[str] = None
+    mailto: str | None = Field(default=None, description="Contact email for API compliance")
+    filters: dict[str, Any] | None = None
+    search: str | None = None
+    select: list[str] | None = None
+    sort: str | None = None
     per_page: int = Field(default=200, ge=1, le=200)
-    max_records: Optional[int] = Field(default=None, ge=1)
+    max_records: int | None = Field(default=None, ge=1)
 
 
 class CSVSourceConfig(BaseModel):
     """CSV file source configuration."""
     kind: str = Field(..., pattern="^csv$")
     path: str = Field(..., description="Path to CSV file")
-    dtypes: Optional[Dict[str, str]] = None
-    date_cols: Optional[List[str]] = None
+    dtypes: dict[str, str] | None = None
+    date_cols: list[str] | None = None
 
 
 class ParquetSourceConfig(BaseModel):
@@ -54,7 +54,7 @@ class ParquetSourceConfig(BaseModel):
 
 class DataSourcesConfig(BaseModel):
     """Root datasources configuration."""
-    sources: Dict[str, Dict[str, Any]] = Field(..., description="Data source definitions")
+    sources: dict[str, dict[str, Any]] = Field(..., description="Data source definitions")
 
     @validator("sources")
     def validate_primary_exists(cls, v):
@@ -66,27 +66,27 @@ class DataSourcesConfig(BaseModel):
 # Schema configuration
 class SchemaConstraints(BaseModel):
     """Schema validation constraints."""
-    non_null: Optional[List[str]] = Field(default_factory=list)
-    unique: Optional[List[str]] = Field(default_factory=list)
+    non_null: list[str] | None = Field(default_factory=list)
+    unique: list[str] | None = Field(default_factory=list)
 
 
 class SchemaConfig(BaseModel):
     """Root schema configuration."""
-    coerce_types: Optional[Dict[str, str]] = None
-    constraints: Optional[SchemaConstraints] = None
-    required_columns: Optional[List[str]] = None
+    coerce_types: dict[str, str] | None = None
+    constraints: SchemaConstraints | None = None
+    required_columns: list[str] | None = None
 
 
 # Slices configuration
 class SliceSpec(BaseModel):
     """Individual slice specification."""
-    expr: Optional[str] = Field(default=None, description="Pandas query expression")
-    groupby: Optional[str | List[str]] = Field(default=None, description="Column(s) to group by")
+    expr: str | None = Field(default=None, description="Pandas query expression")
+    groupby: str | list[str] | None = Field(default=None, description="Column(s) to group by")
 
 
 class SlicesConfig(BaseModel):
     """Root slices configuration."""
-    slices: Dict[str, SliceSpec] = Field(default_factory=dict, description="Slice definitions")
+    slices: dict[str, SliceSpec] = Field(default_factory=dict, description="Slice definitions")
 
 
 def validate_datasources_yaml(path: Path) -> DataSourcesConfig:

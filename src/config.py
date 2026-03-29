@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
@@ -10,10 +10,10 @@ import yaml
 DEFAULTS_PATH = Path("config/defaults.yaml")
 
 # Cached defaults (loaded once)
-_DEFAULTS_CACHE: Dict[str, Any] | None = None
+_DEFAULTS_CACHE: dict[str, Any] | None = None
 
 
-def load_defaults() -> Dict[str, Any]:
+def load_defaults() -> dict[str, Any]:
     """
     Load default configuration values from config/defaults.yaml.
 
@@ -64,26 +64,26 @@ def get_default(section: str, key: str, fallback: Any = None) -> Any:
     return defaults.get(section, {}).get(key, fallback)
 
 
-def get_coupling_defaults() -> Dict[str, Any]:
+def get_coupling_defaults() -> dict[str, Any]:
     """Get all coupling parameter defaults."""
     return load_defaults().get("coupling", {})
 
 
-def get_community_defaults() -> Dict[str, Any]:
+def get_community_defaults() -> dict[str, Any]:
     """Get all community detection parameter defaults."""
     return load_defaults().get("community", {})
 
 
-def get_ingest_defaults() -> Dict[str, Any]:
+def get_ingest_defaults() -> dict[str, Any]:
     """Get all ingest parameter defaults."""
     return load_defaults().get("ingest", {})
 
 
-def get_graph_defaults() -> Dict[str, Any]:
+def get_graph_defaults() -> dict[str, Any]:
     """Get all graph building parameter defaults."""
     return load_defaults().get("graphs", {})
 
 
-def get_memory_defaults() -> Dict[str, Any]:
+def get_memory_defaults() -> dict[str, Any]:
     """Get all memory management parameter defaults."""
     return load_defaults().get("memory", {})

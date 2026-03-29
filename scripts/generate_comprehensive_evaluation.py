@@ -12,26 +12,21 @@ Generates publication-quality visualizations across 4 phases:
 import argparse
 import json
 import logging
-import sys
+import warnings
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Optional
 
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib.patches import Rectangle, Patch
-from matplotlib.lines import Line2D
 import matplotlib.colors as mcolors
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-from sklearn.calibration import calibration_curve
-from sklearn.decomposition import PCA
-from sklearn.metrics import auc, precision_recall_curve, roc_curve
-from sklearn.preprocessing import StandardScaler
-import warnings
-
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch, Rectangle
 from persistence_utils import ensure_persistence_column
 from seasonality_utils import add_seasonal_context, attach_temporal_context
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings('ignore')
 
@@ -71,7 +66,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_data(predictions_path: Path, features_path: Path, timeseries_path: Path,
-              labels_path: Path, threshold_sweep_path: Path, field_metrics_path: Path) -> Dict[str, pd.DataFrame]:
+              labels_path: Path, threshold_sweep_path: Path, field_metrics_path: Path) -> dict[str, pd.DataFrame]:
     """Load all required datasets."""
     logger.info("Loading datasets...")
 
@@ -106,7 +101,7 @@ def compute_threshold_sweep_from_predictions(
     thresholds = thresholds if thresholds is not None else np.linspace(0.01, 0.5, 50)
     y_true = predictions['is_inflection_true'].fillna(0).astype(int)
     total_actual = int((y_true == 1).sum())
-    rows: List[Dict[str, float]] = []
+    rows: list[dict[str, float]] = []
     for thresh in thresholds:
         preds_flag = (predictions['inflection_probability'] >= thresh).astype(int)
         tp = int(((preds_flag == 1) & (y_true == 1)).sum())
@@ -156,10 +151,7 @@ def load_field_metrics_table(path: Path) -> pd.DataFrame:
     if not path.exists():
         logger.warning("Field metrics file %s not found; skipping field context visuals.", path)
         return pd.DataFrame()
-    if path.suffix == '.parquet':
-        df = pd.read_parquet(path)
-    else:
-        df = pd.read_csv(path)
+    df = pd.read_parquet(path) if path.suffix == '.parquet' else pd.read_csv(path)
     df = df.copy()
     df['quarter'] = df['quarter'].astype(str)
     rename_map = {col: (col if col == 'quarter' else f"field_{col}") for col in df.columns}
@@ -185,7 +177,7 @@ def format_yoy_pct(value: float) -> str:
 
 
 def prepare_analysis_data(
-    data: Dict[str, pd.DataFrame],
+    data: dict[str, pd.DataFrame],
     threshold: float = 0.07,
     persistence_window: int = 2,
 ) -> pd.DataFrame:
@@ -355,7 +347,7 @@ def plot_confidence_distribution_analysis(df: pd.DataFrame, output_path: Path):
             fontsize=9,
             ha='left',
             va='top',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor=COLORS['neutral'])
+            bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.9, 'edgecolor': COLORS['neutral']}
         )
 
     # Add warning note
@@ -369,7 +361,7 @@ This analysis describes HOW the model distributes confidence, not WHETHER those 
 
     ax3.text(0.5, -0.45, warning_text.strip(), ha='center', va='top',
              fontsize=8, style='italic', transform=ax3.transAxes,
-             bbox=dict(boxstyle='round', facecolor='#fff7c2', alpha=0.5, pad=0.4))
+             bbox={'boxstyle': 'round', 'facecolor': '#fff7c2', 'alpha': 0.5, 'pad': 0.4})
 
     plt.suptitle('Confidence Score Distribution Analysis\n(Calibrated Model on Full Dataset)',
                 fontsize=13, fontweight='bold', y=0.98)
@@ -408,7 +400,7 @@ def plot_confidence_vs_outcome(df: pd.DataFrame, output_path: Path):
     sample_size = min(5000, len(df))
     df_sample = df.sample(n=sample_size, random_state=42)
 
-    for outcome, y_val, color in [('TP', 3, COLORS['tp']), ('FN', 2, COLORS['fn']),
+    for outcome, _y_val, color in [('TP', 3, COLORS['tp']), ('FN', 2, COLORS['fn']),
                                     ('FP', 1, COLORS['fp']), ('TN', 0, COLORS['tn'])]:
         subset = df_sample[df_sample['outcome'] == outcome]
         ax_main.scatter(subset['inflection_probability'], subset['outcome_y'],
@@ -658,7 +650,7 @@ def plot_growth_trajectory_fingerprints(df: pd.DataFrame, timeseries: pd.DataFra
                         fontsize=7,
                         ha='center',
                         color=outcome_color,
-                        arrowprops=dict(arrowstyle='-', color=outcome_color, alpha=0.5, linewidth=0.8)
+                        arrowprops={'arrowstyle': '-', 'color': outcome_color, 'alpha': 0.5, 'linewidth': 0.8}
                     )
 
             ax.set_xlabel('Year', fontsize=8)
@@ -717,7 +709,6 @@ def select_representative_cases(df: pd.DataFrame, timeseries: pd.DataFrame) -> l
     - FNs: Cluster by failure mode (subtle transition, insufficient history)
     """
     import pandas as pd
-    from sklearn.cluster import KMeans
 
     cases = []
 
@@ -1001,8 +992,8 @@ def plot_case_study_montage(df: pd.DataFrame, timeseries: pd.DataFrame,
         ax_main.text(
             0.02, 0.98, "\n".join(info_lines), transform=ax_main.transAxes,
             fontsize=9, va='top', ha='left', family='monospace',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.96,
-                      edgecolor=tier_color, linewidth=2)
+            bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.96,
+                      'edgecolor': tier_color, 'linewidth': 2}
         )
 
         export_slice = lineage_history[[
@@ -1120,7 +1111,7 @@ def plot_cv_performance_summary(eval_metrics_path: Path, threshold_sweep: pd.Dat
     logger.info("Generating CV performance summary...")
 
     # Load CV metrics
-    with open(eval_metrics_path, 'r') as f:
+    with open(eval_metrics_path) as f:
         cv_metrics = json.load(f)
 
     fig = plt.figure(figsize=(14, 10))
@@ -1241,7 +1232,7 @@ KEY POINTS:
 
     ax4.text(0.05, 0.95, notes_text, transform=ax4.transAxes, fontsize=9,
             verticalalignment='top', family='monospace',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.3})
 
     plt.suptitle('Model Performance: Cross-Validation vs Calibrated Deployment',
                 fontsize=14, fontweight='bold', y=0.98)
@@ -1288,8 +1279,8 @@ def plot_operating_characteristics(threshold_sweep: pd.DataFrame, output_path: P
     ax.annotate(f'0.07\n(P={row_07["precision"]:.2f}, R={row_07["recall"]:.2f})',
                xy=(row_07['recall'], row_07['precision']), xytext=(10, -20),
                textcoords='offset points', fontsize=9, fontweight='bold',
-               bbox=dict(boxstyle='round', facecolor='white', alpha=0.9),
-               arrowprops=dict(arrowstyle='->', color='red', linewidth=2))
+               bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.9},
+               arrowprops={'arrowstyle': '->', 'color': 'red', 'linewidth': 2})
 
     ax.set_xlabel('Recall', fontsize=11, fontweight='bold')
     ax.set_ylabel('Precision', fontsize=11, fontweight='bold')
@@ -1308,8 +1299,8 @@ def plot_operating_characteristics(threshold_sweep: pd.DataFrame, output_path: P
     ax.annotate(f'0.07\n({row_07["alert_volume"]} alerts)',
                xy=(row_07['precision'], row_07['alert_volume']), xytext=(10, 20),
                textcoords='offset points', fontsize=9, fontweight='bold',
-               bbox=dict(boxstyle='round', facecolor='white', alpha=0.9),
-               arrowprops=dict(arrowstyle='->', color='red', linewidth=2))
+               bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.9},
+               arrowprops={'arrowstyle': '->', 'color': 'red', 'linewidth': 2})
 
     ax.set_xlabel('Precision', fontsize=11, fontweight='bold')
     ax.set_ylabel('Total Alerts (TP + FP)', fontsize=11, fontweight='bold')
@@ -1687,7 +1678,7 @@ def plot_temporal_stability(df: pd.DataFrame, output_path: Path):
     # Background shading based on sample size (lighter = fewer samples, darker = more samples)
     # Normalize sample sizes to [0, 1] for alpha values
     max_samples = metrics_df['n_inflections'].max()
-    for i, row in metrics_df.iterrows():
+    for _i, row in metrics_df.iterrows():
         alpha = 0.1 + 0.15 * (row['n_inflections'] / max_samples)  # Range: 0.1 to 0.25
         ax2.axvspan(row['year'] - 0.5, row['year'] + 0.5,
                    color=COLORS['neutral'], alpha=alpha, zorder=0)
@@ -1720,7 +1711,7 @@ def plot_temporal_stability(df: pd.DataFrame, output_path: Path):
     note_text = "Darker shading indicates more samples (higher statistical power)"
     ax2.text(0.98, 0.02, note_text, transform=ax2.transAxes,
             fontsize=8, ha='right', va='bottom', style='italic',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+            bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8, 'edgecolor': 'gray'})
 
     # Bottom: Sample size per year
     ax3 = fig.add_subplot(gs[2])
@@ -1825,7 +1816,7 @@ def main():
     plot_feature_space_projection(df, args.output_dir / 'phase4_feature_space.png')
     plot_temporal_stability(df, args.output_dir / 'phase4_temporal_stability.png')
 
-    logger.info(f"\n=== ALL PHASES COMPLETE ===")
+    logger.info("\n=== ALL PHASES COMPLETE ===")
     logger.info(f"All visualizations saved to: {args.output_dir}")
 
     # Generate summary report

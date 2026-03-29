@@ -14,12 +14,10 @@ import json
 import random
 import subprocess
 from pathlib import Path
-from typing import Dict, List
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
-
 
 # Locations
 TIMESERIES = Path("data/out/04_front_aggregation/front_timeseries_delta_long.csv")
@@ -69,7 +67,7 @@ def run_validation() -> None:
     subprocess.run(cmd, check=True)
 
 
-def summarize_metrics(params: Dict) -> Dict:
+def summarize_metrics(params: dict) -> dict:
     """Return summary metrics from the latest validation run."""
     validation_df = pd.read_csv(VALIDATION_RESULTS_PATH)
     alerts_df = pd.read_csv(ALERTS_PATH)
@@ -107,7 +105,7 @@ def summarize_metrics(params: Dict) -> Dict:
     return result
 
 
-def sweep_grid() -> List[Dict]:
+def sweep_grid() -> list[dict]:
     """Run the structured grid search."""
     results = []
     for lookback, min_count, alpha in itertools.product(
@@ -123,7 +121,7 @@ def sweep_grid() -> List[Dict]:
     return results
 
 
-def random_search() -> List[Dict]:
+def random_search() -> list[dict]:
     """Run a random search over the parameter space."""
     results = []
     for i in range(RANDOM_ITERS):
@@ -172,7 +170,7 @@ def visualise(df: pd.DataFrame, path: Path) -> None:
 
 
 def main() -> None:
-    results: List[Dict] = []
+    results: list[dict] = []
 
     # Structured grid
     print("=== Running grid search ===")

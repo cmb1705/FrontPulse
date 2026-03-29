@@ -17,7 +17,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 
 def check_gh_cli() -> bool:
@@ -33,7 +33,7 @@ def check_gh_cli() -> bool:
         return False
 
 
-def create_issue(issue_data: Dict[str, Any], dry_run: bool = False) -> bool:
+def create_issue(issue_data: dict[str, Any], dry_run: bool = False) -> bool:
     """
     Create a GitHub issue using gh CLI.
 
@@ -110,7 +110,7 @@ def main():
     print("[OK] GitHub CLI authenticated")
 
     # Load issues
-    with open(issues_file, 'r', encoding='utf-8') as f:
+    with open(issues_file, encoding='utf-8') as f:
         issues = json.load(f)
 
     print(f"\nFound {len(issues)} issues to create")

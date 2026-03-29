@@ -16,17 +16,14 @@ Usage:
 import argparse
 import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 import warnings
+from pathlib import Path
+from typing import Optional
 
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+import numpy as np
+import pandas as pd
 from matplotlib.gridspec import GridSpec
-import seaborn as sns
-
 from persistence_utils import ensure_persistence_column
 from seasonality_utils import add_seasonal_context, attach_temporal_context
 
@@ -41,7 +38,7 @@ def load_data(
     milestone_analysis_path: Path,
     timeseries_path: Path,
     threshold_sweep_path: Path,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load all required datasets."""
     logger.info("Loading datasets...")
 
@@ -72,7 +69,7 @@ def compute_threshold_sweep_from_predictions(
     """Derive a simple threshold sweep in case precomputed metrics are unavailable."""
     logger.info("Computing threshold sweep directly from predictions...")
     thresholds = thresholds if thresholds is not None else np.linspace(0.01, 0.5, 50)
-    rows: List[Dict[str, float]] = []
+    rows: list[dict[str, float]] = []
     y_true = predictions['is_inflection_true'].fillna(0).astype(int)
     total_actual = int((y_true == 1).sum())
     for thresh in thresholds:
@@ -124,10 +121,7 @@ def load_field_metrics_table(path: Path) -> pd.DataFrame:
     if not path.exists():
         logger.warning("Field metrics file %s not found; skipping field vs lineage dashboard.", path)
         return pd.DataFrame()
-    if path.suffix == '.parquet':
-        df = pd.read_parquet(path)
-    else:
-        df = pd.read_csv(path)
+    df = pd.read_parquet(path) if path.suffix == '.parquet' else pd.read_csv(path)
     df = df.copy()
     df['quarter'] = df['quarter'].astype(str)
     rename_map = {col: (col if col == 'quarter' else f"field_{col}") for col in df.columns}
@@ -141,7 +135,7 @@ def create_field_vs_lineage_dashboard(
     field_metrics: pd.DataFrame,
     threshold: float,
     output_dir: Path,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Visualize detections vs. field-wide growth to highlight contextual performance."""
     if field_metrics.empty:
         return {}
@@ -260,7 +254,7 @@ def create_lag_distribution_dashboard(
     milestone_analysis: pd.DataFrame,
     threshold: float,
     output_dir: Path
-) -> Dict:
+) -> dict:
     """
     Generate lag distribution dashboard with breakdowns.
 
@@ -357,7 +351,7 @@ def create_lag_distribution_dashboard(
         peak = np.max(np.abs(np.array(medians) + np.array(err_high))) if medians else 0
         y_pad = max(0.05, peak + 0.01)
         ax3.set_ylim(-y_pad, y_pad)
-        for idx, (xpos, med, count) in enumerate(zip(x, medians, counts)):
+        for _idx, (xpos, med, count) in enumerate(zip(x, medians, counts)):
             ax3.text(xpos, y_pad * 0.8, f"n={count}", ha='center', va='bottom', fontsize=9, fontweight='bold')
         ax3.set_xticks(x)
         ax3.set_xticklabels(group_labels)
@@ -619,7 +613,7 @@ def analyze_false_positives(
     threshold: float,
     output_dir: Path,
     persistence_col: str = "is_inflection_pred_persistent",
-) -> Dict:
+) -> dict:
     """
     Characterize false positive cases.
     """
@@ -678,7 +672,7 @@ def analyze_false_positives(
     fp_by_lineage.plot(kind='bar', ax=ax, color='salmon', edgecolor='black')
     ax.set_xlabel('Lineage ID', fontsize=10)
     ax.set_ylabel('FP Count', fontsize=10)
-    ax.set_title(f'Top 20 Lineages by FP Count', fontsize=11, fontweight='bold')
+    ax.set_title('Top 20 Lineages by FP Count', fontsize=11, fontweight='bold')
     ax.tick_params(axis='x', rotation=90, labelsize=8)
     ax.grid(alpha=0.3, axis='y')
 
@@ -732,7 +726,7 @@ def export_expert_review_sample(
     output_dir: Path,
     threshold: float,
     persistence_col: str = "is_inflection_pred_persistent",
-    sample_plan: Dict[str, int] = None,
+    sample_plan: dict[str, int] = None,
 ) -> Path:
     """
     Persist a balanced TP/FP/FN sample with seasonal context for expert review.
@@ -764,10 +758,7 @@ def export_expert_review_sample(
     def _draw_sample(df: pd.DataFrame, n: int, label: str) -> pd.DataFrame:
         if n <= 0 or df.empty:
             return pd.DataFrame(columns=df.columns)
-        if len(df) <= n:
-            chosen = df.copy()
-        else:
-            chosen = df.sample(n=n, random_state=rng_seed)
+        chosen = df.copy() if len(df) <= n else df.sample(n=n, random_state=rng_seed)
         chosen = chosen.copy()
         chosen["review_category"] = label
         return chosen
@@ -934,14 +925,14 @@ def comparative_analysis(
     milestone_summary_path: Path,
     threshold: float,
     output_dir: Path
-) -> Dict:
+) -> dict:
     """
     Cross-reference detection performance with milestone coverage and lag buckets.
     """
     logger.info("Running comparative analysis...")
 
     # Load milestone summary
-    with open(milestone_summary_path, 'r') as f:
+    with open(milestone_summary_path) as f:
         ms_summary = json.load(f)
 
     # Filter predictions at threshold
@@ -1044,7 +1035,7 @@ def comparative_analysis(
         y_pad = max(0.05, max_abs + 0.02)
         ax.set_ylim(-y_pad, y_pad)
 
-        for i, (idx, row) in enumerate(speed_by_bucket.iterrows()):
+        for i, (_idx, row) in enumerate(speed_by_bucket.iterrows()):
             ax.text(i, y_pad * 0.85, f"n={int(row['count'])}",
                     ha='center', va='bottom', fontsize=9, fontweight='bold')
     else:
@@ -1094,7 +1085,7 @@ def main():
     # Create output directory
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"=== Inflection Detection Evaluation (S5) ===")
+    logger.info("=== Inflection Detection Evaluation (S5) ===")
     logger.info(f"Output directory: {args.output_dir}")
     logger.info(f"Threshold: {args.threshold}")
     logger.info(f"Persistence window: {args.persistence_window}Q (>= threshold)")
@@ -1152,7 +1143,7 @@ def main():
     results['false_positives'] = fp_summary
 
     # 4. Performance summary table
-    perf_table = create_performance_table(threshold_sweep, args.output_dir)
+    create_performance_table(threshold_sweep, args.output_dir)
 
     # 5. Comparative analysis
     comp_summary = comparative_analysis(
@@ -1187,7 +1178,7 @@ def main():
 
     logger.info("\n=== Evaluation Complete ===")
     logger.info(f"All outputs saved to: {args.output_dir}")
-    logger.info(f"\nKey findings:")
+    logger.info("\nKey findings:")
     logger.info(f"  - Median detection lag: {lag_summary.get('median_lag', 'N/A'):.2f}Q")
     logger.info(f"  - Detection coverage: {lag_summary.get('n_detections', 0):,} / {len(labels):,} inflections")
     logger.info(f"  - False positives: {fp_summary.get('n_fps', 0):,}")

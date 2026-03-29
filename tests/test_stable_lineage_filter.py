@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from src.stable_lineage_filter import (
     compute_lineage_lifespans,

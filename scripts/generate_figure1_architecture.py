@@ -6,11 +6,11 @@ This script creates a publication-quality flowchart showing the complete pipelin
 from data ingestion through evaluation.
 """
 
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
-import numpy as np
 from pathlib import Path
+
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch
 
 
 def create_architecture_diagram(output_path: Path, dpi: int = 300):
@@ -70,12 +70,12 @@ def create_architecture_diagram(output_path: Path, dpi: int = 300):
     def draw_arrow(start, end, color=colors['arrow'], style='->', connectionstyle='arc3,rad=0'):
         """Draw an arrow between two points."""
         ax.annotate('', xy=end, xytext=start,
-                   arrowprops=dict(
-                       arrowstyle=style,
-                       color=color,
-                       lw=2,
-                       connectionstyle=connectionstyle
-                   ))
+                   arrowprops={
+                       'arrowstyle': style,
+                       'color': color,
+                       'lw': 2,
+                       'connectionstyle': connectionstyle
+                   })
 
     def draw_small_box(x, y, width, height, text, color, fontsize=9):
         """Draw a smaller box for sub-components."""
@@ -176,7 +176,7 @@ def create_architecture_diagram(output_path: Path, dpi: int = 300):
     # Arrows to Feature Engineering
     draw_arrow((1.5, 4.6), (1.5, 3.5), connectionstyle='arc3,rad=0')
     ax.annotate('', xy=(1.5, 3.5), xytext=(1.5, 4.6),
-               arrowprops=dict(arrowstyle='->', color=colors['arrow'], lw=2))
+               arrowprops={'arrowstyle': '->', 'color': colors['arrow'], 'lw': 2})
     draw_arrow((1.5, 3.3), (1.5, 3.3))
 
     # Arrow from time series to features

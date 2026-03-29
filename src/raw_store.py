@@ -9,12 +9,12 @@ import shutil
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass(frozen=True)
 class IndexEntry:
-    work_id: Optional[str]
+    work_id: str | None
     offset: int
     length: int
 
@@ -28,7 +28,7 @@ class RawStore:
         record = store.get_json(\"W123\")
     """
 
-    def __init__(self, ndjson_path: pathlib.Path, index: Dict[str, IndexEntry]) -> None:
+    def __init__(self, ndjson_path: pathlib.Path, index: dict[str, IndexEntry]) -> None:
         self._path = ndjson_path
         self._index = index
         self._fh = ndjson_path.open("rb")
@@ -51,7 +51,7 @@ class RawStore:
         return cls(ndjson_path, index)
 
     @staticmethod
-    def _resolve_paths(base: pathlib.Path) -> Tuple[pathlib.Path, pathlib.Path]:
+    def _resolve_paths(base: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
         if base.suffix in (".jsonl", ".jsonl.gz", ".jsonl.zst"):
             ndjson_path = base
             index_path = base.with_name(base.stem + "_index.csv")
@@ -65,8 +65,8 @@ class RawStore:
         return ndjson_path, index_path
 
     @staticmethod
-    def _load_index(index_path: pathlib.Path) -> Dict[str, IndexEntry]:
-        index: Dict[str, IndexEntry] = {}
+    def _load_index(index_path: pathlib.Path) -> dict[str, IndexEntry]:
+        index: dict[str, IndexEntry] = {}
         with index_path.open("r", newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)
             for row in reader:
@@ -88,7 +88,7 @@ class RawStore:
         self._fh.seek(entry.offset)
         return self._fh.read(entry.length)
 
-    def get_json(self, work_id: str) -> Dict[str, Any]:
+    def get_json(self, work_id: str) -> dict[str, Any]:
         raw = self.get_bytes(work_id)
         return json.loads(raw.decode("utf-8"))
 
@@ -98,7 +98,7 @@ class RawStore:
     def iter_entries(self) -> Iterator[IndexEntry]:
         return iter(self._index.values())
 
-    def iter_json(self) -> Iterator[Dict[str, Any]]:
+    def iter_json(self) -> Iterator[dict[str, Any]]:
         for entry in self.iter_entries():
             if entry.work_id is None:
                 continue
@@ -110,14 +110,14 @@ class RawStore:
 
 
 def write_raw_chunks(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[dict[str, Any]],
     *,
     outdir: pathlib.Path,
     basename: str,
     chunk_size: int = 1000,
     compression: str = "gzip",
-    metadata: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Persist OpenAlex records to chunked NDJSON files with sidecar byte-offset indexes.
 
@@ -125,7 +125,7 @@ def write_raw_chunks(
     to ``<outdir>/<basename>_manifest.json``.
     """
     outdir.mkdir(parents=True, exist_ok=True)
-    chunks: List[Dict[str, Any]] = []
+    chunks: list[dict[str, Any]] = []
     total_records = len(records)
 
     for part_index, chunk in enumerate(_iter_chunks(records, chunk_size)):
@@ -134,7 +134,7 @@ def write_raw_chunks(
         index_path = chunk_base.with_name(chunk_base.name + "_index.csv")
         _write_ndjson_and_index(chunk, ndjson_path, index_path)
         compressed_path = _compress_file(ndjson_path, compression)
-        chunk_info: Dict[str, Any] = {
+        chunk_info: dict[str, Any] = {
             "basepath": str(chunk_base),
             "records": len(chunk),
             "ndjson_path": str(ndjson_path),
@@ -146,7 +146,7 @@ def write_raw_chunks(
         }
         chunks.append(chunk_info)
 
-    manifest: Dict[str, Any] = {
+    manifest: dict[str, Any] = {
         "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "basename": basename,
         "outdir": str(outdir),
@@ -163,7 +163,7 @@ def write_raw_chunks(
     return manifest
 
 
-def _iter_chunks(records: Sequence[Dict[str, Any]], size: int) -> Iterable[Sequence[Dict[str, Any]]]:
+def _iter_chunks(records: Sequence[dict[str, Any]], size: int) -> Iterable[Sequence[dict[str, Any]]]:
     if size <= 0:
         yield records
         return
@@ -172,11 +172,11 @@ def _iter_chunks(records: Sequence[Dict[str, Any]], size: int) -> Iterable[Seque
 
 
 def _write_ndjson_and_index(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[dict[str, Any]],
     ndjson_path: pathlib.Path,
     index_path: pathlib.Path,
 ) -> None:
-    rows: List[IndexEntry] = []
+    rows: list[IndexEntry] = []
     with ndjson_path.open("wb") as fout:
         for rec in records:
             start = fout.tell()
@@ -195,7 +195,7 @@ def _write_ndjson_and_index(
             writer.writerow([entry.work_id, entry.offset, entry.length])
 
 
-def _compress_file(path: pathlib.Path, method: str) -> Optional[pathlib.Path]:
+def _compress_file(path: pathlib.Path, method: str) -> pathlib.Path | None:
     if method == "none":
         return None
     if method == "gzip":

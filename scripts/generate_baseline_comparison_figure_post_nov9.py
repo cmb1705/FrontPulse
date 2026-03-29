@@ -14,7 +14,6 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 from matplotlib.gridspec import GridSpec
@@ -122,7 +121,7 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
 
     # Load all predictions
     predictions = {}
-    for method_name in method_config.keys():
+    for method_name in method_config:
         preds = load_predictions(method_name, baselines_dir)
         if preds is not None:
             predictions[method_name] = preds
@@ -283,7 +282,7 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
     bars = ax_lag.barh(y_pos, lag_data, color=lag_colors, alpha=0.7, edgecolor='black', linewidth=0.8)
 
     # Add value labels
-    for i, (bar, val) in enumerate(zip(bars, lag_data)):
+    for i, (_bar, val) in enumerate(zip(bars, lag_data)):
         ax_lag.text(val + 0.3 if val > 0 else val - 0.3,
                    i, f'{val:.0f}Q',
                    va='center', ha='left' if val > 0 else 'right',
@@ -316,7 +315,7 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
     bars = ax_cov.barh(y_pos, cov_data, color=cov_colors, alpha=0.7, edgecolor='black', linewidth=0.8)
 
     # Add value labels
-    for i, (bar, val) in enumerate(zip(bars, cov_data)):
+    for i, (_bar, val) in enumerate(zip(bars, cov_data)):
         ax_cov.text(val + 2, i, f'{val:.1f}%',
                    va='center', ha='left',
                    fontsize=9, fontweight='bold')
@@ -339,19 +338,19 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
     baseline_max_prauc = max([leaderboard[m]['pr_auc'] for m in baseline_methods if m in leaderboard])
 
     findings_text = "Key Findings:\n\n"
-    findings_text += f"1. Production MSD achieves PR-AUC\n"
+    findings_text += "1. Production MSD achieves PR-AUC\n"
     findings_text += f"   {msd_prod['pr_auc']:.3f} ({msd_prod['pr_auc']/baseline_max_prauc:.1f}× best baseline)\n\n"
 
-    findings_text += f"2. Core-only (20 features) achieves\n"
+    findings_text += "2. Core-only (20 features) achieves\n"
     findings_text += f"   {msd_core['default_precision']*100:.1f}% precision, {msd_core['default_recall']*100:.1f}% recall\n"
-    findings_text += f"   (90% FP reduction)\n\n"
+    findings_text += "   (90% FP reduction)\n\n"
 
-    findings_text += f"3. Prospective degrades 93%\n"
+    findings_text += "3. Prospective degrades 93%\n"
     findings_text += f"   (PR-AUC {msd_prod['pr_auc']:.3f} → {msd_prosp['pr_auc']:.3f})\n"
-    findings_text += f"   when training freezes at 2019\n\n"
+    findings_text += "   when training freezes at 2019\n\n"
 
-    findings_text += f"4. Baselines cluster at PR-AUC\n"
-    findings_text += f"   0.025-0.031 (univariate ceiling)\n\n"
+    findings_text += "4. Baselines cluster at PR-AUC\n"
+    findings_text += "   0.025-0.031 (univariate ceiling)\n\n"
 
     findings_text += "5. Context features boost recall\n"
     findings_text += f"   20pp ({msd_core['default_recall']*100:.1f}% → {msd_prod['default_recall']*100:.1f}%)\n"
@@ -362,10 +361,10 @@ def create_comparison_figure(leaderboard_path: Path, baselines_dir: Path, output
                 fontsize=8.5,
                 verticalalignment='top',
                 fontfamily='monospace',
-                bbox=dict(boxstyle='round,pad=0.8',
-                         facecolor='#F5F5F5',
-                         edgecolor='black',
-                         linewidth=1))
+                bbox={'boxstyle': 'round,pad=0.8',
+                         'facecolor': '#F5F5F5',
+                         'edgecolor': 'black',
+                         'linewidth': 1})
 
     ax_char.set_title('F. Summary', fontsize=13, fontweight='bold', loc='left')
 

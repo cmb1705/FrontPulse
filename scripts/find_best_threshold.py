@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,7 +49,7 @@ def main() -> None:
 
     thresholds = np.linspace(args.start, args.end, args.num)
     rows = []
-    best_row: Optional[dict] = None
+    best_row: dict | None = None
 
     for thresh in thresholds:
         preds = (probs >= thresh).astype(int)

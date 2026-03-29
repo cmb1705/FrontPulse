@@ -10,20 +10,19 @@ training, diagnostics, and ablation studies.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Iterable, List, Dict, Optional, Set
 
 import yaml
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = PROJECT_ROOT / "config" / "features" / "feature_groups.yaml"
 
 
-def _deduplicate(sequence: Iterable[str]) -> List[str]:
-    seen: Set[str] = set()
-    ordered: List[str] = []
+def _deduplicate(sequence: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
     for item in sequence:
         if item is None:
             continue
@@ -42,28 +41,28 @@ class FeatureRegistry:
             raise FileNotFoundError(f"Feature config not found: {self.config_path}")
         with self.config_path.open("r", encoding="utf-8") as fp:
             config = yaml.safe_load(fp) or {}
-        self.group_defs: Dict[str, Dict] = config.get("groups", {})
-        self.feature_metadata: Dict[str, Dict] = config.get("features", {})
+        self.group_defs: dict[str, dict] = config.get("groups", {})
+        self.feature_metadata: dict[str, dict] = config.get("features", {})
         self.registry_metadata = config.get("metadata", {})
-        self._group_cache: Dict[str, List[str]] = {}
+        self._group_cache: dict[str, list[str]] = {}
 
     # ------------------------------------------------------------------
     # Group resolution helpers
     # ------------------------------------------------------------------
-    def list_groups(self) -> List[str]:
+    def list_groups(self) -> list[str]:
         return sorted(self.group_defs.keys())
 
-    def describe_group(self, name: str) -> Dict:
+    def describe_group(self, name: str) -> dict:
         return self.group_defs.get(name, {})
 
-    def get_group(self, name: str) -> List[str]:
+    def get_group(self, name: str) -> list[str]:
         if name not in self.group_defs:
             raise KeyError(f"Unknown feature group: {name}")
         if name in self._group_cache:
             return self._group_cache[name]
 
         definition = self.group_defs[name]
-        collected: List[str] = []
+        collected: list[str] = []
 
         for included in definition.get("includes", []) or []:
             collected.extend(self.get_group(included))
@@ -73,8 +72,8 @@ class FeatureRegistry:
         self._group_cache[name] = resolved
         return resolved
 
-    def available_features(self) -> List[str]:
-        all_columns: List[str] = []
+    def available_features(self) -> list[str]:
+        all_columns: list[str] = []
         for name in self.list_groups():
             all_columns.extend(self.get_group(name))
         deduped = _deduplicate(all_columns)
@@ -83,12 +82,12 @@ class FeatureRegistry:
             deduped.extend(extra)
         return deduped
 
-    def list_features(self) -> List[str]:
+    def list_features(self) -> list[str]:
         if self.feature_metadata:
             return sorted(self.feature_metadata.keys())
         return self.available_features()
 
-    def describe_feature(self, name: str) -> Dict:
+    def describe_feature(self, name: str) -> dict:
         return self.feature_metadata.get(name, {})
 
     # ------------------------------------------------------------------
@@ -96,13 +95,13 @@ class FeatureRegistry:
     # ------------------------------------------------------------------
     def resolve_features(
         self,
-        include_groups: Optional[Iterable[str]] = None,
-        include_columns: Optional[Iterable[str]] = None,
-        include_patterns: Optional[Iterable[str]] = None,
-        exclude_groups: Optional[Iterable[str]] = None,
-        exclude_columns: Optional[Iterable[str]] = None,
-        exclude_patterns: Optional[Iterable[str]] = None,
-    ) -> List[str]:
+        include_groups: Iterable[str] | None = None,
+        include_columns: Iterable[str] | None = None,
+        include_patterns: Iterable[str] | None = None,
+        exclude_groups: Iterable[str] | None = None,
+        exclude_columns: Iterable[str] | None = None,
+        exclude_patterns: Iterable[str] | None = None,
+    ) -> list[str]:
         """Resolve a curated feature list by combining groups, columns, and wildcard patterns."""
         include_groups = include_groups or []
         include_columns = include_columns or []
@@ -111,7 +110,7 @@ class FeatureRegistry:
         exclude_columns = exclude_columns or []
         exclude_patterns = exclude_patterns or []
 
-        selected: List[str] = []
+        selected: list[str] = []
         for group in include_groups:
             selected.extend(self.get_group(group))
         selected.extend(include_columns)
@@ -125,7 +124,7 @@ class FeatureRegistry:
         selected = _deduplicate(selected)
 
         # Build exclusion set
-        exclusions: Set[str] = set()
+        exclusions: set[str] = set()
         for group in exclude_groups:
             exclusions.update(self.get_group(group))
         exclusions.update(exclude_columns)
@@ -140,7 +139,7 @@ class FeatureRegistry:
     # ------------------------------------------------------------------
     # CLI helpers
     # ------------------------------------------------------------------
-    def to_dict(self) -> Dict[str, List[str]]:
+    def to_dict(self) -> dict[str, list[str]]:
         return {name: self.get_group(name) for name in self.list_groups()}
 
 

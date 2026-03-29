@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 df = pd.read_csv('data/out/03_milestone_mapping/lineage_front_similarity.csv')
 
