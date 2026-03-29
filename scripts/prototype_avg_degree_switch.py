@@ -9,16 +9,14 @@ switches would activate.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
-from src import trusted_io
+from src import trusted_io  # noqa: E402
 
 GRAPHS_DIR = Path("data/current_graphs")
 
@@ -44,10 +42,7 @@ def load_quarter_stats(graph_dir: Path) -> pd.DataFrame:
         )
         n_nodes = G.number_of_nodes()
         n_edges = G.number_of_edges()
-        if n_nodes > 1:
-            density = n_edges / (n_nodes * (n_nodes - 1))
-        else:
-            density = 0.0
+        density = n_edges / (n_nodes * (n_nodes - 1)) if n_nodes > 1 else 0.0
         avg_deg_directed = (n_edges / n_nodes) if n_nodes else 0.0
         avg_deg_undirected = (2 * n_edges / n_nodes) if n_nodes else 0.0
         rows.append(

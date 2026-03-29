@@ -7,10 +7,12 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from _path_bootstrap import ensure_repo_imports
 
-from scripts.compute_lineage_ctfidf import LineageTermExtractor
-from scripts.compute_lineage_npmi import LineageNPMIAnalyzer
+ensure_repo_imports()
+
+from scripts.compute_lineage_ctfidf import LineageTermExtractor  # noqa: E402
+from scripts.compute_lineage_npmi import LineageNPMIAnalyzer  # noqa: E402
 
 
 def main():
@@ -68,7 +70,7 @@ def main():
         return 1
 
     # Show top 10 pairs from EACH lineage
-    print(f"\n  Top 10 co-occurring pairs per lineage:")
+    print("\n  Top 10 co-occurring pairs per lineage:")
     for lineage_id in test_lineages:
         pairs = all_pairs[lineage_id]
         sorted_pairs = sorted(pairs.items(), key=lambda x: x[1], reverse=True)
@@ -77,12 +79,12 @@ def main():
             print(f"    {i:2d}. ({term1:20s}, {term2:20s}) NPMI={npmi:.3f}")
 
     # Test: Get front terms
-    print(f"\n[3/4] Testing front term matching...")
+    print("\n[3/4] Testing front term matching...")
     front_names = sorted(term_extractor.fronts_config.keys())
     print(f"  - Found {len(front_names)} fronts")
 
     # Test similarity computation for first lineage and first 3 fronts
-    print(f"\n[4/4] Computing NPMI similarity to fronts (sample)...")
+    print("\n[4/4] Computing NPMI similarity to fronts (sample)...")
     test_lineage_id = test_lineages[0]
     npmi_analyzer.lineage_npmi_pairs[test_lineage_id] = all_pairs[test_lineage_id]
 
@@ -96,7 +98,7 @@ def main():
     print("=" * 70)
     avg_time = total_elapsed / len(test_lineages)
     avg_pairs = total_pairs / len(test_lineages)
-    print(f"\nPerformance:")
+    print("\nPerformance:")
     print(f"  - {len(test_lineages)} lineages processed in {total_elapsed:.3f}s")
     print(f"  - Average: {avg_time:.3f}s per lineage, {avg_pairs:.0f} pairs per lineage")
     print(f"  - Estimated time for 99 lineages: ~{avg_time * 99 / 60:.1f} minutes")

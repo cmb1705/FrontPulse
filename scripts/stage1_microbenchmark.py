@@ -10,20 +10,18 @@ Goals:
 Outputs timing breakdown for optimization.
 """
 
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from transformers import AutoTokenizer, AutoModel
-import torch
 import json
-from typing import Dict, Tuple
-import sys
 import time
+from pathlib import Path
+
+import pandas as pd
+import torch
+from _path_bootstrap import ensure_repo_imports
+from transformers import AutoModel, AutoTokenizer
 
 # Import AbstractExtractor
-repo_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(repo_root))
-from scripts.extract_abstracts import AbstractExtractor
+repo_root = ensure_repo_imports()
+from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
 
 
 def load_sample_lineage_quarters(
@@ -86,9 +84,9 @@ def aggregate_sample_texts(
     assignments_df: pd.DataFrame,
     extractor: AbstractExtractor,
     n_samples: int = 100
-) -> Tuple[list, float]:
+) -> tuple[list, float]:
     """Aggregate texts for sample lineage-quarters."""
-    print(f"[MICRO-BENCHMARK] Aggregating texts...")
+    print("[MICRO-BENCHMARK] Aggregating texts...")
     t0 = time.time()
 
     # Group by lineage-quarter
@@ -120,7 +118,7 @@ def aggregate_sample_texts(
 def benchmark_embedding(
     lineage_quarter_data: list,
     batch_size: int = 32
-) -> Tuple[Dict, float, float]:
+) -> tuple[dict, float, float]:
     """Benchmark embedding computation."""
     print(f"[MICRO-BENCHMARK] Testing embedding (batch_size={batch_size})...")
 
@@ -180,13 +178,14 @@ def benchmark_embedding(
     return embeddings, t_model_load, t_embed
 
 
-def benchmark_velocity(embeddings: Dict) -> Tuple[pd.DataFrame, float]:
+def benchmark_velocity(embeddings: dict) -> tuple[pd.DataFrame, float]:
     """Benchmark velocity computation."""
-    print(f"[MICRO-BENCHMARK] Testing velocity...")
+    print("[MICRO-BENCHMARK] Testing velocity...")
     t0 = time.time()
 
-    from scipy.spatial.distance import cosine
     from collections import defaultdict
+
+    from scipy.spatial.distance import cosine
 
     results = []
 
@@ -309,7 +308,7 @@ def main():
     print("\n" + "="*70)
     print("MICRO-BENCHMARK COMPLETE")
     print("="*70)
-    print(f"\nNext: Optimize based on bottlenecks, then scale test with 1000 samples")
+    print("\nNext: Optimize based on bottlenecks, then scale test with 1000 samples")
 
 
 if __name__ == '__main__':

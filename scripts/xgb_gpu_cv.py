@@ -9,28 +9,28 @@ on GPU, bypassing sklearn pipelines/calibrators to avoid device-mismatch issues.
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
-import pandas as pd
 import xgboost as xgb
+from _path_bootstrap import ensure_repo_imports
 from sklearn.metrics import (
     average_precision_score,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
 )
 from sklearn.model_selection import StratifiedKFold
 
-# Repo imports
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
-from scripts.multi_signal_detector import load_and_merge_signals, construct_labels, engineer_features, select_features  # type: ignore
+from scripts.multi_signal_detector import (  # type: ignore  # noqa: E402
+    construct_labels,
+    engineer_features,
+    load_and_merge_signals,
+    select_features,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,7 +71,7 @@ def train_and_eval(
     threshold: float,
     params: dict,
     n_splits: int,
-) -> Tuple[dict, List[dict]]:
+) -> tuple[dict, list[dict]]:
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     metrics = []
     for train_idx, val_idx in skf.split(X, y):

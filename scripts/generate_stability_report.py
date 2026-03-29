@@ -18,12 +18,11 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
-from src.stability_report import compute_stability_report, format_report_text
+from src.stability_report import compute_stability_report, format_report_text  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

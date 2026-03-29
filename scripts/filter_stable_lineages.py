@@ -18,10 +18,9 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 from src.stable_lineage_filter import (  # noqa: E402

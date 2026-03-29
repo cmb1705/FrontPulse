@@ -26,14 +26,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_REPO = Path(__file__).resolve().parents[1]
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+from _path_bootstrap import ensure_repo_imports
+
+_REPO = ensure_repo_imports()
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -140,7 +139,6 @@ def parse_args() -> argparse.Namespace:
 def _load_data(args: argparse.Namespace) -> pd.DataFrame:
     """Load and merge feature data using the MSD pipeline functions."""
     # Import MSD functions (heavy imports deferred)
-    sys.path.insert(0, str(_REPO / "scripts"))
     from multi_signal_detector import (
         construct_labels,
         engineer_features,

@@ -3,14 +3,15 @@
 Smoke test for c-TF-IDF extraction - tests on single lineage to verify logic.
 """
 
-import json
 import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from _path_bootstrap import ensure_repo_imports
 
-from scripts.compute_lineage_ctfidf import LineageTermExtractor
+ensure_repo_imports()
+
+from scripts.compute_lineage_ctfidf import LineageTermExtractor  # noqa: E402
 
 
 def main():
@@ -51,12 +52,12 @@ def main():
 
     # Show top 10 terms by frequency
     sorted_terms = sorted(term_counts.items(), key=lambda x: x[1], reverse=True)
-    print(f"\n  Top 10 terms by frequency:")
+    print("\n  Top 10 terms by frequency:")
     for i, (term, count) in enumerate(sorted_terms[:10], start=1):
         print(f"    {i:2d}. {term:20s} (count={count})")
 
     # Test: Get front terms
-    print(f"\n[Test] Extracting terms from research fronts...")
+    print("\n[Test] Extracting terms from research fronts...")
     front_names = sorted(extractor.fronts_config.keys())
     print(f"  - Found {len(front_names)} fronts")
 
@@ -67,21 +68,21 @@ def main():
     print(f"    Example terms: {list(front_terms)[:10]}")
 
     # Test: Compute document frequency for smoke test
-    print(f"\n[Test] Computing DF for terms...")
+    print("\n[Test] Computing DF for terms...")
     extractor.term_document_frequency.update(term_counts.keys())
     print(f"  - DF computed for {len(extractor.term_document_frequency)} terms")
 
     # Test: Compute c-TF-IDF
-    print(f"\n[Test] Computing c-TF-IDF scores...")
+    print("\n[Test] Computing c-TF-IDF scores...")
     ctfidf_scores = extractor.compute_ctfidf_for_lineage(test_lineage_id, term_counts)
     sorted_ctfidf = sorted(ctfidf_scores.items(), key=lambda x: x[1], reverse=True)
     print(f"  - Computed {len(ctfidf_scores)} c-TF-IDF scores")
-    print(f"\n  Top 10 terms by c-TF-IDF:")
+    print("\n  Top 10 terms by c-TF-IDF:")
     for i, (term, score) in enumerate(sorted_ctfidf[:10], start=1):
         print(f"    {i:2d}. {term:20s} (score={score:.2f})")
 
     # Test: Compute term similarity
-    print(f"\n[Test] Computing term similarity to fronts...")
+    print("\n[Test] Computing term similarity to fronts...")
     for front_name in front_names[:3]:  # Test first 3 fronts
         front_terms = extractor.get_front_terms(front_name)
         similarity = extractor.compute_term_similarity(ctfidf_scores, front_terms)

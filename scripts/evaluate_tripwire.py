@@ -18,16 +18,16 @@ Outputs (under --outdir):
   - validation_dashboard.png (comprehensive visualization)
 """
 
-import argparse
-import importlib
-from pathlib import Path
-import sys
+import argparse  # noqa: E402
+import importlib  # noqa: E402
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
 
-repo_root = Path(__file__).resolve().parents[1]
-if str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
+from _path_bootstrap import ensure_repo_imports  # noqa: E402
 
-import pandas as pd
+repo_root = ensure_repo_imports()
+
+import pandas as pd  # noqa: E402
 
 
 def _find_column(df: pd.DataFrame, candidates: list[str]) -> str | None:

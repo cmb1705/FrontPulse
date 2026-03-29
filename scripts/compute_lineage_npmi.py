@@ -33,7 +33,6 @@ Notes:
 import json
 import math
 import multiprocessing as mp
-import sys
 import time
 from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
@@ -69,9 +68,10 @@ except ImportError:
     SPACY_AVAILABLE = False
     print("[WARNING] spaCy not installed. Run: pip install spacy")
 
+from _path_bootstrap import ensure_repo_imports
+
 # Add project root to path
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 # Import from previous stages
 from scripts.compute_lineage_ctfidf import LineageTermExtractor  # noqa: E402

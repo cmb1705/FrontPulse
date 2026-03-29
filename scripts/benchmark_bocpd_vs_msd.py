@@ -21,10 +21,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-_REPO = Path(__file__).resolve().parents[1]
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+_REPO = ensure_repo_imports()
 
 from src.bocpd import BOCPDConfig, detect_changepoints  # noqa: E402
 from src.timeliness_scoring import score_timeliness  # noqa: E402

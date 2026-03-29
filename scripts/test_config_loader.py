@@ -8,22 +8,21 @@ Tests configuration loading and accessor functions.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
-# Add src to path
-repo_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(repo_root / 'src'))
+from _path_bootstrap import ensure_repo_imports
 
-from config_loader import (
-    load_config,
+repo_root = ensure_repo_imports()
+
+from config_loader import (  # noqa: E402
+    get_config_summary,
     get_enabled_metrics,
-    get_metric_config,
     get_feature_config,
+    get_metric_config,
     get_model_config,
-    get_tuning_config,
     get_pipeline_config,
+    get_tuning_config,
+    load_config,
     validate_config,
-    get_config_summary
 )
 
 

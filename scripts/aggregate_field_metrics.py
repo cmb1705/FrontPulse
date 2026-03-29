@@ -9,15 +9,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 from utils.quarter_utils import normalize_quarter, quarter_to_int  # noqa: E402
 

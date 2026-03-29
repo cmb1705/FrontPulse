@@ -5,19 +5,18 @@ import argparse
 import itertools
 import math
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
+from _path_bootstrap import ensure_repo_imports
 
-_REPO = Path(__file__).resolve().parents[1]
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+_REPO = ensure_repo_imports()
 
-from src import trusted_io
+from src import trusted_io  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -27,9 +26,9 @@ class ParameterSet:
     lambda_decay: float
 
 
-def _parse_float_list(text: str) -> List[float]:
+def _parse_float_list(text: str) -> list[float]:
     parts = [p.strip() for p in str(text).split(",")]
-    values: List[float] = []
+    values: list[float] = []
     for part in parts:
         if not part:
             continue
@@ -42,7 +41,7 @@ def _parse_float_list(text: str) -> List[float]:
     return values
 
 
-def _quarter_sort_key(path: Path) -> Tuple[int, int, str]:
+def _quarter_sort_key(path: Path) -> tuple[int, int, str]:
     import re
 
     m = re.search(r"(\d{4})Q([1-4])", path.name)
@@ -51,8 +50,8 @@ def _quarter_sort_key(path: Path) -> Tuple[int, int, str]:
     return (0, 0, path.name)
 
 
-def _collect_graphs(args: argparse.Namespace) -> List[Path]:
-    paths: List[Path] = []
+def _collect_graphs(args: argparse.Namespace) -> list[Path]:
+    paths: list[Path] = []
     if args.graphs:
         for raw in args.graphs:
             p = Path(raw)
@@ -93,10 +92,10 @@ def _load_graph(path: Path) -> nx.DiGraph:
     return G
 
 
-def _baseline_metrics(G: nx.DiGraph) -> Dict[str, float]:
-    total_weights: List[float] = []
-    coupling_weights: List[float] = []
-    citation_weights: List[float] = []
+def _baseline_metrics(G: nx.DiGraph) -> dict[str, float]:
+    total_weights: list[float] = []
+    coupling_weights: list[float] = []
+    citation_weights: list[float] = []
     coupling_edges = 0
     hybrid_edges = 0
     citation_edges = 0
@@ -109,7 +108,7 @@ def _baseline_metrics(G: nx.DiGraph) -> Dict[str, float]:
         if wc > 0:
             coupling_edges += 1
             coupling_weights.append(wc)
-            edge_type = str(data.get("edge_type", "")).lower()
+            str(data.get("edge_type", "")).lower()
             citation_weight = float(data.get("weight_citation", 0.0) or 0.0)
             if citation_weight > 0:
                 hybrid_edges += 1
@@ -141,13 +140,13 @@ def _evaluate(
     params: ParameterSet,
     *,
     tolerance: float,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     total_weight_sum = 0.0
-    total_weight_values: List[float] = []
+    total_weight_values: list[float] = []
     coupling_weight_sum = 0.0
-    coupling_weight_values: List[float] = []
+    coupling_weight_values: list[float] = []
     citation_weight_sum = 0.0
-    citation_weight_values: List[float] = []
+    citation_weight_values: list[float] = []
 
     total_edges = G.number_of_edges()
     citation_edges = 0
@@ -212,8 +211,8 @@ def _evaluate(
     }
 
 
-def _deltas(new: Dict[str, float], baseline: Dict[str, float]) -> Dict[str, Optional[float]]:
-    deltas: Dict[str, Optional[float]] = {}
+def _deltas(new: dict[str, float], baseline: dict[str, float]) -> dict[str, float | None]:
+    deltas: dict[str, float | None] = {}
     for key, new_val in new.items():
         base_val = baseline.get(key)
         if base_val is None:
@@ -229,7 +228,7 @@ def _deltas(new: Dict[str, float], baseline: Dict[str, float]) -> Dict[str, Opti
     return deltas
 
 
-def main(argv: Optional[Sequence[str]] = None) -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Evaluate sensitivity of bibliographic coupling weights to parameter choices."
     )
@@ -301,7 +300,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     if out_path.exists() and not args.overwrite:
         raise SystemExit(f"Output file {out_path} already exists. Use --overwrite to replace it.")
 
-    rows: List[Dict[str, object]] = []
+    rows: list[dict[str, object]] = []
 
     for graph_path in paths:
         print(f"[Sensitivity] Loading {graph_path}")
@@ -312,7 +311,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         for params in combos:
             metrics = _evaluate(G, params, tolerance=args.tolerance)
             delta_vals = _deltas(metrics, baseline)
-            row: Dict[str, object] = {
+            row: dict[str, object] = {
                 "graph": str(graph_path),
                 "graph_label": graph_label,
                 "alpha": params.alpha,

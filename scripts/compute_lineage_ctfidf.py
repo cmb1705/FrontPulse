@@ -16,7 +16,6 @@ Outputs (relative to --output-root):
 import json
 import math
 import re
-import sys
 import time
 from collections import Counter
 from pathlib import Path
@@ -24,11 +23,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
+from _path_bootstrap import ensure_repo_imports
 from tqdm import tqdm
 
 # Add project root to path
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 # Import from Stage 2
 from scripts.extract_abstracts import AbstractExtractor  # noqa: E402

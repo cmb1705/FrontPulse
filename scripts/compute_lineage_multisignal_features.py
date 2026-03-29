@@ -17,7 +17,6 @@ import argparse
 import json
 import logging
 import multiprocessing as mp
-import sys
 import time
 from collections import defaultdict
 from collections.abc import Iterable
@@ -32,13 +31,9 @@ try:  # Optional dependency used for logistic fits
 except Exception:  # pragma: no cover - SciPy optional
     curve_fit = None
 
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-SCRIPTS_DIR = REPO_ROOT / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+REPO_ROOT = ensure_repo_imports()
 
 from utils.quarter_utils import quarter_key, quarter_to_int  # noqa: E402
 

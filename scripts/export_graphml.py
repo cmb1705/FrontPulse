@@ -2,20 +2,19 @@
 from __future__ import annotations
 
 import argparse
-import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List, Optional
 
-REPO = Path(__file__).resolve().parents[1]
-if str(REPO) not in sys.path:
-    sys.path.insert(0, str(REPO))
+from _path_bootstrap import ensure_repo_imports
 
-from src.graph_build import save_graph  # type: ignore
-from src.trusted_io import load_trusted_pickle
+REPO = ensure_repo_imports()
+
+from src.graph_build import save_graph  # type: ignore  # noqa: E402
+from src.trusted_io import load_trusted_pickle  # noqa: E402
 
 
-def _iter_graphs(paths: Iterable[Path]) -> List[Path]:
-    expanded: List[Path] = []
+def _iter_graphs(paths: Iterable[Path]) -> list[Path]:
+    expanded: list[Path] = []
     for path in paths:
         if path.is_dir():
             expanded.extend(sorted(path.glob("*.pkl")))
@@ -28,7 +27,7 @@ def _iter_graphs(paths: Iterable[Path]) -> List[Path]:
     return sorted({p.resolve() for p in expanded})
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Re-export GraphML files from existing NetworkX pickle graphs."
     )
@@ -61,7 +60,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    raw_paths: List[Path]
+    raw_paths: list[Path]
     if args.graphs:
         raw_paths = [Path(p) for p in args.graphs]
     else:

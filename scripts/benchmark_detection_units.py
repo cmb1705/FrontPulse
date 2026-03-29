@@ -21,14 +21,13 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any
 
 import numpy as np
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 
 def parse_args() -> argparse.Namespace:
@@ -101,7 +100,7 @@ def load_mapping(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-def load_json_metrics(path: Path) -> Dict[str, Any]:
+def load_json_metrics(path: Path) -> dict[str, Any]:
     """Load evaluation metrics JSON."""
     with path.open() as fh:
         return json.load(fh)
@@ -116,7 +115,7 @@ def compute_lineage_level_stats(
     ts_df: pd.DataFrame,
     onset_df: pd.DataFrame,
     train_end: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute lineage-level detection statistics."""
     n_lineages = ts_df["lineage_id"].nunique()
     n_observations = len(ts_df)
@@ -151,7 +150,7 @@ def compute_front_level_stats(
     onset_df: pd.DataFrame,
     mapping_df: pd.DataFrame,
     train_end: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute front-level detection statistics."""
     # Build lineage -> front mapping (one lineage can map to one front row)
     lineage_to_front = dict(
@@ -165,7 +164,7 @@ def compute_front_level_stats(
     n_fronts = len(fronts)
 
     # Front -> constituent lineages
-    front_lineages: Dict[str, Set[int]] = {}
+    front_lineages: dict[str, set[int]] = {}
     for _, row in mapping_df.iterrows():
         f = row["mapped_fronts"]
         lid = int(row["lineage_id"])
@@ -173,7 +172,7 @@ def compute_front_level_stats(
 
     # Front-level onset: earliest onset quarter among constituent lineages
     detected = onset_df[onset_df["onset_detected"] == 1]
-    front_onsets: Dict[str, str] = {}
+    front_onsets: dict[str, str] = {}
     for front, lids in front_lineages.items():
         front_detected = detected[detected["lineage_id"].isin(lids)]
         if not front_detected.empty and "onset_quarter" in front_detected.columns:
@@ -217,11 +216,11 @@ def compute_front_level_stats(
 
 
 def build_comparison_table(
-    lineage_stats: Dict[str, Any],
-    front_stats: Dict[str, Any],
-    lineage_holdout: Dict[str, Any],
-    lineage_cv: Dict[str, Any],
-) -> List[Dict[str, Any]]:
+    lineage_stats: dict[str, Any],
+    front_stats: dict[str, Any],
+    lineage_holdout: dict[str, Any],
+    lineage_cv: dict[str, Any],
+) -> list[dict[str, Any]]:
     """Build a side-by-side comparison table."""
     rows = []
 
@@ -293,7 +292,7 @@ def build_comparison_table(
     return rows
 
 
-def assess_feasibility(front_stats: Dict[str, Any]) -> Dict[str, Any]:
+def assess_feasibility(front_stats: dict[str, Any]) -> dict[str, Any]:
     """Assess whether front-level ML training is feasible."""
     n_entities = front_stats["n_entities"]
     n_onsets = front_stats["n_onsets"]
@@ -321,10 +320,10 @@ def assess_feasibility(front_stats: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def determine_recommendation(
-    lineage_stats: Dict[str, Any],
-    front_stats: Dict[str, Any],
-    feasibility: Dict[str, Any],
-) -> Dict[str, Any]:
+    lineage_stats: dict[str, Any],
+    front_stats: dict[str, Any],
+    feasibility: dict[str, Any],
+) -> dict[str, Any]:
     """Produce the final benchmark recommendation."""
     if not feasibility["ml_training_feasible"]:
         return {
@@ -374,14 +373,14 @@ def determine_recommendation(
 
 
 def format_report(
-    lineage_stats: Dict[str, Any],
-    front_stats: Dict[str, Any],
-    comparison: List[Dict[str, Any]],
-    feasibility: Dict[str, Any],
-    recommendation: Dict[str, Any],
+    lineage_stats: dict[str, Any],
+    front_stats: dict[str, Any],
+    comparison: list[dict[str, Any]],
+    feasibility: dict[str, Any],
+    recommendation: dict[str, Any],
 ) -> str:
     """Format the benchmark as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("=" * 70)
     lines.append("DETECTION UNIT BENCHMARK: LINEAGE vs FRONT")
     lines.append("=" * 70)

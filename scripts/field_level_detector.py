@@ -19,21 +19,18 @@ Date: 2025-11-06
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List, Tuple, Optional
+from pathlib import Path
 
-import numpy as np
-import pandas as pd
-from scipy import stats
+from _path_bootstrap import ensure_repo_imports
 
-# Add src to path for imports
-repo_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(repo_root / 'src'))
+repo_root = ensure_repo_imports()
 
-from trusted_io import load_trusted_pickle
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+
+from trusted_io import load_trusted_pickle  # noqa: E402
 
 
 def load_lineage_features(path: Path) -> pd.DataFrame:
@@ -55,7 +52,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     - Feature interactions (novelty_momentum, citation_balance)
     - Flags and indicators (is_awakening, disruption_intensity)
     """
-    print(f"\n[2/8] Engineering lineage-level features...")
+    print("\n[2/8] Engineering lineage-level features...")
 
     df = df.sort_values(['lineage_id', 'quarter'])
 
@@ -110,13 +107,13 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     else:
         df['disruption_intensity'] = 0.0
 
-    print(f"   Engineered features added")
+    print("   Engineered features added")
     print(f"   Total columns: {len(df.columns)}")
 
     return df
 
 
-def load_global_metrics(metrics_dir: Path) -> Dict[str, pd.DataFrame]:
+def load_global_metrics(metrics_dir: Path) -> dict[str, pd.DataFrame]:
     """Load all global context metrics."""
     print(f"\n[3/8] Loading global context metrics from {metrics_dir / 'global'}")
 
@@ -218,9 +215,9 @@ def aggregate_lineage_to_field(df_lineage: pd.DataFrame, method: str = 'weighted
     return df_field
 
 
-def join_global_metrics(df_field: pd.DataFrame, metrics: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+def join_global_metrics(df_field: pd.DataFrame, metrics: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """Join global context metrics to field-level data."""
-    print(f"\n[5/8] Joining global context metrics")
+    print("\n[5/8] Joining global context metrics")
 
     df_merged = df_field.copy()
 
@@ -241,8 +238,8 @@ def join_global_metrics(df_field: pd.DataFrame, metrics: Dict[str, pd.DataFrame]
 
 def prepare_features_for_prediction(
     df: pd.DataFrame,
-    model_features: Optional[List[str]] = None
-) -> Tuple[pd.DataFrame, List[str]]:
+    model_features: list[str] | None = None
+) -> tuple[pd.DataFrame, list[str]]:
     """
     Prepare features for MSD prediction.
 
@@ -253,7 +250,7 @@ def prepare_features_for_prediction(
     Returns:
         Tuple of (feature_df, feature_names)
     """
-    print(f"\n[6/8] Preparing features for prediction")
+    print("\n[6/8] Preparing features for prediction")
 
     # If model features not provided, use all numeric columns except identifiers
     if model_features is None:
@@ -389,7 +386,7 @@ def save_predictions(df: pd.DataFrame, output_path: Path) -> None:
     print(f"Detection rate: {df_out['prediction'].mean():.1%}")
     print(f"Average probability: {df_out['probability'].mean():.3f}")
     print(f"Probability std dev: {df_out['probability'].std():.3f}")
-    print(f"\nQuarters with highest breakthrough probability:")
+    print("\nQuarters with highest breakthrough probability:")
     top_quarters = df_out.nlargest(5, 'probability')[['quarter', 'probability', 'prediction', 'num_lineages']]
     print(top_quarters.to_string(index=False))
     print("=" * 70)

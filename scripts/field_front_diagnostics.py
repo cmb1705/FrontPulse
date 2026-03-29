@@ -19,18 +19,14 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, List, Tuple
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from matplotlib.figure import Figure
+from _path_bootstrap import ensure_repo_imports
 
-# Add src to path for imports
-repo_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(repo_root / 'src'))
+repo_root = ensure_repo_imports()
+
+import matplotlib.dates as mdates  # noqa: E402
+import matplotlib.pyplot as plt  # noqa: E402
+import pandas as pd  # noqa: E402
 
 
 def load_field_predictions(path: Path) -> pd.DataFrame:
@@ -48,10 +44,10 @@ def load_front_predictions(path: Path) -> pd.DataFrame:
 
     if not path.exists():
         print(f"\nERROR: Front predictions file not found: {path}")
-        print(f"\nFront-level predictions are required for comparative diagnostics.")
-        print(f"Please run lineage-level MSD first to generate predictions:")
-        print(f"  python scripts/multi_signal_detector.py --train --predict ...")
-        print(f"\nAlternatively, specify the correct path with --front-predictions")
+        print("\nFront-level predictions are required for comparative diagnostics.")
+        print("Please run lineage-level MSD first to generate predictions:")
+        print("  python scripts/multi_signal_detector.py --train --predict ...")
+        print("\nAlternatively, specify the correct path with --front-predictions")
         sys.exit(1)
 
     df = pd.read_csv(path)
@@ -62,7 +58,7 @@ def load_front_predictions(path: Path) -> pd.DataFrame:
 
 def aggregate_front_to_quarter(df_front: pd.DataFrame) -> pd.DataFrame:
     """Aggregate front-level predictions to quarter level for comparison."""
-    print(f"\n[3/6] Aggregating front-level predictions to quarterly statistics")
+    print("\n[3/6] Aggregating front-level predictions to quarterly statistics")
 
     grouped = df_front.groupby('quarter').agg({
         'lineage_id': 'count',  # Number of lineages with predictions
@@ -89,7 +85,7 @@ def aggregate_front_to_quarter(df_front: pd.DataFrame) -> pd.DataFrame:
 
 def merge_field_front_data(df_field: pd.DataFrame, df_front_agg: pd.DataFrame) -> pd.DataFrame:
     """Merge field and front data for comparison."""
-    print(f"\n[4/6] Merging field and front data")
+    print("\n[4/6] Merging field and front data")
 
     df_merged = df_field.merge(df_front_agg, on='quarter', how='outer')
 
@@ -104,7 +100,7 @@ def merge_field_front_data(df_field: pd.DataFrame, df_front_agg: pd.DataFrame) -
 
 def create_trend_plots(df: pd.DataFrame, output_dir: Path) -> None:
     """Create trend comparison plots."""
-    print(f"\n[5/6] Creating comparative trend plots")
+    print("\n[5/6] Creating comparative trend plots")
 
     # Convert quarter to datetime for plotting (use period instead of manual parsing)
     df['quarter_date'] = pd.PeriodIndex(df['quarter'], freq='Q').to_timestamp()
@@ -171,7 +167,7 @@ def create_trend_plots(df: pd.DataFrame, output_dir: Path) -> None:
 
 def create_diagnostic_tables(df: pd.DataFrame, output_dir: Path) -> None:
     """Create diagnostic summary tables."""
-    print(f"\n[6/6] Creating diagnostic tables")
+    print("\n[6/6] Creating diagnostic tables")
 
     # Table 1: Top field detection quarters
     top_field = df.nlargest(10, 'probability')[

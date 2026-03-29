@@ -38,19 +38,24 @@ try:
 except Exception:
     go = None
 
-REPO = Path(__file__).resolve().parents[1]
-if str(REPO) not in sys.path:
-    sys.path.insert(0, str(REPO))
+from _path_bootstrap import ensure_repo_imports  # noqa: E402
+
+REPO = ensure_repo_imports()
 
 try:
     # project imports
-    from src.alignment import (
+    from src.alignment import (  # noqa: E402
         label_map_from_partition,
         match_by_cores,
         pagerank_core,
         variation_of_information,
     )
-    from src.community import adaptive_cluster_bounds, compute_pia_flags, run_ecg, run_leiden
+    from src.community import (  # noqa: E402
+        adaptive_cluster_bounds,
+        compute_pia_flags,
+        run_ecg,
+        run_leiden,
+    )
 except ModuleNotFoundError as e:
     raise SystemExit("Cannot import src.*. Run from repo root.") from e
 from src.graph_lite import LiteGraph  # noqa: E402

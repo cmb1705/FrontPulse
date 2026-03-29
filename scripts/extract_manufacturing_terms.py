@@ -13,20 +13,20 @@ Outputs:
     - data/out/manufacturing_terms_by_front.yaml - Terms grouped by front
 """
 
+import json
 import re
+from collections import defaultdict
 from pathlib import Path
-from collections import Counter, defaultdict
-from typing import Dict, List, Set, Tuple
+
+import numpy as np
 import pandas as pd
 import yaml
-import json
+from _path_bootstrap import ensure_repo_imports
 from sklearn.feature_extraction.text import TfidfVectorizer
-import numpy as np
 
-# Import existing utilities
-import sys
-sys.path.append(str(Path(__file__).parent.parent))
-from scripts.extract_abstracts import AbstractExtractor
+ensure_repo_imports()
+
+from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
 
 
 class ManufacturingTermExtractor:
@@ -53,7 +53,7 @@ class ManufacturingTermExtractor:
 
             # Equipment/tools
             'chamber', 'substrate', 'precursor', 'nozzle', 'slot-die', 'doctor',
-            'meniscus', 'blade', 'bar', 'roller', 'drum', 'press', 'hot-plate',
+            'meniscus', 'bar', 'roller', 'drum', 'press', 'hot-plate',
             'oven', 'furnace', 'glovebox', 'hood',
 
             # Scale descriptors
@@ -76,7 +76,7 @@ class ManufacturingTermExtractor:
         """Load lineage registry and research fronts."""
         print("[1/6] Loading lineage registry...")
         registry_path = Path("data/out/02_lineage_tracking/lineage_registry.json")
-        with open(registry_path, 'r', encoding='utf-8') as f:
+        with open(registry_path, encoding='utf-8') as f:
             self.lineage_registry = json.load(f)
 
         # Filter to persistent lineages (>=20q)
@@ -88,7 +88,7 @@ class ManufacturingTermExtractor:
 
         print("[2/6] Loading research front definitions...")
         front_config_path = Path("config/front_aliases.yaml")
-        with open(front_config_path, 'r', encoding='utf-8') as f:
+        with open(front_config_path, encoding='utf-8') as f:
             self.front_config = yaml.safe_load(f)
         print(f"      Loaded {len(self.front_config)} research fronts")
 
@@ -96,7 +96,7 @@ class ManufacturingTermExtractor:
         self.abstract_extractor = AbstractExtractor('data/current_ingest/raw')
         print("      OK")
 
-    def extract_lineage_texts(self) -> Dict[str, List[str]]:
+    def extract_lineage_texts(self) -> dict[str, list[str]]:
         """
         Extract abstract texts for each lineage.
 
@@ -127,7 +127,7 @@ class ManufacturingTermExtractor:
 
         return lineage_texts
 
-    def tokenize_and_filter(self, text: str) -> List[str]:
+    def tokenize_and_filter(self, text: str) -> list[str]:
         """
         Tokenize text and apply manufacturing-focused filtering.
 
@@ -168,7 +168,7 @@ class ManufacturingTermExtractor:
 
         return filtered
 
-    def compute_tfidf_scores(self, lineage_texts: Dict[str, List[str]]) -> pd.DataFrame:
+    def compute_tfidf_scores(self, lineage_texts: dict[str, list[str]]) -> pd.DataFrame:
         """
         Compute TF-IDF scores for all terms across lineages.
 
@@ -238,11 +238,7 @@ class ManufacturingTermExtractor:
         term_lower = term.lower()
 
         # Check if any seed pattern appears in term
-        for seed in self.manufacturing_seeds:
-            if seed in term_lower:
-                return True
-
-        return False
+        return any(seed in term_lower for seed in self.manufacturing_seeds)
 
     def rank_and_export(self, df: pd.DataFrame):
         """
@@ -279,11 +275,11 @@ class ManufacturingTermExtractor:
         print("\n=== Manufacturing Term Extraction Summary ===")
         print(f"Total terms extracted: {len(df)}")
         print(f"Manufacturing-related: {len(mfg_terms)} ({100*len(mfg_terms)/len(df):.1f}%)")
-        print(f"\nTop 10 manufacturing terms:")
+        print("\nTop 10 manufacturing terms:")
         for idx, row in mfg_terms.head(10).iterrows():
             print(f"  {idx+1}. {row['term']:<30} (TF-IDF: {row['avg_tfidf']:.4f}, appears in {row['lineage_count']} lineages)")
 
-    def _group_terms_by_front(self, terms: List[str]) -> Dict[str, List[str]]:
+    def _group_terms_by_front(self, terms: list[str]) -> dict[str, list[str]]:
         """
         Group terms by research front using heuristic matching.
 

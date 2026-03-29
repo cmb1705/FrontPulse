@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import argparse
-import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import networkx as nx
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
-from src.graph_lite import write_lite_graph
-from src.trusted_io import load_trusted_pickle
+from src.graph_lite import write_lite_graph  # noqa: E402
+from src.trusted_io import load_trusted_pickle  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

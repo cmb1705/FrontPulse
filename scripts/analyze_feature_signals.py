@@ -19,10 +19,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import time
+import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -36,9 +35,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
-from sklearn.utils import Bunch
 from sklearn.utils.validation import check_is_fitted
-import warnings
 
 try:
     from xgboost import XGBClassifier
@@ -50,17 +47,16 @@ try:
 except ModuleNotFoundError:
     shap = None
 
-# Ensure repository root on path for imports
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from _path_bootstrap import ensure_repo_imports
 
-from scripts.utils.feature_registry import FeatureRegistry  # noqa: E402
+REPO_ROOT = ensure_repo_imports()
+
 from scripts.multi_signal_detector import (  # noqa: E402
-    load_and_merge_signals,
     construct_labels,
     engineer_features,
+    load_and_merge_signals,
 )
+from scripts.utils.feature_registry import FeatureRegistry  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -120,7 +116,7 @@ def stratified_sample(df: pd.DataFrame, n_samples: int, seed: int) -> pd.DataFra
     return sampled
 
 
-def prepare_matrix(df: pd.DataFrame, feature_names: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+def prepare_matrix(df: pd.DataFrame, feature_names: list[str]) -> tuple[np.ndarray, np.ndarray]:
     X = df[feature_names].replace([np.inf, -np.inf], 0).fillna(0).astype(np.float32).values
     y = df["is_milestone"].astype(int).values
     return X, y
@@ -138,7 +134,7 @@ def determine_cv_folds(y: np.ndarray, requested: int) -> int:
     return effective
 
 
-def run_l1_logistic(X: np.ndarray, y: np.ndarray, feature_names: List[str],
+def run_l1_logistic(X: np.ndarray, y: np.ndarray, feature_names: list[str],
                     cv_folds: int, seed: int) -> pd.DataFrame:
     skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=seed)
     rows = []
@@ -160,7 +156,7 @@ def run_l1_logistic(X: np.ndarray, y: np.ndarray, feature_names: List[str],
     return coef_df
 
 
-def run_linear_svc(X: np.ndarray, y: np.ndarray, feature_names: List[str],
+def run_linear_svc(X: np.ndarray, y: np.ndarray, feature_names: list[str],
                    cv_folds: int, seed: int) -> pd.DataFrame:
     skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=seed)
     rows = []
@@ -185,7 +181,7 @@ def run_linear_svc(X: np.ndarray, y: np.ndarray, feature_names: List[str],
     return coef_df
 
 
-def run_lightgbm_importance(X: np.ndarray, y: np.ndarray, feature_names: List[str],
+def run_lightgbm_importance(X: np.ndarray, y: np.ndarray, feature_names: list[str],
                             seed: int) -> pd.DataFrame:
     clf = LGBMClassifier(
         n_estimators=600,
@@ -207,8 +203,8 @@ def run_lightgbm_importance(X: np.ndarray, y: np.ndarray, feature_names: List[st
     return df
 
 
-def run_xgboost_importance(X: np.ndarray, y: np.ndarray, feature_names: List[str],
-                           seed: int) -> Optional[pd.DataFrame]:
+def run_xgboost_importance(X: np.ndarray, y: np.ndarray, feature_names: list[str],
+                           seed: int) -> pd.DataFrame | None:
     if XGBClassifier is None:
         return None
     clf = XGBClassifier(
@@ -235,11 +231,11 @@ def run_xgboost_importance(X: np.ndarray, y: np.ndarray, feature_names: List[str
     return df
 
 
-def compute_univariate_metrics(X: np.ndarray, y: np.ndarray, feature_names: List[str],
+def compute_univariate_metrics(X: np.ndarray, y: np.ndarray, feature_names: list[str],
                                seed: int, n_jobs: int) -> pd.DataFrame:
     mi = mutual_info_classif(X, y, discrete_features=False, random_state=seed)
 
-    def compute_auc(idx: int) -> Tuple[str, float]:
+    def compute_auc(idx: int) -> tuple[str, float]:
         col = X[:, idx]
         if np.allclose(col, col[0]):
             return feature_names[idx], 0.5
@@ -255,7 +251,7 @@ def compute_univariate_metrics(X: np.ndarray, y: np.ndarray, feature_names: List
     else:
         auc_results = [compute_auc(i) for i in range(X.shape[1])]
 
-    auc_scores = {name: score for name, score in auc_results}
+    auc_scores = dict(auc_results)
     df = pd.DataFrame({
         "feature": feature_names,
         "mutual_information": mi,
@@ -264,8 +260,8 @@ def compute_univariate_metrics(X: np.ndarray, y: np.ndarray, feature_names: List
     return df
 
 
-def compute_stability(rank_tables: Dict[str, pd.DataFrame], top_k: int = 25) -> Dict[str, Dict]:
-    summary: Dict[str, Dict] = {}
+def compute_stability(rank_tables: dict[str, pd.DataFrame], top_k: int = 25) -> dict[str, dict]:
+    summary: dict[str, dict] = {}
     for name, df in rank_tables.items():
         if "feature" not in df.columns or "score" not in df.columns:
             continue
@@ -279,9 +275,9 @@ def compute_stability(rank_tables: Dict[str, pd.DataFrame], top_k: int = 25) -> 
 
 
 def write_markdown_report(path: Path,
-                          dataset_info: Dict[str, float],
-                          stability_summary: Dict[str, Dict],
-                          recommendations: List[str]) -> None:
+                          dataset_info: dict[str, float],
+                          stability_summary: dict[str, dict],
+                          recommendations: list[str]) -> None:
     lines = [
         "# Feature Signal Diagnostics Report",
         "",

@@ -3,18 +3,20 @@
 Test script to demonstrate context feature computation.
 """
 from pathlib import Path
-import pandas as pd
-import numpy as np
-from collections import defaultdict
 
-# Import the functions we added
-import sys
-sys.path.insert(0, str(Path(__file__).parent))
-from compute_lineage_multisignal_features import (
-    load_global_metrics,
+from _path_bootstrap import ensure_repo_imports
+
+ensure_repo_imports()
+
+
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from compute_lineage_multisignal_features import (  # noqa: E402
     compute_context_features,
+    load_global_metrics,
 )
-from utils.quarter_utils import quarter_key
+from utils.quarter_utils import quarter_key  # noqa: E402
+
 
 def main():
     print("=" * 60)
@@ -63,12 +65,12 @@ def main():
         sample_features = context_features[sample_key]
         print(f"\n4. Sample features for {sample_key}:")
         print(f"   Number of features: {len(sample_features)}")
-        print(f"\n   Feature names (showing first 15):")
-        for i, (name, value) in enumerate(list(sample_features.items())[:15]):
+        print("\n   Feature names (showing first 15):")
+        for _i, (name, value) in enumerate(list(sample_features.items())[:15]):
             print(f"   - {name:40s} = {value:10.4f}")
 
         # Verify feature structure
-        print(f"\n5. Feature structure verification:")
+        print("\n5. Feature structure verification:")
         metric_names = ['author_influx', 'citation_velocity', 'reference_vitality',
                        'topic_diversity', 'cross_cluster_bridging']
         feature_types = ['zscore', 'qoq_delta', 'rolling_1q', 'rolling_2q',
@@ -86,10 +88,10 @@ def main():
         if missing:
             print(f"   WARNING: Missing features: {missing}")
         else:
-            print(f"   SUCCESS: All expected features present!")
+            print("   SUCCESS: All expected features present!")
 
         # Check value ranges
-        print(f"\n6. Value range sanity checks:")
+        print("\n6. Value range sanity checks:")
         all_zscores = []
         all_deltas = []
         for features in context_features.values():

@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+from _path_bootstrap import ensure_repo_imports
+
+REPO_ROOT = ensure_repo_imports()
 
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402

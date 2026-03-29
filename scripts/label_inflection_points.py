@@ -12,7 +12,6 @@ import argparse
 import json
 import logging
 import random
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,12 +23,12 @@ try:
 except Exception:  # pragma: no cover - SciPy optional
     curve_fit = None
 
-from utils.quarter_utils import quarter_to_int
+from _path_bootstrap import ensure_repo_imports
 
-# Onset detector (Phase 1 prospective-safe labeling)
-_REPO = Path(__file__).resolve().parents[1]
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+_REPO = ensure_repo_imports()
+
+from utils.quarter_utils import quarter_to_int  # noqa: E402
+
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 from src.maturation_detector import MaturationResult, detect_maturation  # noqa: E402
 from src.onset_detector import OnsetResult, detect_onset  # noqa: E402

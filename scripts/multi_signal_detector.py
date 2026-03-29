@@ -32,14 +32,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import warnings
 from pathlib import Path
 from typing import Any
 
-_REPO = Path(__file__).resolve().parents[1]
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+from _path_bootstrap import ensure_repo_imports
+
+_REPO = ensure_repo_imports()
 
 import lightgbm as lgb  # noqa: E402
 import numpy as np  # noqa: E402

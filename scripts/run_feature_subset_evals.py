@@ -12,37 +12,34 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
+from _path_bootstrap import ensure_repo_imports
 from lightgbm import LGBMClassifier
 from sklearn.metrics import (
     average_precision_score,
+    f1_score,
     precision_recall_curve,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
 )
 
-# Ensure repo root on path
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 # Repo imports
-from scripts.multi_signal_detector import (  # type: ignore
-    load_and_merge_signals,
+from utils.quarter_utils import filter_by_quarter  # type: ignore  # noqa: E402
+
+from scripts.multi_signal_detector import (  # type: ignore  # noqa: E402
     construct_labels,
     engineer_features,
+    load_and_merge_signals,
 )
-from scripts.utils.feature_registry import FeatureRegistry  # type: ignore
-from utils.quarter_utils import filter_by_quarter  # type: ignore
+from scripts.utils.feature_registry import FeatureRegistry  # type: ignore  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -85,7 +82,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_subset_config(path: Path) -> Dict[str, Dict]:
+def load_subset_config(path: Path) -> dict[str, dict]:
     if not path.exists():
         raise FileNotFoundError(f"Subset config not found: {path}")
     with path.open("r", encoding="utf-8") as fp:
@@ -93,7 +90,7 @@ def load_subset_config(path: Path) -> Dict[str, Dict]:
     return data.get("configs", data)
 
 
-def load_split_config(path: Path) -> Dict[str, Tuple[Optional[str], Optional[str]]]:
+def load_split_config(path: Path) -> dict[str, tuple[str | None, str | None]]:
     with path.open("r", encoding="utf-8") as fp:
         data = yaml.safe_load(fp) or {}
     splits = data.get("splits", data)
@@ -105,7 +102,7 @@ def load_split_config(path: Path) -> Dict[str, Tuple[Optional[str], Optional[str
     return resolved
 
 
-def stratified_sample(df: pd.DataFrame, n_samples: Optional[int], seed: int) -> pd.DataFrame:
+def stratified_sample(df: pd.DataFrame, n_samples: int | None, seed: int) -> pd.DataFrame:
     if n_samples is None or len(df) <= n_samples:
         return df
     positives = df[df["is_milestone"] == 1]
@@ -120,7 +117,7 @@ def stratified_sample(df: pd.DataFrame, n_samples: Optional[int], seed: int) -> 
     return pd.concat([pos_sample, neg_sample]).sample(frac=1, random_state=seed).reset_index(drop=True)
 
 
-def build_matrix(df: pd.DataFrame, features: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+def build_matrix(df: pd.DataFrame, features: list[str]) -> tuple[np.ndarray, np.ndarray]:
     X = df[features].replace([np.inf, -np.inf], 0).fillna(0).astype(np.float32).values
     y = df["is_milestone"].astype(int).values
     return X, y
@@ -144,7 +141,7 @@ def train_model(X: np.ndarray, y: np.ndarray, seed: int,
 
 
 def evaluate_model(model: LGBMClassifier, X: np.ndarray, y: np.ndarray,
-                   threshold: float, thresholds_sweep: List[float]) -> Dict:
+                   threshold: float, thresholds_sweep: list[float]) -> dict:
     probs = model.predict_proba(X)[:, 1]
     preds = (probs >= threshold).astype(int)
     metrics = {
@@ -169,7 +166,7 @@ def evaluate_model(model: LGBMClassifier, X: np.ndarray, y: np.ndarray,
     return metrics, sweep_rows, curve
 
 
-def plot_pr_curve(curve: Tuple[np.ndarray, np.ndarray, np.ndarray],
+def plot_pr_curve(curve: tuple[np.ndarray, np.ndarray, np.ndarray],
                   label: str, output_path: Path) -> None:
     precision, recall, _ = curve
     plt.figure(figsize=(5, 4))
@@ -210,7 +207,7 @@ def main() -> None:
     features_df = engineer_features(features_df)
 
     # Build splits
-    splits: Dict[str, pd.DataFrame] = {}
+    splits: dict[str, pd.DataFrame] = {}
     for split_name, (start, end) in split_config.items():
         split_df = filter_by_quarter(features_df, start, end, label=split_name)
         split_df = stratified_sample(split_df, args.sample_limit, args.random_seed)

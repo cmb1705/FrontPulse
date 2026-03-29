@@ -28,12 +28,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import pickle
-import sys
 import warnings
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 import lightgbm as lgb
 import numpy as np
@@ -42,6 +39,7 @@ import pandas as pd
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
 from optuna.samplers import TPESampler
+
 # Optional pruning callback (only available if optuna-integration[pytorch_lightning] installed)
 try:
     from optuna.integration import PyTorchLightningPruningCallback  # type: ignore
@@ -49,9 +47,10 @@ except ModuleNotFoundError:
     PyTorchLightningPruningCallback = None  # type: ignore
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import recall_score, precision_score, f1_score, average_precision_score
+from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
+
 try:
     from sklearn.frozen import FrozenEstimator  # type: ignore
 except ImportError:
@@ -70,8 +69,8 @@ try:
 except ModuleNotFoundError:
     CatBoostClassifier = None
 
-_XGB_GPU_AVAILABLE: Optional[bool] = None
-_CATBOOST_GPU_AVAILABLE: Optional[bool] = None
+_XGB_GPU_AVAILABLE: bool | None = None
+_CATBOOST_GPU_AVAILABLE: bool | None = None
 _PREFIT_CAL_WARNING_EMITTED = False
 
 def _xgb_supports_gpu() -> bool:
@@ -128,7 +127,7 @@ if CatBoostClassifier is not None:
 MODEL_TYPES = MODEL_TYPES_ALL.copy()
 
 
-def _wrap_for_prefit_calibration(estimator: Any) -> tuple[Any, Dict[str, Any]]:
+def _wrap_for_prefit_calibration(estimator: Any) -> tuple[Any, dict[str, Any]]:
     """
     Prepare arguments for CalibratedClassifierCV when the estimator is already fit.
 
@@ -139,7 +138,7 @@ def _wrap_for_prefit_calibration(estimator: Any) -> tuple[Any, Dict[str, Any]]:
     if FrozenEstimator is not None:
         frozen = FrozenEstimator(estimator)
         if hasattr(estimator, "_estimator_type"):
-            setattr(frozen, "_estimator_type", getattr(estimator, "_estimator_type"))
+            frozen._estimator_type = estimator._estimator_type
         return frozen, {}
 
     if not _PREFIT_CAL_WARNING_EMITTED:
@@ -163,12 +162,15 @@ def _parse_lag_max_arg(value):
         return None
     return int(value_str)
 
+from _path_bootstrap import ensure_repo_imports  # noqa: E402
+
+ensure_repo_imports()
+
 # Import from multi_signal_detector
-sys.path.insert(0, str(Path(__file__).parent))
-from multi_signal_detector import (
-    load_and_merge_signals,
+from multi_signal_detector import (  # noqa: E402
     construct_labels,
     engineer_features,
+    load_and_merge_signals,
     select_features,
     summarize_detection_lag,
 )
@@ -178,7 +180,7 @@ def create_model_pipeline(
     trial: optuna.Trial,
     use_smote: bool = True,
     model_n_jobs: int = 1,
-) -> tuple[ImbPipeline, Dict[str, Any]]:
+) -> tuple[ImbPipeline, dict[str, Any]]:
     """
     Create model pipeline based on Optuna trial suggestions.
 
@@ -301,7 +303,7 @@ def create_model_pipeline(
         # Prefer GPU if available
         use_gpu = _xgb_supports_gpu()
         tree_method = 'hist'
-        extra_params: Dict[str, Any] = {}
+        extra_params: dict[str, Any] = {}
         if use_gpu:
             extra_params['device'] = 'cuda'
         model = XGBClassifier(
@@ -377,7 +379,7 @@ def objective(
     trial: optuna.Trial,
     X: pd.DataFrame,
     y: pd.Series,
-    metadata: Optional[pd.DataFrame] = None,
+    metadata: pd.DataFrame | None = None,
     cv_folds: int = 5,
     min_precision: float = 0.20,
     use_smote: bool = True,
@@ -398,9 +400,8 @@ def objective(
 
     # Cross-validation
     cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
-    pruning_callback = None
     if use_pruning and PyTorchLightningPruningCallback is not None:
-        pruning_callback = PyTorchLightningPruningCallback(trial, monitor='val_recall')
+        PyTorchLightningPruningCallback(trial, monitor='val_recall')
 
     recalls = []
     precisions = []
@@ -473,7 +474,7 @@ def objective(
     mean_pr_auc = np.mean(pr_aucs)
 
     # Aggregate lag metrics (optional)
-    lag_summary: Dict[str, float] = {}
+    lag_summary: dict[str, float] = {}
     if fold_predictions:
         concatenated = pd.concat(fold_predictions, ignore_index=True)
         lag_summary = summarize_detection_lag(concatenated)
@@ -505,7 +506,7 @@ def objective(
 def run_tuning(
     X: pd.DataFrame,
     y: pd.Series,
-    metadata: Optional[pd.DataFrame],
+    metadata: pd.DataFrame | None,
     n_trials: int = 50,
     cv_folds: int = 5,
     min_precision: float = 0.20,
@@ -515,7 +516,7 @@ def run_tuning(
     resume: bool = False,
     optuna_n_jobs: int = 1,
     model_n_jobs: int = 1,
-    use_pruning: bool = False,
+    use_pruning: bool = False,  # noqa: ARG001
 ) -> optuna.Study:
     """
     Run Optuna hyperparameter tuning.
@@ -550,15 +551,15 @@ def run_tuning(
         )
         print(f"Created new study: {study_name}")
 
-    print(f"\n" + "="*70)
-    print(f"MSD Meta-Learning: Optuna Hyperparameter Tuning")
-    print(f"="*70)
+    print("\n" + "="*70)
+    print("MSD Meta-Learning: Optuna Hyperparameter Tuning")
+    print("="*70)
     print(f"Trials: {n_trials}")
     print(f"CV folds: {cv_folds}")
     print(f"Min precision: {min_precision:.2f}")
     print(f"Use SMOTE: {use_smote}")
     print(f"Dataset: {len(X)} samples, {y.sum()} positive ({y.sum()/len(y)*100:.1f}%)")
-    print(f"="*70 + "\n")
+    print("="*70 + "\n")
 
     # Run optimization
     study.optimize(
@@ -723,15 +724,12 @@ def main():
         storage_path.parent.mkdir(parents=True, exist_ok=True)
 
     global MODEL_TYPES
-    if args.model_types:
-        MODEL_TYPES = args.model_types
-    else:
-        MODEL_TYPES = MODEL_TYPES_ALL.copy()
+    MODEL_TYPES = args.model_types or MODEL_TYPES_ALL.copy()
 
     print("="*70)
     print("MSD Meta-Learning: Automated Model Selection & Tuning")
     print("="*70)
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"   Trials: {args.n_trials}")
     print(f"   CV folds: {args.cv_folds}")
     print(f"   Min precision: {args.min_precision:.2f}")
@@ -812,19 +810,19 @@ def main():
     print(f"   F1:        {best_trial.user_attrs['f1']:.3f}")
     print(f"   PR-AUC:    {best_trial.user_attrs['pr_auc']:.3f}")
 
-    print(f"\nBest Hyperparameters:")
+    print("\nBest Hyperparameters:")
     for key, value in best_trial.params.items():
         print(f"   {key}: {value}")
 
     # Save results
     save_study_results(study, output_dir, feature_names)
 
-    print(f"\n" + "="*70)
+    print("\n" + "="*70)
     print(f"Results saved to: {output_dir}")
-    print(f"="*70)
-    print(f"\nNext steps:")
+    print("="*70)
+    print("\nNext steps:")
     print(f"1. Review best config: {output_dir / 'best_config.json'}")
-    print(f"2. Retrain MSD with best config: python scripts/multi_signal_detector.py \\")
+    print("2. Retrain MSD with best config: python scripts/multi_signal_detector.py \\")
     print(f"      --model {best_trial.params['model_type']} \\")
     if 'rf_n_estimators' in best_trial.params:
         print(f"      --n-estimators {best_trial.params['rf_n_estimators']} \\")

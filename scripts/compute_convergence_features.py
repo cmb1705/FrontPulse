@@ -23,7 +23,6 @@ import argparse
 import json
 import logging
 import re
-import sys
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -31,10 +30,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 from src.convergence import (  # noqa: E402
     CONVERGENCE_FEATURE_DEFAULTS,

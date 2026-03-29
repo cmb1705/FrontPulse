@@ -7,9 +7,13 @@ Tests that multi_signal_detector.py correctly detects and uses context features.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
+from _path_bootstrap import ensure_repo_imports
+
+ensure_repo_imports()
+
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+
 
 # Create synthetic test data
 def create_test_features(include_context: bool = False) -> pd.DataFrame:
@@ -62,9 +66,7 @@ def test_feature_selection():
     print("=" * 70)
 
     # Import the select_features function from MSD
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent))
-    from multi_signal_detector import select_features, engineer_features
+    from multi_signal_detector import engineer_features, select_features
 
     print("\n[TEST 1] Baseline mode (no context features)")
     print("-" * 70)
@@ -107,7 +109,7 @@ def test_feature_selection():
     print(f"Enriched total:     {len(features_enriched)}")
     print(f"   Core:            {enriched_core}")
     print(f"   Context:         {enriched_context}")
-    print(f"Expected context:   35")
+    print("Expected context:   35")
 
     assert enriched_context == 35, f"Expected 35 context features, got {enriched_context}"
     print("[PASS] Feature counts correct\n")

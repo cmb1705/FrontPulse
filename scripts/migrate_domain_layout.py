@@ -26,7 +26,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-REPO = Path(__file__).resolve().parents[1]
+from _path_bootstrap import ensure_repo_imports
+
+REPO = ensure_repo_imports()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -273,9 +275,6 @@ def ensure_empty_domain_dirs(
     For CRISPR, ingest/ and graphs/ start empty since the raw data
     needs to be re-ingested into the isolated tree.
     """
-    if str(REPO) not in sys.path:
-        sys.path.insert(0, str(REPO))
-
     from src.domain_registry import get_domain
 
     for domain_id in domains:

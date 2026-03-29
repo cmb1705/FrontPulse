@@ -10,19 +10,18 @@ Test with 10 lineage-quarters to verify:
 Then hand off to user for full run.
 """
 
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from transformers import AutoTokenizer, AutoModel
-import torch
 import json
-from typing import Dict, Tuple
-import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import torch
+from _path_bootstrap import ensure_repo_imports
+from transformers import AutoModel, AutoTokenizer
 
 # Import AbstractExtractor
-repo_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(repo_root))
-from scripts.extract_abstracts import AbstractExtractor
+repo_root = ensure_repo_imports()
+from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
 
 
 def load_sample_lineage_quarters(
@@ -89,7 +88,7 @@ def aggregate_sample_texts(
     n_samples: int = 10
 ) -> list:
     """Aggregate texts for sample lineage-quarters."""
-    print(f"[SMOKE TEST] Aggregating texts...")
+    print("[SMOKE TEST] Aggregating texts...")
 
     # Group by lineage-quarter
     lineage_quarter_data = []
@@ -116,12 +115,12 @@ def aggregate_sample_texts(
     return lineage_quarter_data
 
 
-def test_embedding(lineage_quarter_data: list) -> Dict[Tuple[int, str], np.ndarray]:
+def test_embedding(lineage_quarter_data: list) -> dict[tuple[int, str], np.ndarray]:
     """Test embedding computation on small sample."""
-    print(f"[SMOKE TEST] Testing embedding computation...")
+    print("[SMOKE TEST] Testing embedding computation...")
 
     # Load model
-    print(f"   Loading SciBERT...")
+    print("   Loading SciBERT...")
     tokenizer = AutoTokenizer.from_pretrained('allenai/scibert_scivocab_uncased')
     model = AutoModel.from_pretrained('allenai/scibert_scivocab_uncased')
     model.eval()
@@ -141,7 +140,7 @@ def test_embedding(lineage_quarter_data: list) -> Dict[Tuple[int, str], np.ndarr
     inputs = tokenizer(texts, return_tensors='pt', max_length=512, truncation=True, padding=True)
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
-    print(f"   Computing embeddings...")
+    print("   Computing embeddings...")
     with torch.inference_mode():
         outputs = model(**inputs)
 
@@ -163,9 +162,9 @@ def test_embedding(lineage_quarter_data: list) -> Dict[Tuple[int, str], np.ndarr
     return embeddings
 
 
-def test_velocity(embeddings: Dict) -> pd.DataFrame:
+def test_velocity(embeddings: dict) -> pd.DataFrame:
     """Test velocity computation."""
-    print(f"[SMOKE TEST] Testing velocity computation...")
+    print("[SMOKE TEST] Testing velocity computation...")
 
     from scipy.spatial.distance import cosine
 

@@ -11,24 +11,23 @@ Optimizations:
 Estimated runtime: 20-30 minutes on GPU
 """
 
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from transformers import AutoTokenizer, AutoModel
-import torch
-from torch.utils.data import Dataset, DataLoader
-from torch.cuda.amp import autocast
-from collections import defaultdict
 import json
-from typing import Dict, List, Tuple
-import sys
 import shutil
+from collections import defaultdict
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import torch
+from _path_bootstrap import ensure_repo_imports
+from torch.cuda.amp import autocast
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
+from transformers import AutoModel, AutoTokenizer
 
 # Import AbstractExtractor
-repo_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(repo_root))
-from scripts.extract_abstracts import AbstractExtractor
+repo_root = ensure_repo_imports()
+from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
 
 STAGE1_OUTPUT_DIR = Path('data/out/experiments/stage1_quarterly_embeddings')
 LEGACY_PHASE1_OUTPUT_DIR = Path('data/out/experiments/phase1_quarterly_embeddings')
@@ -43,7 +42,7 @@ class LineageQuarterDataset(Dataset):
     Handles text preprocessing in parallel via DataLoader workers.
     """
 
-    def __init__(self, lineage_quarter_data: List[Tuple[int, str, str, int]]):
+    def __init__(self, lineage_quarter_data: list[tuple[int, str, str, int]]):
         """
         Args:
             lineage_quarter_data: List of (lineage_id, quarter, text, n_papers)
@@ -114,7 +113,7 @@ def aggregate_texts_by_lineage_quarter(
     extractor: AbstractExtractor,
     max_papers_per_lq: int = 50,
     n_samples: int = None
-) -> List[Tuple[int, str, str, int]]:
+) -> list[tuple[int, str, str, int]]:
     """
     Aggregate paper texts by (lineage_id, quarter).
 
@@ -138,7 +137,7 @@ def aggregate_texts_by_lineage_quarter(
 
     # Extract paper IDs only from selected lineage-quarters
     selected_papers = set()
-    for (lineage_id, quarter), group in grouped:
+    for (_lineage_id, _quarter), group in grouped:
         papers = group['paper_id'].tolist()[:max_papers_per_lq]
         selected_papers.update(papers)
 
@@ -150,7 +149,7 @@ def aggregate_texts_by_lineage_quarter(
     print(f"   Loaded {len(paper_texts)} papers with text")
 
     # Aggregate texts
-    print(f"   Aggregating texts...")
+    print("   Aggregating texts...")
     lineage_quarter_data = []
 
     for (lineage_id, quarter), group in tqdm(grouped, desc="   Aggregating"):
@@ -177,13 +176,13 @@ def aggregate_texts_by_lineage_quarter(
 
 
 def compute_quarterly_embeddings_optimized(
-    lineage_quarter_data: List[Tuple[int, str, str, int]],
+    lineage_quarter_data: list[tuple[int, str, str, int]],
     model_name: str = 'allenai/scibert_scivocab_uncased',
     batch_size: int = 32,
     num_workers: int = 4,
     use_fp16: bool = True,
     use_compile: bool = True
-) -> Dict[Tuple[int, str], np.ndarray]:
+) -> dict[tuple[int, str], np.ndarray]:
     """
     Compute SciBERT embeddings with optimizations.
 
@@ -217,28 +216,28 @@ def compute_quarterly_embeddings_optimized(
 
     # Optimization 1: torch.compile (PyTorch 2.0+)
     if use_compile and hasattr(torch, 'compile'):
-        print(f"   Applying torch.compile...")
+        print("   Applying torch.compile...")
         try:
             model = torch.compile(model, mode="reduce-overhead")
-            print(f"   [ENABLED] torch.compile")
+            print("   [ENABLED] torch.compile")
         except Exception as e:
             print(f"   [DISABLED] torch.compile failed: {e}")
             use_compile = False
     else:
-        print(f"   [DISABLED] torch.compile (requires PyTorch 2.0+)")
+        print("   [DISABLED] torch.compile (requires PyTorch 2.0+)")
         use_compile = False
 
     # Optimization 2: Set matmul precision
     if device.type == 'cuda':
         torch.set_float32_matmul_precision("high")
-        print(f"   [ENABLED] High matmul precision")
+        print("   [ENABLED] High matmul precision")
 
     # Optimization 3: FP16 check
     if use_fp16:
         if device.type == 'cuda':
-            print(f"   [ENABLED] FP16 mixed precision")
+            print("   [ENABLED] FP16 mixed precision")
         else:
-            print(f"   [DISABLED] FP16 (requires CUDA)")
+            print("   [DISABLED] FP16 (requires CUDA)")
             use_fp16 = False
 
     # Create dataset and dataloader
@@ -301,7 +300,7 @@ def compute_quarterly_embeddings_optimized(
 
 
 def compute_semantic_velocity(
-    embeddings: Dict[Tuple[int, str], np.ndarray]
+    embeddings: dict[tuple[int, str], np.ndarray]
 ) -> pd.DataFrame:
     """
     Compute semantic velocity: cosine distance between consecutive quarters.
@@ -357,7 +356,7 @@ def resolve_tight_mapping_path() -> Path:
 
 
 def save_embeddings_and_velocity(
-    embeddings: Dict[Tuple[int, str], np.ndarray],
+    embeddings: dict[tuple[int, str], np.ndarray],
     velocity_df: pd.DataFrame,
     output_dir: Path
 ):
@@ -386,8 +385,8 @@ def save_embeddings_and_velocity(
     # Summary statistics
     summary = {
         'n_embeddings': len(embeddings),
-        'n_lineages': len(set(k[0] for k in keys)),
-        'n_quarters': len(set(k[1] for k in keys)),
+        'n_lineages': len({k[0] for k in keys}),
+        'n_quarters': len({k[1] for k in keys}),
         'velocity_mean': float(velocity_df['semantic_velocity'].mean()),
         'velocity_median': float(velocity_df['semantic_velocity'].median()),
         'velocity_std': float(velocity_df['semantic_velocity'].std()),
@@ -398,12 +397,12 @@ def save_embeddings_and_velocity(
     with open(output_dir / 'quarterly_embeddings_summary.json', 'w') as f:
         json.dump(summary, f, indent=2)
 
-    print(f"   Saved:")
+    print("   Saved:")
     print(f"      - quarterly_embeddings.npz ({len(embeddings)} embeddings, {embedding_array.nbytes / 1e9:.2f} GB)")
     print(f"      - semantic_velocity.csv ({len(velocity_df)} rows)")
-    print(f"      - quarterly_embeddings_summary.json")
+    print("      - quarterly_embeddings_summary.json")
 
-    print(f"\n   Summary:")
+    print("\n   Summary:")
     for key, value in summary.items():
         print(f"      {key}: {value}")
 
@@ -414,7 +413,7 @@ def save_embeddings_and_velocity(
             shutil.copy2(src, LEGACY_PHASE1_OUTPUT_DIR / filename)
 
 
-def test_coverage(embeddings: Dict, tight_mapping_path: Path):
+def test_coverage(embeddings: dict, tight_mapping_path: Path):
     """Test coverage of milestone lineages."""
     print("[6/6] Testing coverage on Stage 0 tight mapping...")
 
@@ -423,7 +422,7 @@ def test_coverage(embeddings: Dict, tight_mapping_path: Path):
     milestone_lineages = set(tight_mapping['lineage_id'].unique())
 
     # Check coverage
-    embedded_lineages = set(k[0] for k in embeddings.keys())
+    embedded_lineages = {k[0] for k in embeddings}
     coverage = len(milestone_lineages & embedded_lineages)
 
     print(f"   Milestone lineages: {len(milestone_lineages)}")
@@ -433,7 +432,7 @@ def test_coverage(embeddings: Dict, tight_mapping_path: Path):
     # Show missing lineages
     missing = milestone_lineages - embedded_lineages
     if missing:
-        print(f"   Missing {len(missing)} milestone lineages: {sorted(list(missing))[:10]}...")
+        print(f"   Missing {len(missing)} milestone lineages: {sorted(missing)[:10]}...")
 
 
 def main():
@@ -472,7 +471,7 @@ def main():
     USE_COMPILE = not args.no_compile
     N_SAMPLES = args.n_samples
 
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"   Sample limit: {N_SAMPLES if N_SAMPLES else 'None (full dataset)'}")
     print(f"   Batch size: {BATCH_SIZE}")
     print(f"   DataLoader workers: {NUM_WORKERS}")
@@ -516,7 +515,7 @@ def main():
     print("\n" + "="*70)
     print("STAGE 1 COMPLETE")
     print("="*70)
-    print(f"\nNext step: Run Stage 1b to test multi-signal detection with real semantic velocity")
+    print("\nNext step: Run Stage 1b to test multi-signal detection with real semantic velocity")
 
 
 if __name__ == '__main__':

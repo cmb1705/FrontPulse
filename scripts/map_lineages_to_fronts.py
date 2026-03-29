@@ -20,15 +20,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-repo_root = Path(__file__).resolve().parents[1]
-if str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
+repo_root = ensure_repo_imports()
 
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 from src.trusted_io import load_trusted_pickle  # noqa: E402

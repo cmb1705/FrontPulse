@@ -5,30 +5,28 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-repo_root = Path(__file__).resolve().parents[1]
-sys.path.append(str(repo_root))  # now `import src.*` works
+repo_root = ensure_repo_imports()
 
 try:
-    from plotly.subplots import make_subplots  # type: ignore
     import plotly.graph_objects as go  # type: ignore
+    from plotly.subplots import make_subplots  # type: ignore
 except Exception:  # pragma: no cover
     make_subplots = None  # type: ignore
     go = None  # type: ignore
 
-from src import trusted_io
-from src.community import run_leiden, compute_pia_flags
-from src.alignment import variation_of_information
+from src import trusted_io  # noqa: E402
+from src.alignment import variation_of_information  # noqa: E402
+from src.community import compute_pia_flags, run_leiden  # noqa: E402
 
 
-def _parse_resolutions(spec: str) -> List[float]:
-    values: List[float] = []
+def _parse_resolutions(spec: str) -> list[float]:
+    values: list[float] = []
     for token in spec.split(","):
         token = token.strip()
         if not token:
@@ -82,8 +80,8 @@ def _plot_results(
             y=df["median_size"],
             mode="lines+markers",
             name="Median size",
-            marker=dict(color="#1f77b4"),
-            line=dict(color="#1f77b4"),
+            marker={"color": "#1f77b4"},
+            line={"color": "#1f77b4"},
         ),
         row=2,
         col=1,
@@ -95,8 +93,8 @@ def _plot_results(
             y=df["p10"],
             mode="lines+markers",
             name="p10",
-            marker=dict(color="#ff7f0e"),
-            line=dict(color="#ff7f0e"),
+            marker={"color": "#ff7f0e"},
+            line={"color": "#ff7f0e"},
         ),
         row=3,
         col=1,
@@ -107,8 +105,8 @@ def _plot_results(
             y=df["p90"],
             mode="lines+markers",
             name="p90",
-            marker=dict(color="#2ca02c"),
-            line=dict(color="#2ca02c"),
+            marker={"color": "#2ca02c"},
+            line={"color": "#2ca02c"},
         ),
         row=3,
         col=1,
@@ -119,8 +117,8 @@ def _plot_results(
         y=df["pia_rate"],
         mode="lines+markers",
         name="PIA rate",
-        marker=dict(color="#d62728"),
-        line=dict(color="#d62728"),
+        marker={"color": "#d62728"},
+        line={"color": "#d62728"},
         yaxis="y4",
     )
     fig.add_trace(ax4, row=4, col=1)
@@ -130,8 +128,8 @@ def _plot_results(
             y=df["nVI_QvQ20"],
             mode="lines+markers",
             name="nVI_QvQ20",
-            marker=dict(color="#9467bd"),
-            line=dict(color="#9467bd"),
+            marker={"color": "#9467bd"},
+            line={"color": "#9467bd"},
         ),
         row=4,
         col=1,
@@ -139,7 +137,7 @@ def _plot_results(
 
     fig.update_layout(
         height=1200,
-        margin=dict(l=60, r=20, t=80, b=40),
+        margin={"l": 60, "r": 20, "t": 80, "b": 40},
         hovermode="x unified",
     )
     fig.update_xaxes(title_text="Resolution", row=4, col=1)
@@ -223,7 +221,6 @@ def main() -> None:
     resolutions = _parse_resolutions(args.res)
     results = []
     prev_partition = None
-    prev_size = None
     for r in resolutions:
         res = run_leiden(G, resolution=r, min_size=args.min, max_size=args.max)
         sizes = [len(c["nodes"]) for c in res["communities"]]

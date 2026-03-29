@@ -19,30 +19,28 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
-import warnings
+from typing import Any
 
-import pandas as pd
-import numpy as np
-import pyarrow.parquet as pq
+from _path_bootstrap import ensure_repo_imports
 
-# Add src to path
-repo_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(repo_root / 'src'))
+repo_root = ensure_repo_imports()
 
-from metrics.common import (
-    GLOBAL_METRIC_SCHEMA,
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import pyarrow.parquet as pq  # noqa: E402
+
+from metrics.common import (  # noqa: E402
     FRONT_METRIC_SCHEMA,
+    GLOBAL_METRIC_SCHEMA,
     LINEAGE_METRIC_SCHEMA,
-    load_manifest
+    load_manifest,
 )
-
 
 # ============================================================================
 # Test 1: Metric Schema Validation
 # ============================================================================
 
-def validate_metric_schema(parquet_path: Path, expected_schema, metric_name: str, level: str) -> Tuple[bool, List[str]]:
+def validate_metric_schema(parquet_path: Path, expected_schema, metric_name: str, level: str) -> tuple[bool, list[str]]:  # noqa: ARG001
     """
     Validate that a parquet file conforms to expected schema.
 
@@ -107,13 +105,10 @@ def _types_compatible(expected, actual) -> bool:
         return True
 
     # String compatibility
-    if pa.types.is_string(expected) and pa.types.is_string(actual):
-        return True
-
-    return False
+    return bool(pa.types.is_string(expected) and pa.types.is_string(actual))
 
 
-def test_metric_schemas(metrics_dir: Path) -> Dict[str, Any]:
+def test_metric_schemas(metrics_dir: Path) -> dict[str, Any]:
     """
     Test all metric outputs conform to standardized schemas.
 
@@ -159,10 +154,10 @@ def test_metric_schemas(metrics_dir: Path) -> Dict[str, Any]:
             )
 
             if is_valid:
-                print(f"   [PASS] Schema valid")
+                print("   [PASS] Schema valid")
                 results["passed_metrics"] += 1
             else:
-                print(f"   [FAIL] Schema validation failed")
+                print("   [FAIL] Schema validation failed")
                 for error in errors:
                     print(f"      - {error}")
                 results["passed"] = False
@@ -179,7 +174,7 @@ def test_metric_schemas(metrics_dir: Path) -> Dict[str, Any]:
 # Test 2: Feature Integration Edge Cases
 # ============================================================================
 
-def test_missing_data_handling() -> Dict[str, Any]:
+def test_missing_data_handling() -> dict[str, Any]:
     """
     Test that feature computation gracefully handles missing data.
 
@@ -202,7 +197,6 @@ def test_missing_data_handling() -> Dict[str, Any]:
     }
 
     # Import feature computation modules
-    sys.path.insert(0, str(repo_root / 'scripts'))
     from multi_signal_detector import engineer_features, select_features
 
     # Test Case 1: Missing columns (should not crash)
@@ -311,7 +305,7 @@ def test_missing_data_handling() -> Dict[str, Any]:
         X, features = select_features(df_engineered)
 
         assert len(X) == 0, "Should return empty result"
-        print(f"   [PASS] Handled empty DataFrame")
+        print("   [PASS] Handled empty DataFrame")
         results["passed_cases"] += 1
 
     except Exception as e:
@@ -334,7 +328,7 @@ def test_msd_performance_drift(
     baseline_recall: float = 0.85,
     baseline_precision: float = 0.20,
     tolerance: float = 0.05
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Test that MSD performance hasn't drifted beyond acceptable thresholds.
 
@@ -371,13 +365,13 @@ def test_msd_performance_drift(
         return results
 
     # Load tuning results
-    with open(best_config_path, 'r') as f:
+    with open(best_config_path) as f:
         best_config = json.load(f)
 
     actual_recall = best_config.get("mean_recall", 0.0)
     actual_precision = best_config.get("mean_precision", 0.0)
 
-    print(f"\n[TEST] Current Performance")
+    print("\n[TEST] Current Performance")
     print(f"   Recall:    {actual_recall:.3f}")
     print(f"   Precision: {actual_precision:.3f}")
 
@@ -419,7 +413,7 @@ def test_msd_performance_drift(
 # Test 4: Manifest Integrity
 # ============================================================================
 
-def test_manifest_integrity(metrics_dir: Path) -> Dict[str, Any]:
+def test_manifest_integrity(metrics_dir: Path) -> dict[str, Any]:
     """
     Test that manifest is well-formed and matches actual outputs.
     """
@@ -477,7 +471,7 @@ def test_manifest_integrity(metrics_dir: Path) -> Dict[str, Any]:
 
         for metric_name in expected_metrics:
             # Check if at least one level exists for this metric
-            metric_keys = [k for k in metrics.keys() if k.startswith(metric_name)]
+            metric_keys = [k for k in metrics if k.startswith(metric_name)]
             if not metric_keys:
                 error_msg = f"Missing metric entry: {metric_name}"
                 print(f"   [FAIL] {error_msg}")
@@ -627,7 +621,7 @@ def main():
     passed_tests = sum(1 for r in all_results if r.get("passed") is True)
     failed_tests = sum(1 for r in all_results if r.get("passed") is False)
     skipped_tests = sum(1 for r in all_results if r.get("passed") is None)
-    total_tests = len(all_results)
+    len(all_results)
 
     for result in all_results:
         test_name = result["test_name"]

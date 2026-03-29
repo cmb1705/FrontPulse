@@ -15,19 +15,18 @@ Generates:
 import argparse
 import json
 from pathlib import Path
-import sys
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
-from sklearn.metrics import precision_recall_curve, roc_curve, confusion_matrix
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
-from src.trusted_io import load_trusted_pickle
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import seaborn as sns  # noqa: E402
+from sklearn.metrics import confusion_matrix, precision_recall_curve, roc_curve  # noqa: E402
+
+from src.trusted_io import load_trusted_pickle  # noqa: E402
 
 # Okabe-Ito color palette (color-blind friendly)
 COLORS = {
@@ -292,7 +291,7 @@ def generate_figure4_importance(data, output_dir):
     ax.set_title('Top 15 Features by Importance (LightGBM Gain)')
 
     # Add value labels
-    for i, (pct, feat) in enumerate(zip(top_pct, top_features)):
+    for i, (pct, _feat) in enumerate(zip(top_pct, top_features)):
         ax.text(pct + 0.2, i, f'{pct:.1f}%', va='center', fontsize=9)
 
     ax.set_xlim([0, max(top_pct) * 1.15])
@@ -321,7 +320,7 @@ def generate_sfig1_trajectories(data, output_dir):
     tp = preds[(preds['is_inflection_true'] == 1) & (preds['pred'] == 1)]['lineage_id'].unique()
     fp = preds[(preds['is_inflection_true'] == 0) & (preds['pred'] == 1)]['lineage_id'].unique()
     fn = preds[(preds['is_inflection_true'] == 1) & (preds['pred'] == 0)]['lineage_id'].unique()
-    tn = preds[(preds['is_inflection_true'] == 0) & (preds['pred'] == 0)]['lineage_id'].unique()
+    preds[(preds['is_inflection_true'] == 0) & (preds['pred'] == 0)]['lineage_id'].unique()
 
     # Select representative lineages
     examples = {

@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
 from pathlib import Path
 
@@ -33,6 +32,7 @@ import numpy as np
 import pandas as pd
 import torch
 import yaml
+from _path_bootstrap import ensure_repo_imports
 from sklearn.preprocessing import normalize
 from tqdm import tqdm
 
@@ -40,8 +40,7 @@ from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 
 # Custom imports
-repo_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(repo_root))
+repo_root = ensure_repo_imports()
 
 from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402

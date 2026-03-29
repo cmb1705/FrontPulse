@@ -21,14 +21,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 from pathlib import Path
 
 import pandas as pd
+from _path_bootstrap import ensure_repo_imports
 
-_REPO = Path(__file__).resolve().parents[1]
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+_REPO = ensure_repo_imports()
 
 from src.bocpd import BOCPDConfig, run_bocpd_on_fronts  # noqa: E402
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402

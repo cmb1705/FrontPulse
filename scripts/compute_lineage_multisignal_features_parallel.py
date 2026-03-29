@@ -8,15 +8,11 @@ This wrapper remains for backward compatibility with existing docs/commands.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from _path_bootstrap import ensure_repo_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = ensure_repo_imports()
 
 from scripts.compute_lineage_multisignal_features import main  # noqa: E402
-
 
 if __name__ == "__main__":
     print("WARNING: compute_lineage_multisignal_features_parallel.py is deprecated; "

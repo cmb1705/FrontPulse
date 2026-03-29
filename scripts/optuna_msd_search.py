@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 import warnings
 from pathlib import Path
 from typing import Any
@@ -28,9 +27,9 @@ from sklearn.model_selection import StratifiedKFold
 warnings.filterwarnings("ignore", category=FutureWarning)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-REPO = Path(__file__).resolve().parents[1]
-if str(REPO) not in sys.path:
-    sys.path.insert(0, str(REPO))
+from _path_bootstrap import ensure_repo_imports  # noqa: E402
+
+REPO = ensure_repo_imports()
 
 from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
 
