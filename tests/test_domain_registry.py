@@ -9,6 +9,8 @@ import pytest
 from src.domain_registry import (
     DOMAIN_REGISTRY,
     DomainConfig,
+    DomainDataPaths,
+    apply_domain_path_defaults,
     get_domain,
     list_domains,
     resolve_domain_args,
@@ -133,3 +135,94 @@ class TestResolveDomainArgs:
         project_root = Path(__file__).resolve().parents[1]
         result = resolve_domain_args("crispr", None, project_root)
         assert "crispr" in result
+
+
+# ---------------------------------------------------------------------------
+# apply_domain_path_defaults
+# ---------------------------------------------------------------------------
+
+class TestApplyDomainPathDefaults:
+    """Tests for the shared CLI path-defaulting helper."""
+
+    @staticmethod
+    def _make_paths(root: Path) -> DomainDataPaths:
+        """Build a DomainDataPaths for testing."""
+        domain = get_domain("psc")
+        return domain.resolve_data_paths(root)
+
+    def test_sets_unset_args_from_domain_paths(self, tmp_path: Path) -> None:
+        """Unset args get domain-derived values."""
+        import argparse
+
+        args = argparse.Namespace(registry=None, slices_dir=None)
+        paths = self._make_paths(tmp_path)
+        apply_domain_path_defaults(args, paths, {
+            "registry": ("lineage_tracking", "lineage_registry.json",
+                         "data/out/02_lineage_tracking/lineage_registry.json"),
+            "slices_dir": ("slices", "", "data/current_ingest/slices"),
+        })
+        assert args.registry == str(paths.lineage_tracking / "lineage_registry.json")
+        assert args.slices_dir == str(paths.slices)
+
+    def test_preserves_explicit_args(self, tmp_path: Path) -> None:
+        """Explicitly set args are not overwritten."""
+        import argparse
+
+        args = argparse.Namespace(registry="/my/custom/path", slices_dir=None)
+        paths = self._make_paths(tmp_path)
+        apply_domain_path_defaults(args, paths, {
+            "registry": ("lineage_tracking", "lineage_registry.json",
+                         "data/out/02_lineage_tracking/lineage_registry.json"),
+            "slices_dir": ("slices", "", "data/current_ingest/slices"),
+        })
+        assert args.registry == "/my/custom/path"
+        assert args.slices_dir == str(paths.slices)
+
+    def test_uses_fallback_when_no_domain(self) -> None:
+        """When paths is None, fallback values are used."""
+        import argparse
+
+        args = argparse.Namespace(registry=None, slices_dir=None)
+        apply_domain_path_defaults(args, None, {
+            "registry": ("lineage_tracking", "lineage_registry.json",
+                         "data/out/02_lineage_tracking/lineage_registry.json"),
+            "slices_dir": ("slices", "", "data/current_ingest/slices"),
+        })
+        assert args.registry == "data/out/02_lineage_tracking/lineage_registry.json"
+        assert args.slices_dir == "data/current_ingest/slices"
+
+    def test_empty_sub_path(self, tmp_path: Path) -> None:
+        """Empty sub_path uses the base attribute directly."""
+        import argparse
+
+        args = argparse.Namespace(out_dir=None)
+        paths = self._make_paths(tmp_path)
+        apply_domain_path_defaults(args, paths, {
+            "out_dir": ("out", "", "data/out"),
+        })
+        assert args.out_dir == str(paths.out)
+
+    def test_missing_arg_attribute_skipped(self, tmp_path: Path) -> None:
+        """Args without the named attribute are skipped (no error)."""
+        import argparse
+
+        args = argparse.Namespace()  # no attributes at all
+        paths = self._make_paths(tmp_path)
+        # Should not raise
+        apply_domain_path_defaults(args, paths, {
+            "nonexistent": ("out", "", "data/out"),
+        })
+
+    def test_nested_sub_path(self, tmp_path: Path) -> None:
+        """Sub-paths with multiple components resolve correctly."""
+        import argparse
+
+        args = argparse.Namespace(features=None)
+        paths = self._make_paths(tmp_path)
+        apply_domain_path_defaults(args, paths, {
+            "features": ("lineage_tracking",
+                         "lineage_multisignal_features.csv",
+                         "data/out/02_lineage_tracking/lineage_multisignal_features.csv"),
+        })
+        expected = str(paths.lineage_tracking / "lineage_multisignal_features.csv")
+        assert args.features == expected

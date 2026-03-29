@@ -338,6 +338,47 @@ def resolve_script_paths(
     return paths
 
 
+def apply_domain_path_defaults(
+    args: argparse.Namespace,
+    paths: DomainDataPaths | None,
+    defaults: dict[str, tuple[str, str | Path, str | Path]],
+) -> None:
+    """Apply domain-derived defaults to unset CLI arguments.
+
+    For each entry in *defaults*, if ``getattr(args, arg_name)`` is ``None``,
+    set it to the domain-derived path (when *paths* is not ``None``) or the
+    legacy fallback.
+
+    Args:
+        args: Parsed argparse namespace with CLI arguments.
+        paths: Resolved domain paths (``None`` when no ``--domain`` was given).
+        defaults: Mapping of ``arg_name`` to a 3-tuple:
+            ``(paths_attr, sub_path, fallback)`` where:
+            - *paths_attr*: attribute name on :class:`DomainDataPaths`
+              (e.g., ``"lineage_tracking"``, ``"slices"``).
+            - *sub_path*: relative file or directory to append
+              (use ``""`` if the attribute is the full path).
+            - *fallback*: legacy path string when *paths* is ``None``.
+
+    Example::
+
+        apply_domain_path_defaults(args, paths, {
+            "registry": ("lineage_tracking", "lineage_registry.json",
+                         "data/out/02_lineage_tracking/lineage_registry.json"),
+            "slices_dir": ("slices", "", "data/current_ingest/slices"),
+        })
+    """
+    for arg_name, (paths_attr, sub_path, fallback) in defaults.items():
+        if getattr(args, arg_name, None) is not None:
+            continue
+        if paths is not None:
+            base = getattr(paths, paths_attr)
+            value = str(base / sub_path) if sub_path else str(base)
+        else:
+            value = str(fallback)
+        setattr(args, arg_name, value)
+
+
 def resolve_pipeline_paths(
     domain_id: str | None,
     cli_ingest_dir: str | None,
