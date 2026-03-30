@@ -25,9 +25,14 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 
-# Import AbstractExtractor
+# Import AbstractExtractor and domain helpers
 repo_root = ensure_repo_imports()
 from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 STAGE1_OUTPUT_DIR = Path('data/out/experiments/stage1_quarterly_embeddings')
 LEGACY_PHASE1_OUTPUT_DIR = Path('data/out/experiments/phase1_quarterly_embeddings')
@@ -447,7 +452,29 @@ def main():
                        help='Disable FP16 mixed precision')
     parser.add_argument('--no-compile', action='store_true',
                        help='Disable torch.compile')
+    add_domain_args(parser)
     args = parser.parse_args()
+
+    # Resolve domain paths
+    paths = resolve_script_paths(args, repo_root)
+    apply_domain_path_defaults(args, paths, {
+        "registry": (
+            "lineage_tracking", "lineage_registry.json",
+            "data/out/02_lineage_tracking/lineage_registry.json",
+        ),
+        "partitions_dir": (
+            "cache_cum", "partitions_cum",
+            "data/out/cache_cum/partitions_cum",
+        ),
+        "raw_dir": (
+            "raw", "",
+            "data/current_ingest/raw",
+        ),
+        "output_dir": (
+            "experiments", "stage1_quarterly_embeddings",
+            "data/out/experiments/stage1_quarterly_embeddings",
+        ),
+    })
 
     print("="*70)
     if args.n_samples:
@@ -457,11 +484,11 @@ def main():
     print("="*70)
     print()
 
-    # Paths
-    registry_path = Path('data/out/02_lineage_tracking/lineage_registry.json')
-    partitions_dir = Path('data/out/cache_cum/partitions_cum')
-    raw_dir = Path('data/current_ingest/raw')
-    output_dir = STAGE1_OUTPUT_DIR
+    # Paths (from domain-aware defaults or argparse)
+    registry_path = Path(getattr(args, "registry", "") or "data/out/02_lineage_tracking/lineage_registry.json")
+    partitions_dir = Path(getattr(args, "partitions_dir", "") or "data/out/cache_cum/partitions_cum")
+    raw_dir = Path(getattr(args, "raw_dir", "") or "data/current_ingest/raw")
+    output_dir = Path(getattr(args, "output_dir", "") or str(STAGE1_OUTPUT_DIR))
     tight_mapping_path = resolve_tight_mapping_path()
 
     # Configuration
