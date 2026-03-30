@@ -91,28 +91,29 @@ jobs:
 
     - name: Validate YAML configs
       run: |
-        python -c "
-import yaml
-import sys
-from pathlib import Path
+        python - <<'PY'
+        import sys
+        from pathlib import Path
 
-errors = []
-yaml_files = ['config/defaults.yaml', 'config/settings.yaml.template']
+        import yaml
 
-for file in yaml_files:
-    path = Path(file)
-    if path.exists():
-        try:
-            with open(path) as f:
-                yaml.safe_load(f)
-            print(f'✓ {file} is valid')
-        except Exception as e:
-            errors.append(f'{file}: {e}')
-            print(f'✗ {file}: {e}')
+        errors = []
+        yaml_files = ["config/defaults.yaml", "config/settings.yaml.template"]
 
-if errors:
-    sys.exit(1)
-"
+        for file in yaml_files:
+            path = Path(file)
+            if path.exists():
+                try:
+                    with open(path, encoding="utf-8") as handle:
+                        yaml.safe_load(handle)
+                    print(f"{file} is valid")
+                except Exception as exc:
+                    errors.append(f"{file}: {exc}")
+                    print(f"{file}: {exc}")
+
+        if errors:
+            sys.exit(1)
+        PY
 
   dependency-check:
     runs-on: ubuntu-latest
