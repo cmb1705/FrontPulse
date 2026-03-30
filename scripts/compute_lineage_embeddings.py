@@ -100,10 +100,14 @@ class LineageEmbedder:
         self.device = device
         print(f"[EMBEDDER] Using device: {self.device}")
 
+        # Hardware-aware batch size: ~2MB VRAM per sample at seq_len=512
+        self.auto_batch_size = self._select_batch_size()
+        print(f"[EMBEDDER] Auto batch size: {self.auto_batch_size}")
+
         # Load SciBERT tokenizer and model
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModel.from_pretrained(model_name).to(self.device)
-        self.model.eval()  # Inference mode
+        self.model.eval()  # Set inference mode
 
         # Use provided extractor or create new one
         if extractor is not None:
@@ -114,6 +118,28 @@ class LineageEmbedder:
             self.extractor = AbstractExtractor(raw_dir)
 
         print("[EMBEDDER] Ready")
+
+    def _select_batch_size(self) -> int:
+        """Select GPU batch size based on available VRAM.
+
+        SciBERT at seq_len=512 uses approximately 2 MB per sample.
+        We reserve 3 GB for the model and OS overhead.
+
+        Returns:
+            Optimal batch size for the detected hardware.
+        """
+        if self.device != "cuda" or not torch.cuda.is_available():
+            return 32  # CPU default
+
+        vram_bytes = torch.cuda.get_device_properties(0).total_mem
+        vram_gb = vram_bytes / (1024 ** 3)
+        available_gb = max(vram_gb - 3.0, 1.0)  # reserve 3 GB
+        # ~2 MB per sample at seq_len=512
+        max_batch = int(available_gb * 1024 / 2)
+        # Clamp to reasonable range
+        batch_size = min(max(max_batch, 16), 512)
+        print(f"[EMBEDDER] VRAM: {vram_gb:.1f} GB, usable: {available_gb:.1f} GB")
+        return batch_size
 
     def filter_stopwords(self, text: str) -> str:
         """
@@ -136,8 +162,8 @@ class LineageEmbedder:
     def embed_texts_batch(
         self,
         texts: list[str],
-        batch_size: int = 32,
-        max_length: int = 512
+        batch_size: int = 0,
+        max_length: int = 512,
     ) -> np.ndarray:
         """
         Generate SciBERT embeddings for multiple texts (batched for speed).
@@ -152,6 +178,10 @@ class LineageEmbedder:
         """
         if not texts:
             return np.array([])
+
+        # Use hardware-aware batch size if not explicitly set
+        if batch_size <= 0:
+            batch_size = self.auto_batch_size
 
         # Filter stopwords for all texts
         filtered_texts = [self.filter_stopwords(t) for t in texts]
