@@ -516,6 +516,77 @@ def archive_current(ingest_dir: pathlib.Path, graphs_dir: pathlib.Path, out_dir:
 
 
 # ============================================================================
+# POST-INGEST VALIDATION
+# ============================================================================
+
+
+def validate_topic_alignment(
+    df: pd.DataFrame,
+    config_path: str | pathlib.Path,
+    logger: logging.Logger,
+    min_match_fraction: float = 0.3,
+) -> bool:
+    """Validate that ingested data matches the configured topic filter.
+
+    Reads the datasource config to extract the expected topic ID, then checks
+    what fraction of ingested works have a ``primary_topic_id`` matching that
+    topic.  Logs a warning if the match is below *min_match_fraction* and
+    returns False so the caller can abort the pipeline.
+
+    Args:
+        df: Ingested DataFrame (must have ``primary_topic_id`` column).
+        config_path: Path to the datasource YAML config.
+        logger: Logger for messages.
+        min_match_fraction: Minimum fraction of rows that must match the
+            configured topic.  Default 0.3 (30%) to allow for works with
+            secondary topic assignments.
+
+    Returns:
+        True if validation passes, False otherwise.
+    """
+    if "primary_topic_id" not in df.columns:
+        logger.warning("Topic validation skipped: no primary_topic_id column in data")
+        return True
+
+    try:
+        cfg = yaml.safe_load(pathlib.Path(config_path).read_text())
+        topic_filter = (
+            cfg.get("sources", {})
+            .get("primary", {})
+            .get("filters", {})
+            .get("topics.id", "")
+        )
+    except Exception as exc:
+        logger.warning("Topic validation skipped: could not read config: %s", exc)
+        return True
+
+    if not topic_filter:
+        logger.debug("Topic validation skipped: no topics.id filter in config")
+        return True
+
+    expected_url = f"https://openalex.org/{topic_filter}"
+    match_count = (df["primary_topic_id"] == expected_url).sum()
+    total = len(df)
+    fraction = match_count / total if total > 0 else 0.0
+
+    logger.info(
+        "Topic validation: %d/%d rows (%.1f%%) match configured topic %s",
+        match_count, total, fraction * 100, topic_filter,
+    )
+
+    if fraction < min_match_fraction:
+        logger.error(
+            "TOPIC MISMATCH: only %.1f%% of ingested works match topic %s. "
+            "Expected >%.0f%%. The ingest data may be from a different topic. "
+            "Check config/datasources*.yaml and clear data/*/ingest/ if stale.",
+            fraction * 100, topic_filter, min_match_fraction * 100,
+        )
+        return False
+
+    return True
+
+
+# ============================================================================
 # PIPELINE PHASE FUNCTIONS
 # ============================================================================
 
@@ -1577,6 +1648,14 @@ def main():
     if result is None:
         return  # Ingest failed
     df, raw_manifest_rel, dedup_stats = result
+
+    # Phase 1b: Topic alignment validation (catches stale/wrong ingest data)
+    if not args.skip_ingest:
+        config_path = pathlib.Path(args.config)
+        if not validate_topic_alignment(df, config_path, logger):
+            logger.error("Pipeline aborted: topic alignment validation failed.")
+            logger.error("Run with --skip-ingest to bypass (use with caution).")
+            return
 
     # Phase 2: Slicing
     sliced = run_slicing_phase(df, args, logger)
