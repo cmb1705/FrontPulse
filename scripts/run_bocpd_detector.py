@@ -29,7 +29,11 @@ from _path_bootstrap import ensure_repo_imports
 _REPO = ensure_repo_imports()
 
 from src.bocpd import BOCPDConfig, run_bocpd_on_fronts  # noqa: E402
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,10 +155,18 @@ def main() -> None:
     args = parse_args()
 
     paths = resolve_script_paths(args, _REPO)
-    if args.input is None:
-        args.input = str(paths.front_aggregation / "front_onset_series.csv") if paths else "data/out/04_front_aggregation/front_onset_series.csv"
-    if args.output is None:
-        args.output = str(paths.front_aggregation / "bocpd_results.csv") if paths else "data/out/04_front_aggregation/bocpd_results.csv"
+    apply_domain_path_defaults(args, paths, {
+        "input": (
+            "front_aggregation",
+            "front_onset_series.csv",
+            "data/out/04_front_aggregation/front_onset_series.csv",
+        ),
+        "output": (
+            "front_aggregation",
+            "bocpd_results.csv",
+            "data/out/04_front_aggregation/bocpd_results.csv",
+        ),
+    })
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

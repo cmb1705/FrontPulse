@@ -16,7 +16,11 @@ import pandas as pd  # noqa: E402
 
 from src import trusted_io  # noqa: E402
 from src.community import run_leiden  # noqa: E402
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.metrics.common import (  # noqa: E402
     create_metric_metadata,
     ensure_dir,
@@ -339,21 +343,21 @@ def write_standardized_outputs(
 def main() -> None:
     args = parse_args()
     paths = resolve_script_paths(args, REPO_ROOT)
-    args.graphs_dir = args.graphs_dir or (paths.graphs if paths else Path("data/current_graphs"))
-    args.out_dir = args.out_dir or (paths.out / "metrics" if paths else Path("data/out/metrics"))
-    args.registry = args.registry or (
-        paths.out / "front_id_registry_cumulative.json"
-        if paths
-        else Path("data/out/front_id_registry_cumulative.json")
-    )
-    args.cache_dir = args.cache_dir or (
-        paths.cache_cum / "partitions_cum" if paths else Path("data/out/cache_cum/partitions_cum")
-    )
-    args.ingest_path = args.ingest_path or (
-        paths.ingest / "ingest.parquet"
-        if paths
-        else REPO_ROOT / "data" / "current_ingest" / "ingest.parquet"
-    )
+    apply_domain_path_defaults(args, paths, {
+        "graphs_dir": ("graphs", "", "data/current_graphs"),
+        "out_dir": ("out", "metrics", "data/out/metrics"),
+        "registry": ("out", "front_id_registry_cumulative.json",
+                      "data/out/front_id_registry_cumulative.json"),
+        "cache_dir": ("cache_cum", "partitions_cum",
+                       "data/out/cache_cum/partitions_cum"),
+        "ingest_path": ("ingest", "ingest.parquet",
+                         "data/current_ingest/ingest.parquet"),
+    })
+    args.graphs_dir = Path(args.graphs_dir)
+    args.out_dir = Path(args.out_dir)
+    args.registry = Path(args.registry)
+    args.cache_dir = Path(args.cache_dir)
+    args.ingest_path = Path(args.ingest_path)
     ensure_dir(args.out_dir)
     registry = load_registry(args.registry) if args.registry else {}
     graph_pairs = list_quarter_files(args.graphs_dir, "citation_graph_cumulative_*.pkl")

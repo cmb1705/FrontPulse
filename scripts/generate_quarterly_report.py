@@ -30,7 +30,11 @@ from src.assessment_history import (  # noqa: E402
     compute_calibration_stats,
     load_history,
 )
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.quarterly_report import (  # noqa: E402
     generate_quarterly_report,
     summarize_report_stats,
@@ -86,14 +90,17 @@ def main() -> None:
     )
 
     paths = resolve_script_paths(args, _REPO)
-    if args.predictions is None:
-        args.predictions = str(paths.experiments / "msd_latest" / "breakthrough_predictions.csv") if paths else "data/out/experiments/msd_latest/breakthrough_predictions.csv"
-    if args.history is None:
-        args.history = str(paths.assessments / "assessment_history.csv") if paths else "data/out/assessments/assessment_history.csv"
-    if args.horizon_estimates is None:
-        args.horizon_estimates = str(paths.assessments / "horizon_estimates.csv") if paths else "data/out/assessments/horizon_estimates.csv"
-    if args.out is None:
-        args.out = str(paths.assessments / f"quarterly_report_{args.quarter}.md") if paths else f"data/out/assessments/quarterly_report_{args.quarter}.md"
+    report_filename = f"quarterly_report_{args.quarter}.md"
+    apply_domain_path_defaults(args, paths, {
+        "predictions": ("experiments", "msd_latest/breakthrough_predictions.csv",
+                         "data/out/experiments/msd_latest/breakthrough_predictions.csv"),
+        "history": ("assessments", "assessment_history.csv",
+                     "data/out/assessments/assessment_history.csv"),
+        "horizon_estimates": ("assessments", "horizon_estimates.csv",
+                               "data/out/assessments/horizon_estimates.csv"),
+        "out": ("assessments", report_filename,
+                 f"data/out/assessments/{report_filename}"),
+    })
 
     # Load predictions
     pred_path = Path(args.predictions)

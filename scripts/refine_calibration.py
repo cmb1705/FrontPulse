@@ -32,7 +32,11 @@ from src.calibration_tracker import (  # noqa: E402
     load_calibration_history,
     save_calibration_history,
 )
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,10 +80,18 @@ def main() -> None:
     )
 
     paths = resolve_script_paths(args, _REPO)
-    if args.history is None:
-        args.history = str(paths.assessments / "assessment_history.csv") if paths else "data/out/assessments/assessment_history.csv"
-    if args.cal_history is None:
-        args.cal_history = str(paths.assessments / "calibration_history.json") if paths else "data/out/assessments/calibration_history.json"
+    apply_domain_path_defaults(args, paths, {
+        "history": (
+            "assessments",
+            "assessment_history.csv",
+            "data/out/assessments/assessment_history.csv",
+        ),
+        "cal_history": (
+            "assessments",
+            "calibration_history.json",
+            "data/out/assessments/calibration_history.json",
+        ),
+    })
 
     # Load assessment history
     history = load_history(Path(args.history))

@@ -31,7 +31,11 @@ from _path_bootstrap import ensure_repo_imports  # noqa: E402
 
 REPO = ensure_repo_imports()
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 LOG = logging.getLogger("optuna_msd")
 
@@ -384,16 +388,33 @@ def main() -> None:
     args = parser.parse_args()
 
     paths = resolve_script_paths(args, REPO)
-    if args.labels is None:
-        args.labels = str(paths.lineage_tracking / "onset_labels_msd.csv") if paths else "data/out/02_lineage_tracking/onset_labels_msd.csv"
-    if args.multisignal is None:
-        args.multisignal = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
-    if args.timeseries is None:
-        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
-    if args.semantic_velocity is None:
-        args.semantic_velocity = str(paths.experiments / "stage1_quarterly_embeddings" / "semantic_velocity.csv") if paths else "data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv"
-    if args.output_dir is None:
-        args.output_dir = str(paths.experiments / "optuna_search") if paths else "data/out/experiments/optuna_search"
+    apply_domain_path_defaults(args, paths, {
+        "labels": (
+            "lineage_tracking",
+            "onset_labels_msd.csv",
+            "data/out/02_lineage_tracking/onset_labels_msd.csv",
+        ),
+        "multisignal": (
+            "lineage_tracking",
+            "lineage_multisignal_features.csv",
+            "data/out/02_lineage_tracking/lineage_multisignal_features.csv",
+        ),
+        "timeseries": (
+            "lineage_tracking",
+            "lineage_timeseries.csv",
+            "data/out/02_lineage_tracking/lineage_timeseries.csv",
+        ),
+        "semantic_velocity": (
+            "experiments",
+            "stage1_quarterly_embeddings/semantic_velocity.csv",
+            "data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv",
+        ),
+        "output_dir": (
+            "experiments",
+            "optuna_search",
+            "data/out/experiments/optuna_search",
+        ),
+    })
 
     logging.basicConfig(
         level=logging.INFO,

@@ -36,7 +36,11 @@ REPO_ROOT = ensure_repo_imports()
 
 from utils.quarter_utils import quarter_key  # type: ignore  # noqa: E402
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 LOG = logging.getLogger("front_level_features")
 
@@ -471,12 +475,11 @@ def main() -> None:
     configure_logging(args.verbose)
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    if args.lineage_features is None:
-        args.lineage_features = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
-    if args.mapping is None:
-        args.mapping = str(paths.experiments / "stage0_tight_mapping/milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
-    if args.out is None:
-        args.out = str(paths.front_aggregation / "front_onset_series.csv") if paths else "data/out/04_front_aggregation/front_onset_series.csv"
+    apply_domain_path_defaults(args, paths, {
+        "lineage_features": ("lineage_tracking", "lineage_multisignal_features.csv", "data/out/02_lineage_tracking/lineage_multisignal_features.csv"),
+        "mapping": ("experiments", "stage0_tight_mapping/milestone_lineage_mapping_tight.csv", "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"),
+        "out": ("front_aggregation", "front_onset_series.csv", "data/out/04_front_aggregation/front_onset_series.csv"),
+    })
 
     LOG.info("Loading lineage features from %s", args.lineage_features)
     lineage_features = pd.read_csv(args.lineage_features)

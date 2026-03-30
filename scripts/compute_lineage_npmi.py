@@ -76,7 +76,11 @@ REPO_ROOT = ensure_repo_imports()
 # Import from previous stages
 from scripts.compute_lineage_ctfidf import LineageTermExtractor  # noqa: E402
 from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 # Markup/formatting artifacts to filter out (XML, HTML, math markup, LaTeX)
 MARKUP_TERMS = {
@@ -1537,16 +1541,13 @@ def main():
     args = parser.parse_args()
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    if args.registry is None:
-        args.registry = paths.lineage_tracking / "lineage_registry.json" if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
-    if args.partitions is None:
-        args.partitions = paths.cache_cum / "partitions_cum" if paths else Path("data/out/cache_cum/partitions_cum")
-    if args.raw is None:
-        args.raw = paths.raw if paths else Path("data/current_ingest/raw")
-    if args.ctfidf_vocab is None:
-        args.ctfidf_vocab = paths.lineage_tracking / "lineage_ctfidf_terms.csv" if paths else Path("data/out/02_lineage_tracking/lineage_ctfidf_terms.csv")
-    if args.output_root is None:
-        args.output_root = paths.out if paths else Path("data/out")
+    apply_domain_path_defaults(args, paths, {
+        "registry": ("lineage_tracking", "lineage_registry.json", "data/out/02_lineage_tracking/lineage_registry.json"),
+        "partitions": ("cache_cum", "partitions_cum", "data/out/cache_cum/partitions_cum"),
+        "raw": ("raw", "", "data/current_ingest/raw"),
+        "ctfidf_vocab": ("lineage_tracking", "lineage_ctfidf_terms.csv", "data/out/02_lineage_tracking/lineage_ctfidf_terms.csv"),
+        "output_root": ("out", "", "data/out"),
+    })
 
     # Call the refactored function (standalone mode, store=None)
     run_npmi(
@@ -1555,15 +1556,15 @@ def main():
         min_pair_count=args.min_pair_count,
         output_threshold=args.output_threshold,
         front_config_path=args.fronts,
-        partitions_dir=args.partitions,
-        ctfidf_vocab_path=args.ctfidf_vocab,
+        partitions_dir=Path(args.partitions),
+        ctfidf_vocab_path=Path(args.ctfidf_vocab),
         vocab_size=args.vocab_size,
-        registry_path=args.registry,  # Pass CLI argument
-        raw_dir=args.raw,  # Pass CLI argument
+        registry_path=Path(args.registry),
+        raw_dir=Path(args.raw),
         abstract_cache_path=args.abstract_cache,
         store=None,  # Standalone mode
         validate=args.validate,  # Pass validate flag
-        output_root=args.output_root,
+        output_root=Path(args.output_root),
         max_workers=args.max_workers,
         worker_memory_gb=args.worker_memory_gb,
         memory_reserve_gb=args.memory_reserve_gb

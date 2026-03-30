@@ -46,7 +46,11 @@ import pandas as pd  # noqa: E402
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier  # noqa: E402
 from sklearn.linear_model import LogisticRegression  # noqa: E402
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 try:
     from catboost import CatBoostClassifier  # type: ignore
@@ -1429,16 +1433,33 @@ def main():
     args = parser.parse_args()
 
     paths = resolve_script_paths(args, _REPO)
-    if args.tight_mapping is None:
-        args.tight_mapping = str(paths.experiments / "stage0_tight_mapping" / "milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
-    if args.semantic_velocity is None:
-        args.semantic_velocity = str(paths.experiments / "stage1_quarterly_embeddings" / "semantic_velocity.csv") if paths else "data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv"
-    if args.multisignal is None:
-        args.multisignal = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
-    if args.timeseries is None:
-        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
-    if args.output_dir is None:
-        args.output_dir = str(paths.experiments / "multi_signal_detector") if paths else "data/out/experiments/multi_signal_detector"
+    apply_domain_path_defaults(args, paths, {
+        "tight_mapping": (
+            "experiments",
+            "stage0_tight_mapping/milestone_lineage_mapping_tight.csv",
+            "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv",
+        ),
+        "semantic_velocity": (
+            "experiments",
+            "stage1_quarterly_embeddings/semantic_velocity.csv",
+            "data/out/experiments/stage1_quarterly_embeddings/semantic_velocity.csv",
+        ),
+        "multisignal": (
+            "lineage_tracking",
+            "lineage_multisignal_features.csv",
+            "data/out/02_lineage_tracking/lineage_multisignal_features.csv",
+        ),
+        "timeseries": (
+            "lineage_tracking",
+            "lineage_timeseries.csv",
+            "data/out/02_lineage_tracking/lineage_timeseries.csv",
+        ),
+        "output_dir": (
+            "experiments",
+            "multi_signal_detector",
+            "data/out/experiments/multi_signal_detector",
+        ),
+    })
     if args.disable_field_features and args.field_features_only:
         parser.error("Cannot combine --disable-field-features with --field-features-only.")
     if args.model == 'catboost':

@@ -14,7 +14,11 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.metrics.common import (  # noqa: E402
     create_metric_metadata,
     ensure_dir,
@@ -381,11 +385,15 @@ def write_standardized_outputs(
 def main() -> None:
     args = parse_args()
     paths = resolve_script_paths(args, REPO_ROOT)
-    args.slices_dir = args.slices_dir or (paths.slices if paths else Path("data/current_ingest/slices"))
-    args.ingest_path = args.ingest_path or (
-        paths.ingest / "ingest.parquet" if paths else Path("data/current_ingest/ingest.parquet")
-    )
-    args.out_dir = args.out_dir or (paths.out / "metrics" if paths else Path("data/out/metrics"))
+    apply_domain_path_defaults(args, paths, {
+        "slices_dir": ("slices", "", "data/current_ingest/slices"),
+        "ingest_path": ("ingest", "ingest.parquet",
+                         "data/current_ingest/ingest.parquet"),
+        "out_dir": ("out", "metrics", "data/out/metrics"),
+    })
+    args.slices_dir = Path(args.slices_dir)
+    args.ingest_path = Path(args.ingest_path)
+    args.out_dir = Path(args.out_dir)
     ensure_dir(args.out_dir)
     payload, input_files = compute_reference_vitality(args)
     # Clean NA types before JSON serialization

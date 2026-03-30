@@ -43,7 +43,11 @@ from src.convergence import (  # noqa: E402
     compute_rolling_convergence_features,
     compute_terminology_jaccard,
 )
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 LOG = logging.getLogger("convergence_features")
 
@@ -331,18 +335,14 @@ def main() -> None:
     configure_logging(args.verbose)
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    if args.registry is None:
-        args.registry = str(paths.lineage_tracking / "lineage_registry.json") if paths else "data/out/02_lineage_tracking/lineage_registry.json"
-    if args.timeseries is None:
-        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
-    if args.quarterly_embeddings is None:
-        args.quarterly_embeddings = str(paths.experiments / "stage1_quarterly_embeddings/quarterly_embeddings.npz") if paths else "data/out/experiments/stage1_quarterly_embeddings/quarterly_embeddings.npz"
-    if args.partitions_dir is None:
-        args.partitions_dir = str(paths.cache_cum / "partitions_cum") if paths else "data/out/cache_cum/partitions_cum"
-    if args.slices_dir is None:
-        args.slices_dir = str(paths.slices) if paths else "data/current_ingest/slices"
-    if args.out is None:
-        args.out = str(paths.lineage_tracking / "convergence_features.csv") if paths else "data/out/02_lineage_tracking/convergence_features.csv"
+    apply_domain_path_defaults(args, paths, {
+        "registry": ("lineage_tracking", "lineage_registry.json", "data/out/02_lineage_tracking/lineage_registry.json"),
+        "timeseries": ("lineage_tracking", "lineage_timeseries.csv", "data/out/02_lineage_tracking/lineage_timeseries.csv"),
+        "quarterly_embeddings": ("experiments", "stage1_quarterly_embeddings/quarterly_embeddings.npz", "data/out/experiments/stage1_quarterly_embeddings/quarterly_embeddings.npz"),
+        "partitions_dir": ("cache_cum", "partitions_cum", "data/out/cache_cum/partitions_cum"),
+        "slices_dir": ("slices", "", "data/current_ingest/slices"),
+        "out": ("lineage_tracking", "convergence_features.csv", "data/out/02_lineage_tracking/convergence_features.csv"),
+    })
 
     start_total = time.perf_counter()
 

@@ -47,7 +47,11 @@ from src.assessment_history import (  # noqa: E402
     save_history,
     summarize_history,
 )
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -202,11 +206,22 @@ def main() -> None:
     )
 
     paths = resolve_script_paths(args, _REPO)
-    if args.history is None:
-        args.history = str(paths.assessments / "assessment_history.csv") if paths else "data/out/assessments/assessment_history.csv"
+    apply_domain_path_defaults(args, paths, {
+        "history": (
+            "assessments",
+            "assessment_history.csv",
+            "data/out/assessments/assessment_history.csv",
+        ),
+    })
     # Resolve backfill labels default if applicable
-    if args.command == "backfill" and getattr(args, "labels", None) is None:
-        args.labels = str(paths.lineage_tracking / "onset_labels_msd.csv") if paths else "data/out/02_lineage_tracking/onset_labels_msd.csv"
+    if args.command == "backfill":
+        apply_domain_path_defaults(args, paths, {
+            "labels": (
+                "lineage_tracking",
+                "onset_labels_msd.csv",
+                "data/out/02_lineage_tracking/onset_labels_msd.csv",
+            ),
+        })
 
     if args.command == "record":
         cmd_record(args)

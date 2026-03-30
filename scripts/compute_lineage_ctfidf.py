@@ -31,7 +31,11 @@ REPO_ROOT = ensure_repo_imports()
 
 # Import from Stage 2
 from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 # Stopwords (same as Stage 2)
 STOPWORDS = {
@@ -1046,14 +1050,12 @@ def main():
     args = parser.parse_args()
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    if args.registry is None:
-        args.registry = paths.lineage_tracking / "lineage_registry.json" if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
-    if args.partitions is None:
-        args.partitions = paths.cache_cum / "partitions_cum" if paths else Path("data/out/cache_cum/partitions_cum")
-    if args.raw is None:
-        args.raw = paths.raw if paths else Path("data/current_ingest/raw")
-    if args.output_root is None:
-        args.output_root = paths.out if paths else Path("data/out")
+    apply_domain_path_defaults(args, paths, {
+        "registry": ("lineage_tracking", "lineage_registry.json", "data/out/02_lineage_tracking/lineage_registry.json"),
+        "partitions": ("cache_cum", "partitions_cum", "data/out/cache_cum/partitions_cum"),
+        "raw": ("raw", "", "data/current_ingest/raw"),
+        "output_root": ("out", "", "data/out"),
+    })
 
     # Call the refactored function (standalone mode, store=None)
     run_ctfidf(
@@ -1061,13 +1063,13 @@ def main():
         top_n=args.top_n,
         similarity_threshold=args.similarity_threshold,
         front_config_path=args.fronts,
-        partitions_dir=args.partitions,
-        registry_path=args.registry,  # Pass CLI argument
-        raw_dir=args.raw,  # Pass CLI argument
+        partitions_dir=Path(args.partitions),
+        registry_path=Path(args.registry),
+        raw_dir=Path(args.raw),
         abstract_cache_path=args.abstract_cache,
         store=None,  # Standalone mode
         validate=args.validate,  # Pass validate flag
-        output_root=args.output_root
+        output_root=Path(args.output_root)
     )
 
 

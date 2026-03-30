@@ -42,7 +42,11 @@ from scripts.compute_lineage_ctfidf import (  # type: ignore  # noqa: E402
     STOPWORDS,
     TECHNICAL_BIGRAMS,
 )
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.lineage_text_store import LineageTextStore  # type: ignore  # noqa: E402
 from src.raw_store import RawStore  # type: ignore  # noqa: E402
 from src.trusted_io import load_trusted_pickle, save_trusted_pickle  # type: ignore  # noqa: E402
@@ -1059,24 +1063,17 @@ def main() -> None:
     configure_logging(args.verbose)
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    if args.registry is None:
-        args.registry = str(paths.lineage_tracking / "lineage_registry.json") if paths else "data/out/02_lineage_tracking/lineage_registry.json"
-    if args.timeseries is None:
-        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
-    if args.raw_dir is None:
-        args.raw_dir = str(paths.raw) if paths else "data/current_ingest/raw"
-    if args.partitions_dir is None:
-        args.partitions_dir = str(paths.cache_cum / "partitions_cum") if paths else "data/out/cache_cum/partitions_cum"
-    if args.reference_cache is None:
-        args.reference_cache = str(paths.cache_lineage / "reference_data.pkl") if paths else "data/out/cache_lineage/reference_data.pkl"
-    if args.out is None:
-        args.out = str(paths.lineage_tracking / "lineage_multisignal_features.csv") if paths else "data/out/02_lineage_tracking/lineage_multisignal_features.csv"
-    if args.metrics_dir is None:
-        args.metrics_dir = str(paths.out / "metrics") if paths else "data/out/metrics"
-    if args.field_metrics is None:
-        args.field_metrics = str(paths.front_aggregation / "field_metrics.parquet") if paths else "data/out/04_front_aggregation/field_metrics.parquet"
-    if args.milestones is None:
-        args.milestones = str(paths.experiments / "stage0_tight_mapping/milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
+    apply_domain_path_defaults(args, paths, {
+        "registry": ("lineage_tracking", "lineage_registry.json", "data/out/02_lineage_tracking/lineage_registry.json"),
+        "timeseries": ("lineage_tracking", "lineage_timeseries.csv", "data/out/02_lineage_tracking/lineage_timeseries.csv"),
+        "raw_dir": ("raw", "", "data/current_ingest/raw"),
+        "partitions_dir": ("cache_cum", "partitions_cum", "data/out/cache_cum/partitions_cum"),
+        "reference_cache": ("cache_lineage", "reference_data.pkl", "data/out/cache_lineage/reference_data.pkl"),
+        "out": ("lineage_tracking", "lineage_multisignal_features.csv", "data/out/02_lineage_tracking/lineage_multisignal_features.csv"),
+        "metrics_dir": ("out", "metrics", "data/out/metrics"),
+        "field_metrics": ("front_aggregation", "field_metrics.parquet", "data/out/04_front_aggregation/field_metrics.parquet"),
+        "milestones": ("experiments", "stage0_tight_mapping/milestone_lineage_mapping_tight.csv", "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"),
+    })
 
     registry_path = Path(args.registry)
     timeseries_path = Path(args.timeseries)

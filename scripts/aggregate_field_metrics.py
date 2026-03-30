@@ -19,7 +19,11 @@ REPO_ROOT = ensure_repo_imports()
 
 from utils.quarter_utils import normalize_quarter, quarter_to_int  # noqa: E402
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -133,14 +137,12 @@ def main() -> None:
     args = parse_args()
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    if args.timeseries is None:
-        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
-    if args.out_csv is None:
-        args.out_csv = str(paths.front_aggregation / "field_metrics.csv") if paths else "data/out/04_front_aggregation/field_metrics.csv"
-    if args.out_parquet is None:
-        args.out_parquet = str(paths.front_aggregation / "field_metrics.parquet") if paths else "data/out/04_front_aggregation/field_metrics.parquet"
-    if args.metadata is None:
-        args.metadata = str(paths.front_aggregation / "field_metrics_metadata.json") if paths else "data/out/04_front_aggregation/field_metrics_metadata.json"
+    apply_domain_path_defaults(args, paths, {
+        "timeseries": ("lineage_tracking", "lineage_timeseries.csv", "data/out/02_lineage_tracking/lineage_timeseries.csv"),
+        "out_csv": ("front_aggregation", "field_metrics.csv", "data/out/04_front_aggregation/field_metrics.csv"),
+        "out_parquet": ("front_aggregation", "field_metrics.parquet", "data/out/04_front_aggregation/field_metrics.parquet"),
+        "metadata": ("front_aggregation", "field_metrics_metadata.json", "data/out/04_front_aggregation/field_metrics_metadata.json"),
+    })
 
     ts_path = Path(args.timeseries)
     out_csv = Path(args.out_csv)

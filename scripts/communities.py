@@ -1426,7 +1426,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["cumulative", "annual", "delta", "both", "all"], default="cumulative",
                     help="Select which community pipelines to run (default cumulative).")
-    from src.domain_registry import add_domain_args, resolve_script_paths
+    from src.domain_registry import (
+        add_domain_args,
+        apply_domain_path_defaults,
+        resolve_script_paths,
+    )
     add_domain_args(ap)
     ap.add_argument("--graphs-dir", type=Path, default=None)
     ap.add_argument("--out-dir", type=Path, default=None)
@@ -1497,12 +1501,14 @@ def main():
 
     # Resolve domain-derived paths with legacy fallbacks
     paths = resolve_script_paths(args, REPO)
-    if args.graphs_dir is None:
-        args.graphs_dir = paths.graphs if paths else Path("data/current_graphs")
-    if args.out_dir is None:
-        args.out_dir = paths.out if paths else Path("data/out")
-    if args.cache_dir is None:
-        args.cache_dir = paths.cache_cum if paths else Path("data/out/cache_cum")
+    apply_domain_path_defaults(args, paths, {
+        "graphs_dir": ("graphs", "", "data/current_graphs"),
+        "out_dir": ("out", "", "data/out"),
+        "cache_dir": ("cache_cum", "", "data/out/cache_cum"),
+    })
+    args.graphs_dir = Path(args.graphs_dir)
+    args.out_dir = Path(args.out_dir)
+    args.cache_dir = Path(args.cache_dir)
 
     try:
         import igraph  # noqa: F401

@@ -43,7 +43,11 @@ from transformers import AutoModel, AutoTokenizer
 repo_root = ensure_repo_imports()
 
 from scripts.extract_abstracts import AbstractExtractor  # noqa: E402
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 
 # English stopwords - common words to filter out
 STOPWORDS = {
@@ -1104,18 +1108,14 @@ def main():
     args = parser.parse_args()
 
     paths = resolve_script_paths(args, repo_root)
-    if args.lineage_metrics is None:
-        args.lineage_metrics = paths.lineage_tracking / "lineage_metrics.csv" if paths else Path("data/out/02_lineage_tracking/lineage_metrics.csv")
-    if args.lineage_registry is None:
-        args.lineage_registry = paths.lineage_tracking / "lineage_registry.json" if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
-    if args.graphs_dir is None:
-        args.graphs_dir = paths.graphs if paths else Path("data/current_graphs")
-    if args.raw_dir is None:
-        args.raw_dir = paths.raw if paths else Path("data/current_ingest/raw")
-    if args.output is None:
-        args.output = paths.lineage_tracking / "lineage_embeddings.npz" if paths else Path("data/out/02_lineage_tracking/lineage_embeddings.npz")
-    if args.output_root is None:
-        args.output_root = paths.out if paths else Path("data/out")
+    apply_domain_path_defaults(args, paths, {
+        "lineage_metrics": ("lineage_tracking", "lineage_metrics.csv", "data/out/02_lineage_tracking/lineage_metrics.csv"),
+        "lineage_registry": ("lineage_tracking", "lineage_registry.json", "data/out/02_lineage_tracking/lineage_registry.json"),
+        "graphs_dir": ("graphs", "", "data/current_graphs"),
+        "raw_dir": ("raw", "", "data/current_ingest/raw"),
+        "output": ("lineage_tracking", "lineage_embeddings.npz", "data/out/02_lineage_tracking/lineage_embeddings.npz"),
+        "output_root": ("out", "", "data/out"),
+    })
 
     device = None if args.device == "auto" else args.device
 
@@ -1126,14 +1126,14 @@ def main():
         min_quarters=args.min_quarters,
         device=device,
         profile=args.profile,
-        output_path=args.output,
-        lineage_metrics_path=args.lineage_metrics,
+        output_path=Path(args.output),
+        lineage_metrics_path=Path(args.lineage_metrics),
         front_config_path=Path('config/front_aliases.yaml'),
         partitions_dir=partitions_dir,
-        output_root=args.output_root,
-        registry_path=args.lineage_registry,  # Pass CLI argument
-        raw_dir=args.raw_dir,  # Pass CLI argument
-        graphs_dir=args.graphs_dir,  # Pass CLI argument
+        output_root=Path(args.output_root),
+        registry_path=Path(args.lineage_registry),
+        raw_dir=Path(args.raw_dir),
+        graphs_dir=Path(args.graphs_dir),
         store=None,  # Standalone mode
         validate=args.validate  # Pass validate flag
     )

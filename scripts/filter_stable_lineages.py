@@ -22,7 +22,11 @@ from _path_bootstrap import ensure_repo_imports
 
 REPO_ROOT = ensure_repo_imports()
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.stable_lineage_filter import (  # noqa: E402
     filter_stable_lineages,
     summarize_filter,
@@ -75,10 +79,10 @@ def main() -> None:
     args = parse_args()
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    if args.timeseries is None:
-        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
-    if args.out_dir is None:
-        args.out_dir = str(paths.lineage_tracking) if paths else "data/out/02_lineage_tracking"
+    apply_domain_path_defaults(args, paths, {
+        "timeseries": ("lineage_tracking", "lineage_timeseries.csv", "data/out/02_lineage_tracking/lineage_timeseries.csv"),
+        "out_dir": ("lineage_tracking", "", "data/out/02_lineage_tracking"),
+    })
 
     timeseries_path = Path(args.timeseries)
     if not timeseries_path.exists():

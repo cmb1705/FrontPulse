@@ -29,7 +29,11 @@ _REPO = ensure_repo_imports()
 
 from utils.quarter_utils import quarter_to_int  # noqa: E402
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.maturation_detector import MaturationResult, detect_maturation  # noqa: E402
 from src.onset_detector import OnsetResult, detect_onset  # noqa: E402
 
@@ -682,14 +686,16 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
     paths = resolve_script_paths(args, _REPO)
-    if args.timeseries is None:
-        args.timeseries = str(paths.lineage_tracking / "lineage_timeseries.csv") if paths else "data/out/02_lineage_tracking/lineage_timeseries.csv"
-    if args.milestones is None:
-        args.milestones = str(paths.experiments / "stage0_tight_mapping" / "milestone_lineage_mapping_tight.csv") if paths else "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"
-    if args.out is None:
-        args.out = str(paths.lineage_tracking / "inflection_labels.csv") if paths else "data/out/02_lineage_tracking/inflection_labels.csv"
-    if args.field_metrics is None:
-        args.field_metrics = str(paths.front_aggregation / "field_metrics.parquet") if paths else "data/out/04_front_aggregation/field_metrics.parquet"
+    apply_domain_path_defaults(args, paths, {
+        "timeseries": ("lineage_tracking", "lineage_timeseries.csv",
+                        "data/out/02_lineage_tracking/lineage_timeseries.csv"),
+        "milestones": ("experiments", "stage0_tight_mapping/milestone_lineage_mapping_tight.csv",
+                        "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"),
+        "out": ("lineage_tracking", "inflection_labels.csv",
+                 "data/out/02_lineage_tracking/inflection_labels.csv"),
+        "field_metrics": ("front_aggregation", "field_metrics.parquet",
+                           "data/out/04_front_aggregation/field_metrics.parquet"),
+    })
 
     ts_path = Path(args.timeseries)
     milestone_path = Path(args.milestones)

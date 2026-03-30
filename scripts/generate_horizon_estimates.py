@@ -26,7 +26,11 @@ _REPO = ensure_repo_imports()
 import pandas as pd  # noqa: E402
 
 from src.assessment_history import load_history  # noqa: E402
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.horizon_estimates import (  # noqa: E402
     generate_horizon_estimates,
     summarize_horizon_estimates,
@@ -86,12 +90,14 @@ def main() -> None:
     )
 
     paths = resolve_script_paths(args, _REPO)
-    if args.predictions is None:
-        args.predictions = str(paths.experiments / "msd_latest" / "breakthrough_predictions.csv") if paths else "data/out/experiments/msd_latest/breakthrough_predictions.csv"
-    if args.history is None:
-        args.history = str(paths.assessments / "assessment_history.csv") if paths else "data/out/assessments/assessment_history.csv"
-    if args.out is None:
-        args.out = str(paths.assessments / "horizon_estimates.csv") if paths else "data/out/assessments/horizon_estimates.csv"
+    apply_domain_path_defaults(args, paths, {
+        "predictions": ("experiments", "msd_latest/breakthrough_predictions.csv",
+                         "data/out/experiments/msd_latest/breakthrough_predictions.csv"),
+        "history": ("assessments", "assessment_history.csv",
+                     "data/out/assessments/assessment_history.csv"),
+        "out": ("assessments", "horizon_estimates.csv",
+                 "data/out/assessments/horizon_estimates.csv"),
+    })
 
     # Load predictions
     pred_path = Path(args.predictions)

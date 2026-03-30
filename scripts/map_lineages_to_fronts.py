@@ -28,7 +28,11 @@ from _path_bootstrap import ensure_repo_imports
 
 repo_root = ensure_repo_imports()
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import (  # noqa: E402
+    add_domain_args,
+    apply_domain_path_defaults,
+    resolve_script_paths,
+)
 from src.trusted_io import load_trusted_pickle  # noqa: E402
 
 
@@ -288,12 +292,20 @@ def main():
     args = parser.parse_args()
 
     paths = resolve_script_paths(args, repo_root)
-    if args.lineage_registry is None:
-        args.lineage_registry = Path(paths.lineage_tracking / "lineage_registry.json") if paths else Path("data/out/02_lineage_tracking/lineage_registry.json")
-    if args.graphs_dir is None:
-        args.graphs_dir = paths.graphs if paths else Path("data/current_graphs")
-    if args.output is None:
-        args.output = Path(paths.out / "03_milestone_mapping" / "lineage_to_front_mapping.json") if paths else Path("data/out/03_milestone_mapping/lineage_to_front_mapping.json")
+    apply_domain_path_defaults(args, paths, {
+        "lineage_registry": (
+            "lineage_tracking", "lineage_registry.json",
+            "data/out/02_lineage_tracking/lineage_registry.json",
+        ),
+        "graphs_dir": ("graphs", "", "data/current_graphs"),
+        "output": (
+            "out", "03_milestone_mapping/lineage_to_front_mapping.json",
+            "data/out/03_milestone_mapping/lineage_to_front_mapping.json",
+        ),
+    })
+    args.lineage_registry = Path(args.lineage_registry)
+    args.graphs_dir = Path(args.graphs_dir)
+    args.output = Path(args.output)
 
     # Phase 1: Anchor-based seeding
     anchor_map = build_anchor_map_phase1(
