@@ -189,10 +189,10 @@ class DomainConfig:
 DOMAIN_REGISTRY: dict[str, DomainConfig] = {
     "psc": DomainConfig(
         domain_id="psc",
-        display_name="Polymer Solar Cells (PSC)",
+        display_name="Perovskite Solar Cells (PSC)",
         datasources_config="config/datasources.yaml",
         front_aliases_config="config/front_aliases.yaml",
-        description="Baseline domain: polymer solar cell research fronts (T10247)",
+        description="Baseline domain: perovskite materials and applications (T10247)",
     ),
     "crispr": DomainConfig(
         domain_id="crispr",
