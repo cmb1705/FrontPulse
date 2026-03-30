@@ -310,6 +310,16 @@ def parse_args() -> argparse.Namespace:
         default=20,
         help="Nearest semantic neighbors per lineage (default: %%(default)s).",
     )
+    ap.add_argument(
+        "--min-neighbors",
+        type=int,
+        default=0,
+        help="Minimum active semantic neighbors for a lineage-quarter to "
+             "receive convergence features. Lineages with fewer neighbors "
+             "get NaN instead of 0, letting gradient boosting models treat "
+             "isolated lineages differently from zero-convergence ones. "
+             "Set to 0 (default) to disable (backward compatible).",
+    )
     ap.add_argument("--verbose", action="store_true")
     add_domain_args(ap)
     return ap.parse_args()
@@ -437,6 +447,19 @@ def main() -> None:
                     k: v for k, v in CONVERGENCE_FEATURE_DEFAULTS.items()
                     if not k.endswith(("_roll_2q", "_roll_4q", "_max_dev_4q"))
                 }
+
+        # Apply min-neighbors threshold: replace features with NaN for
+        # lineages that have fewer than min_neighbors semantic neighbors.
+        # This lets gradient boosting models distinguish "isolated" from
+        # "measured zero convergence".
+        min_neighbors = getattr(args, "min_neighbors", 0)
+        if min_neighbors > 0:
+            for lid in list(agg.keys()):
+                n_sem_neighbors = len(semantic_sim.get(lid, []))
+                if n_sem_neighbors < min_neighbors:
+                    agg[lid] = {
+                        k: float("nan") for k in agg[lid]
+                    }
 
         quarterly_features[quarter] = agg
         prev_semantic_sim = semantic_sim if semantic_sim else prev_semantic_sim
