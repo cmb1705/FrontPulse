@@ -8,11 +8,18 @@
 
 ## Abstract
 
-This report documents the operational validation of FrontPulse's multi-domain
+This report documents the operational validation of FrontPulse's domain-isolated
 pipeline architecture and the first empirical evaluation of cross-lineage
-convergence features for research-front onset prediction. Two scientific domains
-(perovskite solar cells, CRISPR gene editing) were migrated to the canonical
-domain-isolated data layout and run end-to-end through the same pipeline code.
+convergence features for research-front onset prediction. Two domain
+configurations (PSC and CRISPR) were exercised through the pipeline code path.
+
+**Erratum (2026-03-30)**: Post-publication review (Codex) revealed that the
+PSC ingest data (data/psc/ingest/ingest.parquet) contained CRISPR gene editing
+works, not perovskite solar cells. 100% of PSC work_ids overlapped with CRISPR.
+The domain-isolation code paths were validated, but true multi-domain empirical
+validation was not achieved. All MSD results in this report are de facto CRISPR
+results. PSC re-ingestion from the correct topic (T10247) and a post-ingest
+topic validation gate (FP-jp4) have been implemented. See FP-ukx.
 A CatBoost multi-signal detector (65 features total) was retrained with 14
 convergence features derived from quarterly SciBERT embeddings. The convergence
 features account for 10.2% of model importance but do not improve prediction
@@ -109,7 +116,9 @@ to child subprocess calls by all three orchestrators.
 | PSC (perovskite solar cells) | T10247 | 238,370 | 120 | 109 cumulative | 238,370 nodes |
 | CRISPR (gene editing) | T10878 | 238,526 | 120 | 109 cumulative | 238,526 nodes, 2.48M edges |
 
-Both domains span 2000Q1 through the present, yielding 110 quarterly slices.
+PSC is configured from 2003-01-01; CRISPR from 2000-01-01. Both produced 109
+cumulative graphs. Note: the slicing configuration generates future-dated
+buckets (through 2035Q1) which contain duplicate data from the final quarter.
 PSC data was migrated from legacy paths (12.7 GB across ingest, graphs, and
 output directories) with Windows junctions for backward compatibility. CRISPR
 was freshly ingested from the OpenAlex API.
@@ -409,15 +418,16 @@ set, CRISPR lineage processing, and a SPECTER2 embedding upgrade.
 
 ## Appendix B: Beads Task Register
 
-99 of 100 issues closed; 1 deferred (FP-sug: 26-script migration to
-apply_domain_path_defaults, deferred to 2026-04-01).
+**Note**: Beads data lives on a shared Dolt server, not in .beads/issues.jsonl.
+Task counts below are from `bd stats` at the time of writing and may not match
+the JSONL file. Use `bd stats` or `bd list` for authoritative counts.
 
-Key task groups completed this session:
-- FP-vs4: End-to-end domain pipeline validation (4 subtasks)
+Key task groups completed during 2026-03-26 through 2026-03-28:
+- FP-vs4: Domain pipeline code-path validation (4 subtasks)
 - FP-c6a: Domain isolation integration tests (3 subtasks)
 - FP-97k: 54-script bootstrap migration
 - FP-ph3: Ruff zero-violation baseline
 - FP-m9l: Domain CLI centralization (2 subtasks)
 - FP-d5y: Quarterly SciBERT embeddings
-- FP-3sm: MSD retraining with convergence
-- FP-wxj: Convergence feature ablation study
+- FP-3sm: MSD retraining with convergence (de facto CRISPR data)
+- FP-wxj: Convergence feature ablation (preliminary; HPO mismatch)
