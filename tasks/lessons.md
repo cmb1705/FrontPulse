@@ -32,3 +32,10 @@ The CRISPR pipeline was initially run with --skip-communities, which meant no
 partition files (cache_cum/partitions_cum/) were generated. Stages 2-5 of
 run_build_pipeline.py require these files. Must run communities.py --domain crispr
 before Tier 2 can proceed.
+
+## 2026-03-30: PSC data contained CRISPR works -- always validate post-ingest (FP-ukx)
+The PSC ingest.parquet had 100% overlap with CRISPR data and 0 perovskite rows.
+Root cause unknown (possibly saved settings overrode the config topic filter).
+All PSC-domain results (MSD, ablation, convergence, embeddings) were actually CRISPR.
+Fix: added validate_topic_alignment() to run.py (FP-jp4). Always verify primary_topic_name
+after ingest. The validation gate checks >30% topic match against datasource config.
