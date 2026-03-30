@@ -20,3 +20,15 @@ in stage1_quarterly_embeddings_optimized.py for this reason.
 After reinstalling torch with CUDA support (2.6.0+cu124), torchvision remained at
 0.25.0 (built for torch 2.10.0), causing RuntimeError on operator registration.
 Fix: install torchvision matching the torch version (0.21.0+cu124 for torch 2.6.0).
+
+## 2026-03-30: Optuna search confirms convergence feature value (FP-25k)
+After 16 trials with 65 features (including convergence), Optuna found PR-AUC 0.205
+vs 0.155 baseline -- a 32.3% improvement. This proves the prior session's negative
+ablation result was caused by HPO mismatch, not by the features themselves being
+uninformative. Always re-tune hyperparameters when adding features.
+
+## 2026-03-30: CRISPR Tier 2 requires community detection (FP-cf4)
+The CRISPR pipeline was initially run with --skip-communities, which meant no
+partition files (cache_cum/partitions_cum/) were generated. Stages 2-5 of
+run_build_pipeline.py require these files. Must run communities.py --domain crispr
+before Tier 2 can proceed.
