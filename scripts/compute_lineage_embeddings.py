@@ -131,7 +131,7 @@ class LineageEmbedder:
         if self.device != "cuda" or not torch.cuda.is_available():
             return 32  # CPU default
 
-        vram_bytes = torch.cuda.get_device_properties(0).total_mem
+        vram_bytes = torch.cuda.get_device_properties(0).total_memory
         vram_gb = vram_bytes / (1024 ** 3)
         available_gb = max(vram_gb - 3.0, 1.0)  # reserve 3 GB
         # ~2 MB per sample at seq_len=512
