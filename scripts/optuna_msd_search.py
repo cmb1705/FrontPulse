@@ -146,6 +146,7 @@ CORE_FEATURES = [
 CONTEXT_PREFIXES = (
     "author_influx_", "citation_velocity_", "reference_vitality_",
     "topic_diversity_", "cross_cluster_bridging_",
+    "conv_",  # Cross-front convergence features (4 channels + rolling)
 )
 
 

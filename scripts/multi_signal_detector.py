@@ -1001,12 +1001,15 @@ def evaluate_with_cv(
     cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
 
     # Scoring metrics
+    from sklearn.metrics import fbeta_score, make_scorer, matthews_corrcoef
     scoring = {
         'precision': 'precision',
         'recall': 'recall',
         'f1': 'f1',
         'roc_auc': 'roc_auc',
-        'average_precision': 'average_precision'  # PR-AUC
+        'average_precision': 'average_precision',  # PR-AUC
+        'mcc': make_scorer(matthews_corrcoef),
+        'f2': make_scorer(fbeta_score, beta=2),
     }
 
     print(f"   Running {cv_folds}-fold stratified CV...")
@@ -1028,7 +1031,7 @@ def evaluate_with_cv(
     # Aggregate results
     print(f"\n   === CROSS-VALIDATION RESULTS ({cv_folds} folds) ===")
     print("\n   Test Performance (mean ± std):")
-    for metric in ['precision', 'recall', 'f1', 'roc_auc', 'average_precision']:
+    for metric in ['precision', 'recall', 'f1', 'roc_auc', 'average_precision', 'mcc', 'f2']:
         test_scores = cv_results[f'test_{metric}']
         mean_score = test_scores.mean()
         std_score = test_scores.std()
@@ -1070,6 +1073,10 @@ def evaluate_with_cv(
         'cv_roc_auc_std': float(cv_results['test_roc_auc'].std()),
         'cv_pr_auc_mean': float(cv_results['test_average_precision'].mean()),
         'cv_pr_auc_std': float(cv_results['test_average_precision'].std()),
+        'cv_mcc_mean': float(cv_results['test_mcc'].mean()),
+        'cv_mcc_std': float(cv_results['test_mcc'].std()),
+        'cv_f2_mean': float(cv_results['test_f2'].mean()),
+        'cv_f2_std': float(cv_results['test_f2'].std()),
         'cv_folds': cv_folds,
     }
 
@@ -1705,6 +1712,8 @@ def main():
         print(f"   F1 Score:  {metrics['cv_f1_mean']:.3f} ± {metrics['cv_f1_std']:.3f}")
         print(f"   ROC-AUC:   {metrics['cv_roc_auc_mean']:.3f} ± {metrics['cv_roc_auc_std']:.3f}")
         print(f"   PR-AUC:    {metrics['cv_pr_auc_mean']:.3f} ± {metrics['cv_pr_auc_std']:.3f}")
+        print(f"   MCC:       {metrics['cv_mcc_mean']:.3f} ± {metrics['cv_mcc_std']:.3f}")
+        print(f"   F2 Score:  {metrics['cv_f2_mean']:.3f} ± {metrics['cv_f2_std']:.3f}")
 
         print("\nStage 0 Baseline: 6.8% recall")
         print(f"MSD Recall:   {metrics['cv_recall_mean']*100:.1f}%")
