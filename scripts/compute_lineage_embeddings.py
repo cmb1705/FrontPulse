@@ -541,53 +541,73 @@ def run_embeddings(
             print(f"[CACHE] Failed to load existing NPZ: {exc}. Recomputing.")
 
     if not reuse_npz:
-        # Compute embeddings for each lineage
-        print(f"\n[EMBED] Computing embeddings for {len(persistent_lineages)} lineages...")
+        # Phase 1: Collect all paper IDs and pre-load texts into memory
+        print(f"\n[PRELOAD] Collecting papers for {len(persistent_lineages)} lineages...")
+        t_preload_start = time.time()
+        lineage_papers: dict[int, list[str]] = {}
+        all_paper_ids: set[str] = set()
+        for lineage_id in persistent_lineages:
+            papers = load_lineage_papers_fast(lineage_id, lineage_registry, partitions_dir)
+            if papers:
+                lineage_papers[int(lineage_id)] = papers
+                all_paper_ids.update(papers)
+        print(f"[PRELOAD] {len(all_paper_ids):,} unique papers across "
+              f"{len(lineage_papers)} lineages")
 
+        # Batch-load all texts at once (eliminates per-lineage I/O bottleneck)
+        print(f"[PRELOAD] Loading texts for {len(all_paper_ids):,} papers...")
+        text_cache = embedder.extractor.get_texts_batch(
+            list(all_paper_ids), include_title=True
+        )
+        t_preload = time.time() - t_preload_start
+        print(f"[PRELOAD] Loaded {len(text_cache):,} texts in {t_preload:.1f}s "
+              f"({len(text_cache)/len(all_paper_ids)*100:.0f}% coverage)")
+
+        # Phase 2: Compute embeddings per lineage using pre-loaded texts
+        print(f"\n[EMBED] Computing embeddings for {len(lineage_papers)} lineages...")
         embeddings = []
         metadata_list = []
         lineage_ids = []
 
-        # Profiling accumulators
-        if profile:
-            timings = {
-                'load_papers': [],
-                'extract_texts': [],
-                'embed_compute': []
-            }
-
         for lineage_id in tqdm(persistent_lineages, desc="Lineages"):
-            # Extract all papers in this lineage
-            t0 = time.time()
-            papers = load_lineage_papers_fast(lineage_id, lineage_registry, partitions_dir)
-            t1 = time.time()
-            if profile:
-                timings['load_papers'].append(t1 - t0)
-
+            papers = lineage_papers.get(int(lineage_id))
             if not papers:
-                print(f"  Warning: No papers found for lineage {lineage_id}")
                 continue
 
-            # Compute embedding (includes text extraction + GPU computation)
-            t2 = time.time()
-            embedding, metadata = embedder.compute_lineage_embedding(
-                papers,
-                recency_weight=True,
-                profile=profile
-            )
-            t3 = time.time()
-            if profile:
-                timings['embed_compute'].append(t3 - t2)
+            # Look up texts from pre-loaded cache (no I/O)
+            text_list = []
+            weights = []
+            for i, work_id in enumerate(papers):
+                text = text_cache.get(work_id)
+                if text:
+                    text_list.append(text)
+                    position = i / len(papers)
+                    weights.append(0.5 + 0.5 * position)
 
-            embeddings.append(embedding)
-            metadata_list.append(metadata)
-            lineage_ids.append(lineage_id)
+            n_with_text = len(text_list)
+            if not text_list:
+                embeddings.append(np.zeros(768))
+                metadata_list.append({
+                    'n_papers': len(papers),
+                    'n_with_text': 0,
+                    'coverage': 0.0,
+                })
+                lineage_ids.append(int(lineage_id))
+                continue
 
-            if profile:
-                print(f"\n  Lineage {lineage_id}: {len(papers)} papers")
-                print(f"    Load papers:  {t1-t0:.2f}s")
-                print(f"    Embed compute: {t3-t2:.2f}s")
-                print(f"    Total:        {t3-t0:.2f}s")
+            # GPU embedding (the only compute-heavy step now)
+            emb_array = embedder.embed_texts_batch(text_list)
+            weight_arr = np.array(weights).reshape(-1, 1)
+            lineage_emb = (emb_array * weight_arr).sum(axis=0) / weight_arr.sum()
+            lineage_emb = normalize(lineage_emb.reshape(1, -1))[0]
+
+            embeddings.append(lineage_emb)
+            metadata_list.append({
+                'n_papers': len(papers),
+                'n_with_text': n_with_text,
+                'coverage': n_with_text / len(papers),
+            })
+            lineage_ids.append(int(lineage_id))
 
         # Convert to numpy array
         embeddings_array = np.array(embeddings)
