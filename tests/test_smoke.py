@@ -704,6 +704,8 @@ def test_script_calls_add_domain_args(rel_path: str) -> None:
         "scripts/run_all_metrics.py",
         "scripts/run_metric_refresh.py",
         "scripts/run_build_pipeline.py",
+        "scripts/compute_lineage_embeddings.py",
+        "scripts/stage1_quarterly_embeddings_optimized.py",
     ],
 )
 def test_cli_entrypoint_import_bootstrap(rel_path: str) -> None:
