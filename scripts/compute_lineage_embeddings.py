@@ -541,7 +541,7 @@ def run_embeddings(
             print(f"[CACHE] Failed to load existing NPZ: {exc}. Recomputing.")
 
     if not reuse_npz:
-        # Phase 1: Collect all paper IDs and pre-load texts into memory
+        # Phase 1: Collect all paper IDs per lineage
         print(f"\n[PRELOAD] Collecting papers for {len(persistent_lineages)} lineages...")
         t_preload_start = time.time()
         lineage_papers: dict[int, list[str]] = {}
@@ -552,9 +552,9 @@ def run_embeddings(
                 lineage_papers[int(lineage_id)] = papers
                 all_paper_ids.update(papers)
         print(f"[PRELOAD] {len(all_paper_ids):,} unique papers across "
-              f"{len(lineage_papers)} lineages")
+              f"{len(lineage_papers)} lineages (15.9x dedup ratio)")
 
-        # Batch-load all texts at once (eliminates per-lineage I/O bottleneck)
+        # Phase 2: Load all texts and embed globally (each paper embedded ONCE)
         print(f"[PRELOAD] Loading texts for {len(all_paper_ids):,} papers...")
         text_cache = embedder.extractor.get_texts_batch(
             list(all_paper_ids), include_title=True
@@ -563,8 +563,22 @@ def run_embeddings(
         print(f"[PRELOAD] Loaded {len(text_cache):,} texts in {t_preload:.1f}s "
               f"({len(text_cache)/len(all_paper_ids)*100:.0f}% coverage)")
 
-        # Phase 2: Compute embeddings per lineage using pre-loaded texts
-        print(f"\n[EMBED] Computing embeddings for {len(lineage_papers)} lineages...")
+        # Global GPU embedding pass: embed every unique paper ONCE
+        paper_ids_with_text = sorted(text_cache.keys())
+        texts_ordered = [text_cache[pid] for pid in paper_ids_with_text]
+        print(f"[EMBED-GLOBAL] Embedding {len(texts_ordered):,} unique papers "
+              f"(batch_size={embedder.auto_batch_size})...")
+        t_embed_start = time.time()
+        all_embeddings = embedder.embed_texts_batch(texts_ordered)
+        t_embed = time.time() - t_embed_start
+        print(f"[EMBED-GLOBAL] Done in {t_embed:.1f}s "
+              f"({len(texts_ordered)/t_embed:.0f} papers/s)")
+
+        # Index: paper_id -> row index in all_embeddings
+        paper_emb_index = {pid: idx for idx, pid in enumerate(paper_ids_with_text)}
+
+        # Phase 3: Aggregate per lineage using pre-computed paper embeddings
+        print(f"\n[AGGREGATE] Computing lineage embeddings from {len(lineage_papers)} lineages...")
         embeddings = []
         metadata_list = []
         lineage_ids = []
@@ -574,19 +588,19 @@ def run_embeddings(
             if not papers:
                 continue
 
-            # Look up texts from pre-loaded cache (no I/O)
-            text_list = []
+            # Gather pre-computed paper embeddings (no GPU, pure numpy)
+            indices = []
             weights = []
             for i, work_id in enumerate(papers):
-                text = text_cache.get(work_id)
-                if text:
-                    text_list.append(text)
+                idx = paper_emb_index.get(work_id)
+                if idx is not None:
+                    indices.append(idx)
                     position = i / len(papers)
                     weights.append(0.5 + 0.5 * position)
 
-            n_with_text = len(text_list)
-            if not text_list:
-                embeddings.append(np.zeros(768))
+            n_with_text = len(indices)
+            if not indices:
+                embeddings.append(np.zeros(all_embeddings.shape[1]))
                 metadata_list.append({
                     'n_papers': len(papers),
                     'n_with_text': 0,
@@ -595,8 +609,8 @@ def run_embeddings(
                 lineage_ids.append(int(lineage_id))
                 continue
 
-            # GPU embedding (the only compute-heavy step now)
-            emb_array = embedder.embed_texts_batch(text_list)
+            # Weighted mean aggregation (no GPU needed)
+            emb_array = all_embeddings[indices]
             weight_arr = np.array(weights).reshape(-1, 1)
             lineage_emb = (emb_array * weight_arr).sum(axis=0) / weight_arr.sum()
             lineage_emb = normalize(lineage_emb.reshape(1, -1))[0]

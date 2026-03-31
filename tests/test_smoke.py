@@ -271,14 +271,17 @@ def test_crispr_datasource_topic_id() -> None:
 
 
 def test_crispr_front_aliases_structure() -> None:
-    """CRISPR front aliases must define canonical names for known fronts."""
+    """CRISPR front aliases must match PSC structure (top-level keys are front names)."""
     path = PROJECT_ROOT / "config" / "front_aliases_crispr.yaml"
     assert path.exists(), "front_aliases_crispr.yaml missing"
     with path.open() as fh:
         data = yaml.safe_load(fh)
     assert isinstance(data, dict), "front_aliases_crispr.yaml must be a dict"
-    assert "fronts" in data, "Must have a 'fronts' key"
-    assert len(data["fronts"]) >= 5, "Should define at least 5 known CRISPR fronts"
+    assert len(data) >= 5, "Should define at least 5 known CRISPR fronts"
+    # Verify structure matches PSC (top-level keys are front names, not wrapped in 'fronts:')
+    assert "fronts" not in data, "Front names must be top-level keys (not nested under 'fronts:')"
+    for front_name, front_def in data.items():
+        assert "canonical" in front_def, f"Front {front_name} missing 'canonical'"
 
 
 def test_crispr_config_structural_parity() -> None:
