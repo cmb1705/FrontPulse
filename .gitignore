@@ -99,3 +99,4 @@ threshold_curve.png
 
 # Beads / Dolt files (added by bd init)
 .beads-credential-key
+config.yaml
