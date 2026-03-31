@@ -58,6 +58,7 @@ except ModuleNotFoundError:
     CatBoostClassifier = None  # type: ignore
 from imblearn.over_sampling import SMOTE  # noqa: E402
 from imblearn.pipeline import Pipeline as ImbPipeline  # noqa: E402
+from sklearn.base import clone  # noqa: E402
 from sklearn.metrics import (  # noqa: E402
     average_precision_score,
     classification_report,
@@ -121,6 +122,69 @@ def _parse_lag_max_arg(value: str | None) -> int | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def save_fold_diagnostics(
+    cv_results: dict,
+    output_dir: Path,
+) -> Path:
+    """Save per-fold diagnostics, PR curve, and calibration data to JSON.
+
+    Args:
+        cv_results: Dict from evaluate_with_cv containing fold_diagnostics,
+            oof_y_true, oof_y_prob, and per-fold metric arrays.
+        output_dir: Experiment output directory.
+
+    Returns:
+        Path to saved diagnostics file.
+    """
+    from sklearn.calibration import calibration_curve
+    from sklearn.metrics import precision_recall_curve
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    diagnostics: dict[str, Any] = {}
+
+    # Per-fold confusion matrices
+    diagnostics["per_fold"] = cv_results.get("fold_diagnostics", [])
+
+    # Per-fold metric arrays (for paired statistical tests)
+    for metric in ("precision", "recall", "f1", "roc_auc", "average_precision", "mcc", "f2"):
+        key = f"test_{metric}"
+        if key in cv_results:
+            diagnostics[f"fold_{metric}"] = cv_results[key].tolist()
+
+    # Out-of-fold PR curve
+    oof_y_true = cv_results.get("oof_y_true", [])
+    oof_y_prob = cv_results.get("oof_y_prob", [])
+    if oof_y_true and oof_y_prob:
+        pr_precision, pr_recall, pr_thresholds = precision_recall_curve(
+            oof_y_true, oof_y_prob
+        )
+        diagnostics["pr_curve"] = {
+            "precision": pr_precision.tolist(),
+            "recall": pr_recall.tolist(),
+            "thresholds": pr_thresholds.tolist(),
+        }
+
+        # Calibration curve (reliability diagram data)
+        try:
+            prob_true, prob_pred = calibration_curve(
+                oof_y_true, oof_y_prob, n_bins=10, strategy="uniform"
+            )
+            diagnostics["calibration"] = {
+                "prob_true": prob_true.tolist(),
+                "prob_pred": prob_pred.tolist(),
+                "n_bins": 10,
+            }
+        except ValueError:
+            pass  # Too few samples for calibration curve
+
+    out_path = output_dir / "fold_diagnostics.json"
+    with open(out_path, "w", encoding="utf-8") as fh:
+        json.dump(diagnostics, fh, indent=2, default=str)
+    print(f"   Saved fold diagnostics to {out_path}")
+    return out_path
+
 
 def compute_confusion_stats(
     pred_df: pd.DataFrame,
@@ -1061,6 +1125,34 @@ def evaluate_with_cv(
         n_jobs=n_jobs_cv
     )
 
+    # Collect per-fold predictions for diagnostics (PR curves, calibration, etc.)
+    fold_diagnostics: list[dict[str, Any]] = []
+    oof_y_true: list[int] = []
+    oof_y_prob: list[float] = []
+    for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X_matrix, y)):
+        fold_pipeline = clone(pipeline)
+        fold_pipeline.fit(X_matrix[train_idx], y.iloc[train_idx])
+        y_test_fold = y.iloc[test_idx]
+        y_prob_fold = fold_pipeline.predict_proba(X_matrix[test_idx])[:, 1]
+        y_pred_fold = (y_prob_fold >= 0.5).astype(int)
+
+        oof_y_true.extend(y_test_fold.tolist())
+        oof_y_prob.extend(y_prob_fold.tolist())
+
+        tp = int(((y_pred_fold == 1) & (y_test_fold.values == 1)).sum())
+        fp = int(((y_pred_fold == 1) & (y_test_fold.values == 0)).sum())
+        fn = int(((y_pred_fold == 0) & (y_test_fold.values == 1)).sum())
+        tn = int(((y_pred_fold == 0) & (y_test_fold.values == 0)).sum())
+        fold_diagnostics.append({
+            "fold": fold_idx,
+            "n_test": len(test_idx),
+            "n_positive": int(y_test_fold.sum()),
+            "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        })
+    cv_results["fold_diagnostics"] = fold_diagnostics
+    cv_results["oof_y_true"] = oof_y_true
+    cv_results["oof_y_prob"] = oof_y_prob
+
     # Aggregate results
     print(f"\n   === CROSS-VALIDATION RESULTS ({cv_folds} folds) ===")
     print("\n   Test Performance (mean ± std):")
@@ -1765,7 +1857,11 @@ def main():
         calibration_method=args.calibration_method if args.calibrate else None
     )
 
-    # Step 8b: Save run provenance for reproducibility
+    # Step 8b: Save fold diagnostics (PR curves, calibration, per-fold stats)
+    if args.use_cv and "cv_results" in results:
+        save_fold_diagnostics(results["cv_results"], output_dir)
+
+    # Step 8c: Save run provenance for reproducibility
     input_files = {
         "labels": labels_path,
         "tight_mapping": tight_mapping_path,
