@@ -39,3 +39,21 @@ Root cause unknown (possibly saved settings overrode the config topic filter).
 All PSC-domain results (MSD, ablation, convergence, embeddings) were actually CRISPR.
 Fix: added validate_topic_alignment() to run.py (FP-jp4). Always verify primary_topic_name
 after ingest. The validation gate checks >30% topic match against datasource config.
+
+## 2026-03-31: Onset labels vs inflection labels are not interchangeable (reviewer audit)
+The CRISPR native MSD with 70 inflection labels (logistic S-curve fit) showed
+ROC-AUC 0.865 and PR-AUC 0.064. Re-running with 198 onset labels (rule-based
+growth acceleration) improved to ROC-AUC 0.911 and PR-AUC 0.201. The two
+labeling methods detect fundamentally different things and produce
+incommensurable results. Always use the same label type across experiments.
+
+## 2026-03-31: Holdout evaluation only valid with matching labels and HP
+The original holdout (inflection labels + transferred HP) showed 100% train
+recall and 8.7% test precision -- classic overfitting. Re-running with onset
+labels and the same HP gave consistent CV/holdout results (0.911/0.914 ROC-AUC).
+The confounding variables were: wrong label type, HP tuned on different data.
+
+## 2026-03-31: After data re-ingest, ALL downstream artifacts must be rebuilt
+PSC was re-ingested with correct perovskite data, but data/psc/out/ still had
+CRISPR-era artifacts. The code doesn't automatically invalidate or rebuild
+downstream outputs when ingest data changes. Always check timestamps.
