@@ -81,6 +81,7 @@ from utils.quarter_utils import (  # noqa: E402
     snapshot_dataset,
 )
 
+from src.run_provenance import collect_run_provenance, save_run_provenance  # noqa: E402
 from src.trusted_io import save_trusted_pickle  # noqa: E402
 
 _PREFIT_CALIBRATION_WARNING_EMITTED = False
@@ -1720,6 +1721,29 @@ def main():
         calibrated=args.calibrate,
         calibration_method=args.calibration_method if args.calibrate else None
     )
+
+    # Step 8b: Save run provenance for reproducibility
+    input_files = {
+        "labels": labels_path,
+        "tight_mapping": tight_mapping_path,
+        "semantic_velocity": semantic_velocity_path,
+        "multisignal": multisignal_path,
+        "timeseries": timeseries_path,
+    }
+    provenance = collect_run_provenance(
+        args,
+        input_files,
+        output_dir,
+        repo_root=_REPO,
+        extra={
+            "n_features": len(feature_names),
+            "n_train_samples": len(X),
+            "n_positive_train": int(y.sum()),
+            "has_external_holdout": has_external_holdout,
+        },
+    )
+    prov_path = save_run_provenance(provenance, output_dir)
+    print(f"   Saved run provenance to {prov_path}")
 
     # Summary
     print("\n" + "="*70)
