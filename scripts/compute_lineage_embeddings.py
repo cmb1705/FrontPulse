@@ -509,95 +509,121 @@ def run_embeddings(
     print(f"[LOAD] Found {len(persistent_lineages)} persistent lineages "
           f"(>= {min_quarters} quarters)")
 
-    # Compute embeddings for each lineage
-    print(f"\n[EMBED] Computing embeddings for {len(persistent_lineages)} lineages...")
-
-    embeddings = []
-    metadata_list = []
-    lineage_ids = []
-
-    # Profiling accumulators
-    if profile:
-        timings = {
-            'load_papers': [],
-            'extract_texts': [],
-            'embed_compute': []
-        }
-
-    for lineage_id in tqdm(persistent_lineages, desc="Lineages"):
-        # Extract all papers in this lineage
-        t0 = time.time()
-        papers = load_lineage_papers_fast(lineage_id, lineage_registry, partitions_dir)
-        t1 = time.time()
-        if profile:
-            timings['load_papers'].append(t1 - t0)
-
-        if not papers:
-            print(f"  Warning: No papers found for lineage {lineage_id}")
-            continue
-
-        # Compute embedding (includes text extraction + GPU computation)
-        t2 = time.time()
-        embedding, metadata = embedder.compute_lineage_embedding(
-            papers,
-            recency_weight=True,
-            profile=profile
-        )
-        t3 = time.time()
-        if profile:
-            timings['embed_compute'].append(t3 - t2)
-
-        embeddings.append(embedding)
-        metadata_list.append(metadata)
-        lineage_ids.append(lineage_id)
-
-        if profile:
-            print(f"\n  Lineage {lineage_id}: {len(papers)} papers")
-            print(f"    Load papers:  {t1-t0:.2f}s")
-            print(f"    Embed compute: {t3-t2:.2f}s")
-            print(f"    Total:        {t3-t0:.2f}s")
-
-    # Convert to numpy array
-    embeddings_array = np.array(embeddings)
-
-    if len(embeddings_array) == 0:
-        print("\n[WARNING] No embeddings generated.")
-        return None, None, None
-
-    # Save embeddings
-    print(f"\n[SAVE] Saving embeddings to {output_path}")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    np.savez_compressed(
-        output_path,
-        embeddings=embeddings_array,
-        lineage_ids=np.array(lineage_ids)
-    )
-
-    # Save metadata
+    # Check if existing embeddings NPZ can be reused (skip heavy GPU step)
+    reuse_npz = False
     metadata_path = output_path.with_suffix('.json')
-    metadata_output = {
-        'lineages': [
-            {
-                'lineage_id': int(lid),
-                'n_papers': meta['n_papers'],
-                'n_with_text': meta['n_with_text'],
-                'coverage': meta['coverage']
+    if output_path.exists() and metadata_path.exists():
+        try:
+            cached = np.load(output_path)
+            cached_ids = set(cached["lineage_ids"].tolist())
+            expected_ids = {int(lid) for lid in persistent_lineages}
+            if cached_ids == expected_ids:
+                embeddings_array = cached["embeddings"]
+                lineage_ids = cached["lineage_ids"].tolist()
+                with open(metadata_path) as _mf:
+                    metadata_output = json.load(_mf)
+                metadata_list = metadata_output.get("lineages", [])
+                reuse_npz = True
+                print(f"[CACHE] Reusing existing embeddings NPZ ({len(lineage_ids)} lineages, "
+                      f"{embeddings_array.shape[1]}d) -- lineage set matches.")
+                print(f"[CACHE] Skipping {len(lineage_ids)} lineage embedding computations.")
+            else:
+                added = expected_ids - cached_ids
+                removed = cached_ids - expected_ids
+                print(f"[CACHE] NPZ lineage set mismatch: +{len(added)} new, -{len(removed)} gone. "
+                      "Recomputing all embeddings.")
+        except Exception as exc:
+            print(f"[CACHE] Failed to load existing NPZ: {exc}. Recomputing.")
+
+    if not reuse_npz:
+        # Compute embeddings for each lineage
+        print(f"\n[EMBED] Computing embeddings for {len(persistent_lineages)} lineages...")
+
+        embeddings = []
+        metadata_list = []
+        lineage_ids = []
+
+        # Profiling accumulators
+        if profile:
+            timings = {
+                'load_papers': [],
+                'extract_texts': [],
+                'embed_compute': []
             }
-            for lid, meta in zip(lineage_ids, metadata_list)
-        ],
-        'summary': {
-            'n_lineages': len(lineage_ids),
-            'embedding_dim': embeddings_array.shape[1],
-            'avg_papers_per_lineage': np.mean([m['n_papers'] for m in metadata_list]),
-            'avg_coverage': np.mean([m['coverage'] for m in metadata_list])
+
+        for lineage_id in tqdm(persistent_lineages, desc="Lineages"):
+            # Extract all papers in this lineage
+            t0 = time.time()
+            papers = load_lineage_papers_fast(lineage_id, lineage_registry, partitions_dir)
+            t1 = time.time()
+            if profile:
+                timings['load_papers'].append(t1 - t0)
+
+            if not papers:
+                print(f"  Warning: No papers found for lineage {lineage_id}")
+                continue
+
+            # Compute embedding (includes text extraction + GPU computation)
+            t2 = time.time()
+            embedding, metadata = embedder.compute_lineage_embedding(
+                papers,
+                recency_weight=True,
+                profile=profile
+            )
+            t3 = time.time()
+            if profile:
+                timings['embed_compute'].append(t3 - t2)
+
+            embeddings.append(embedding)
+            metadata_list.append(metadata)
+            lineage_ids.append(lineage_id)
+
+            if profile:
+                print(f"\n  Lineage {lineage_id}: {len(papers)} papers")
+                print(f"    Load papers:  {t1-t0:.2f}s")
+                print(f"    Embed compute: {t3-t2:.2f}s")
+                print(f"    Total:        {t3-t0:.2f}s")
+
+        # Convert to numpy array
+        embeddings_array = np.array(embeddings)
+
+        if len(embeddings_array) == 0:
+            print("\n[WARNING] No embeddings generated.")
+            return None, None, None
+
+        # Save embeddings
+        print(f"\n[SAVE] Saving embeddings to {output_path}")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        np.savez_compressed(
+            output_path,
+            embeddings=embeddings_array,
+            lineage_ids=np.array(lineage_ids)
+        )
+
+        # Save metadata
+        metadata_output = {
+            'lineages': [
+                {
+                    'lineage_id': int(lid),
+                    'n_papers': meta['n_papers'],
+                    'n_with_text': meta['n_with_text'],
+                    'coverage': meta['coverage']
+                }
+                for lid, meta in zip(lineage_ids, metadata_list)
+            ],
+            'summary': {
+                'n_lineages': len(lineage_ids),
+                'embedding_dim': embeddings_array.shape[1],
+                'avg_papers_per_lineage': np.mean([m['n_papers'] for m in metadata_list]),
+                'avg_coverage': np.mean([m['coverage'] for m in metadata_list])
+            }
         }
-    }
 
-    with open(metadata_path, 'w') as f:
-        json.dump(metadata_output, f, indent=2)
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata_output, f, indent=2)
 
-    print(f"[SAVE] Saved metadata to {metadata_path}")
+        print(f"[SAVE] Saved metadata to {metadata_path}")
 
     # Print summary
     print(f"\n{'='*70}")
