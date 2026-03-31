@@ -42,6 +42,11 @@ from scripts.compute_lineage_ctfidf import (  # type: ignore  # noqa: E402
     STOPWORDS,
     TECHNICAL_BIGRAMS,
 )
+from src.artifact_freshness import (  # noqa: E402
+    StaleInputError,
+    require_inputs,
+    save_input_manifest,
+)
 from src.domain_registry import (  # noqa: E402
     add_domain_args,
     apply_domain_path_defaults,
@@ -71,8 +76,14 @@ def configure_logging(verbose: bool) -> None:
     )
 
 
-def load_field_metrics(path: Path) -> pd.DataFrame:
+def load_field_metrics(path: Path, *, strict: bool = True) -> pd.DataFrame:
+    """Load field-level metrics. Raises on missing file when strict."""
     if not path.exists():
+        if strict:
+            raise StaleInputError(
+                f"Field metrics file not found: {path}. "
+                "Run field aggregation first or pass --disable-field-metrics."
+            )
         LOG.warning("Field metrics file %s not found; skipping field-relative features.", path)
         return pd.DataFrame()
     df = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path)
@@ -351,8 +362,10 @@ def load_global_metrics(metrics_dir: Path) -> dict[str, dict[str, float]]:
     for metric_name, filename in metric_files.items():
         filepath = metrics_dir / 'global' / filename
         if not filepath.exists():
-            LOG.warning("Metric file not found: %s", filepath)
-            continue
+            raise StaleInputError(
+                f"Required metric file not found: {filepath}. "
+                "Run metric computation first or disable --enable-context-features."
+            )
 
         df = pd.read_parquet(filepath)
         for _, row in df.iterrows():
@@ -1082,6 +1095,12 @@ def main() -> None:
     cache_path = Path(args.reference_cache) if args.reference_cache else None
     out_path = Path(args.out)
 
+    # Hard-fail on missing core inputs (never backfill from nothing)
+    require_inputs(
+        {"registry": registry_path, "timeseries": timeseries_path},
+        context="compute_lineage_multisignal_features",
+    )
+
     start_total = time.perf_counter()
 
     LOG.info("Loading LineageTextStore (registry + abstract extractor)...")
@@ -1132,7 +1151,9 @@ def main() -> None:
     field_metrics_df = pd.DataFrame()
     if not args.disable_field_metrics:
         LOG.info("Loading field metrics from %s...", args.field_metrics)
-        field_metrics_df = load_field_metrics(Path(args.field_metrics))
+        field_metrics_df = load_field_metrics(
+            Path(args.field_metrics), strict=not args.disable_field_metrics,
+        )
 
     LOG.info("Building lineage-quarter paper lists...")
     lineage_quarter_papers, work_lineage = build_lineage_quarter_papers(
@@ -1228,21 +1249,24 @@ def main() -> None:
     convergence_features: dict[tuple[int, str], dict[str, float]] = {}
     if args.convergence_features:
         conv_path = Path(args.convergence_features)
-        if conv_path.exists():
-            LOG.info("Loading convergence features from %s", conv_path)
-            conv_df = pd.read_csv(conv_path)
-            conv_cols = [c for c in conv_df.columns if c.startswith("conv_")]
-            for _row in conv_df.itertuples(index=False):
-                _key = (int(_row.lineage_id), str(_row.quarter))
-                convergence_features[_key] = {
-                    c: float(getattr(_row, c, 0.0)) for c in conv_cols
-                }
-            LOG.info(
-                "Loaded convergence features: %d entries, %d columns",
-                len(convergence_features), len(conv_cols),
+        if not conv_path.exists():
+            raise StaleInputError(
+                f"Convergence features file not found: {conv_path}. "
+                "Run compute_convergence_features.py first or remove "
+                "--convergence-features flag."
             )
-        else:
-            LOG.warning("Convergence features file not found: %s", conv_path)
+        LOG.info("Loading convergence features from %s", conv_path)
+        conv_df = pd.read_csv(conv_path)
+        conv_cols = [c for c in conv_df.columns if c.startswith("conv_")]
+        for _row in conv_df.itertuples(index=False):
+            _key = (int(_row.lineage_id), str(_row.quarter))
+            convergence_features[_key] = {
+                c: float(getattr(_row, c, 0.0)) for c in conv_cols
+            }
+        LOG.info(
+            "Loaded convergence features: %d entries, %d columns",
+            len(convergence_features), len(conv_cols),
+        )
 
     LOG.info("Assembling feature table...")
     records = []
@@ -1329,6 +1353,24 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     features_df.to_csv(out_path, index=False)
     LOG.info("Feature table written to %s", out_path)
+
+    # Save input manifest for provenance tracking
+    manifest_inputs: dict[str, Path | None] = {
+        "registry": registry_path,
+        "timeseries": timeseries_path,
+        "partitions_dir": partitions_dir,
+    }
+    if not args.disable_field_metrics:
+        manifest_inputs["field_metrics"] = Path(args.field_metrics)
+    if args.enable_context_features:
+        manifest_inputs["metrics_dir"] = Path(args.metrics_dir)
+    if args.convergence_features:
+        manifest_inputs["convergence_features"] = Path(args.convergence_features)
+    if args.onset_labels:
+        manifest_inputs["onset_labels"] = Path(args.onset_labels)
+    if args.maturation_labels:
+        manifest_inputs["maturation_labels"] = Path(args.maturation_labels)
+    save_input_manifest(manifest_inputs, out_path.parent, filename="feature_manifest.json")
 
     LOG.info("Feature summary (head):\n%s", features_df.head().to_string(index=False))
     LOG.info("Feature summary (describe):\n%s", features_df.describe().to_string())
