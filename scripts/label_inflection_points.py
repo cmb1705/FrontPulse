@@ -752,7 +752,7 @@ def main() -> None:
             onset_df["onset_detected"] == 1, ["lineage_id", "onset_quarter"]
         ].copy()
         msd_df = msd_df.rename(columns={"onset_quarter": "quarter"})
-        msd_df["is_inflection_onset"] = 1
+        msd_df["is_onset"] = 1
         msd_df.to_csv(msd_path, index=False)
         LOG.info(
             "Wrote MSD-compatible onset labels to %s (%d rows)", msd_path, len(msd_df),

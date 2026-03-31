@@ -2,8 +2,8 @@
   {
     "name": "msd_lightgbm",
     "path": "data/out/experiments/msd_training/msd_inflection/leakage_free/breakthrough_predictions.csv",
-    "score_column": "inflection_probability",
-    "pred_column": "is_inflection_pred"
+    "score_column": "onset_probability",
+    "pred_column": "is_onset_pred"
   },
   {
     "name": "simple_heuristics",

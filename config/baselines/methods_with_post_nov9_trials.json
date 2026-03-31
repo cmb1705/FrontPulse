@@ -2,20 +2,20 @@
   {
     "name": "msd_production",
     "path": "data/out/experiments/msd_training/msd_inflection/leakage_free/breakthrough_predictions.csv",
-    "score_column": "inflection_probability",
-    "pred_column": "is_inflection_pred"
+    "score_column": "onset_probability",
+    "pred_column": "is_onset_pred"
   },
   {
     "name": "msd_core_features_only",
     "path": "data/out/experiments/msd_training/msd_inflection/leakage_free_core_only/breakthrough_predictions.csv",
-    "score_column": "inflection_probability",
-    "pred_column": "is_inflection_pred"
+    "score_column": "onset_probability",
+    "pred_column": "is_onset_pred"
   },
   {
     "name": "msd_prospective_dev",
     "path": "data/out/experiments/msd_training/time_forward_split/dev/breakthrough_predictions.csv",
-    "score_column": "inflection_probability",
-    "pred_column": "is_inflection_pred"
+    "score_column": "onset_probability",
+    "pred_column": "is_onset_pred"
   },
   {
     "name": "simple_heuristics",

@@ -30,4 +30,5 @@ metadata:
   maintainer: analytics@perovskite.work
   notes:
     - Mirrors TIME_FORWARD_HOLDOUT_PLAN.md Phase 1 target.
-    - Use --labels data/out/02_lineage_tracking/inflection_labels.csv (PSC; use --domain for other domains).
+    - Use --labels data/{domain}/out/02_lineage_tracking/onset_labels_msd.csv with --domain flag.
+    - Legacy inflection_labels.csv is from retrospective logistic-fit era; do not use for onset experiments.

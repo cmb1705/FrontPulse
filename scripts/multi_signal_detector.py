@@ -355,22 +355,34 @@ def construct_labels(
                  Default 8 (2 years). Set to None for no upper bound.
     """
     if labels_df is not None:
-        print("[2/8] Constructing labels from inflection file...")
+        print("[2/8] Constructing labels from onset/inflection file...")
         df = labels_df.copy()
-        required = {'lineage_id', 'quarter', 'is_inflection_onset'}
+        # Accept both new (is_onset) and legacy (is_inflection_onset) column names
+        label_col: str | None = None
+        for candidate in ("is_onset", "is_inflection_onset"):
+            if candidate in df.columns:
+                label_col = candidate
+                break
+        if label_col is None:
+            raise ValueError(
+                "Label file must contain 'is_onset' or 'is_inflection_onset' column."
+            )
+        required = {'lineage_id', 'quarter', label_col}
         missing = required - set(df.columns)
         if missing:
             raise ValueError(f"Label file missing columns: {missing}")
         df['lineage_id'] = df['lineage_id'].astype(int)
         df['quarter'] = df['quarter'].astype(str)
         features_df = features_df.merge(
-            df[['lineage_id', 'quarter', 'is_inflection_onset']],
+            df[['lineage_id', 'quarter', label_col]],
             on=['lineage_id', 'quarter'],
             how='left'
         )
-        features_df['is_inflection_onset'] = features_df['is_inflection_onset'].fillna(0).astype(int)
-        print(f"   Inflection positives: {features_df['is_inflection_onset'].sum()} ({features_df['is_inflection_onset'].mean()*100:.2f}%)")
-        features_df.rename(columns={'is_inflection_onset': 'is_milestone'}, inplace=True)
+        features_df[label_col] = features_df[label_col].fillna(0).astype(int)
+        n_pos = int(features_df[label_col].sum())
+        pct = features_df[label_col].mean() * 100
+        print(f"   Onset positives: {n_pos} ({pct:.2f}%)")
+        features_df.rename(columns={label_col: 'is_milestone'}, inplace=True)
         return features_df
 
     print("[2/8] Constructing labels...")
@@ -1224,18 +1236,21 @@ def generate_predictions(
     # Apply custom threshold (not default 0.50)
     y_pred = (y_prob >= threshold).astype(int)
 
-    # Create predictions DataFrame
+    # Create predictions DataFrame (onset-primary schema)
     predictions_df = pd.DataFrame({
         'lineage_id': df['lineage_id'],
         'quarter': df['quarter'],
-        'is_inflection_true': df['is_milestone'],
-        'is_inflection_pred': y_pred,
-        'inflection_probability': y_prob,
+        'is_onset_true': df['is_milestone'],
+        'is_onset_pred': y_pred,
+        'onset_probability': y_prob,
     })
-    # Legacy column names retained for downstream consumers
-    predictions_df['is_milestone_true'] = predictions_df['is_inflection_true']
-    predictions_df['is_milestone_pred'] = predictions_df['is_inflection_pred']
-    predictions_df['milestone_probability'] = predictions_df['inflection_probability']
+    # Legacy column aliases for backward compatibility with downstream scripts
+    predictions_df['is_inflection_true'] = predictions_df['is_onset_true']
+    predictions_df['is_inflection_pred'] = predictions_df['is_onset_pred']
+    predictions_df['inflection_probability'] = predictions_df['onset_probability']
+    predictions_df['is_milestone_true'] = predictions_df['is_onset_true']
+    predictions_df['is_milestone_pred'] = predictions_df['is_onset_pred']
+    predictions_df['milestone_probability'] = predictions_df['onset_probability']
     predictions_df = add_detection_lag_column(predictions_df)
 
     print(f"   Generated {len(predictions_df)} predictions")
@@ -1247,11 +1262,13 @@ def generate_predictions(
         predictions_df,
         threshold=threshold,
         window=persistence_window,
-        column_name="is_inflection_pred_persistent",
+        column_name="is_onset_pred_persistent",
     )
-    predictions_df["is_milestone_pred_persistent"] = predictions_df["is_inflection_pred_persistent"]
+    # Legacy aliases
+    predictions_df["is_inflection_pred_persistent"] = predictions_df["is_onset_pred_persistent"]
+    predictions_df["is_milestone_pred_persistent"] = predictions_df["is_onset_pred_persistent"]
 
-    persistent_hits = int(predictions_df["is_inflection_pred_persistent"].sum())
+    persistent_hits = int(predictions_df["is_onset_pred_persistent"].sum())
     print(
         f"   Persistent detections (>={persistence_window}Q): "
         f"{persistent_hits} ({persistent_hits/len(predictions_df)*100:.2f}%)"
@@ -1707,7 +1724,7 @@ def main():
     lag_stats = summarize_detection_lag(predictions_df)
     metrics.update(threshold_stats)
     metrics.update(lag_stats)
-    metrics["persistent_positive_count"] = int(predictions_df["is_inflection_pred_persistent"].sum())
+    metrics["persistent_positive_count"] = int(predictions_df["is_onset_pred_persistent"].sum())
 
     # Step 8: Save model and metrics
     save_model_and_metrics(
