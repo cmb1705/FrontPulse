@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 from datetime import datetime, timezone
+from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
 from _path_bootstrap import ensure_repo_imports
@@ -32,6 +34,21 @@ from src.metrics.common import (  # noqa: E402
     write_placeholder_metric,
 )
 
+try:
+    from src.memory_utils import get_memory_info  # noqa: E402
+
+    MEMORY_UTILS_AVAILABLE = True
+except ImportError:
+    MEMORY_UTILS_AVAILABLE = False
+
+
+DEFAULT_MAX_WORKERS = 12
+DEFAULT_MEMORY_RESERVE_GB = 8.0
+LARGE_GRAPH_BYTES = 100 * 1024 * 1024
+VERY_LARGE_GRAPH_BYTES = 175 * 1024 * 1024
+ESTIMATED_GRAPH_EXPANSION_MULTIPLIER = 16.0
+MIN_ESTIMATED_WORKER_MEMORY_GB = 2.0
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Quantify cross-cluster bridging nodes over time.")
@@ -49,6 +66,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-degree", type=int, default=3)
     parser.add_argument("--top-nodes", type=int, default=10)
     parser.add_argument("--high-ratio-threshold", type=float, default=0.5)
+    parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
+    parser.add_argument("--memory-reserve-gb", type=float, default=DEFAULT_MEMORY_RESERVE_GB)
     add_domain_args(parser)
     return parser.parse_args()
 
@@ -89,14 +108,70 @@ def compute_partition(
 
 
 def build_undirected(G: nx.DiGraph) -> nx.Graph:
-    H = nx.Graph()
-    H.add_nodes_from(G.nodes(data=True))
-    for u, v in G.edges():
-        if u == v:
-            continue
-        if not H.has_edge(u, v):
-            H.add_edge(u, v)
-    return H
+    """
+    Return an undirected view without duplicating the graph in memory.
+
+    Memory expectation:
+        Uses a view over the original directed graph instead of allocating a
+        second NetworkX graph, which avoids the extra O(|V| + |E|) copy that
+        caused CRISPR-scale runs to exhaust RAM.
+    """
+    return nx.subgraph_view(
+        G.to_undirected(as_view=True),
+        filter_edge=lambda u, v: u != v,
+    )
+
+
+def suggest_worker_count(
+    graph_paths: list[Path],
+    requested_workers: int,
+    memory_reserve_gb: float,
+) -> tuple[int, str]:
+    """
+    Right-size quarter-level parallelism for memory-heavy bridging analysis.
+
+    Memory expectation:
+        Estimates each worker as one loaded NetworkX graph plus Leiden and
+        traversal overhead. The heuristic is intentionally conservative because
+        CRISPR cumulative graphs expand far beyond their on-disk pickle size.
+    """
+    if not graph_paths:
+        return 1, "no graph files selected"
+
+    max_workers = max(1, min(requested_workers, len(graph_paths), cpu_count()))
+    if not MEMORY_UTILS_AVAILABLE:
+        return max_workers, "psutil unavailable; using requested worker count"
+
+    available_gb = get_memory_info().get("available")
+    if available_gb is None:
+        return max_workers, "memory info unavailable; using requested worker count"
+
+    memory_reserve_gb = max(0.0, float(memory_reserve_gb))
+    usable_gb = max(1.0, available_gb - memory_reserve_gb)
+    largest_graph_bytes = max(
+        (path.stat().st_size for path in graph_paths if path.exists()),
+        default=0,
+    )
+    largest_graph_gb = largest_graph_bytes / (1024 ** 3)
+    estimated_worker_memory_gb = max(
+        MIN_ESTIMATED_WORKER_MEMORY_GB,
+        largest_graph_gb * ESTIMATED_GRAPH_EXPANSION_MULTIPLIER,
+    )
+    memory_limited_workers = max(1, int(usable_gb // estimated_worker_memory_gb))
+
+    size_cap = max_workers
+    if largest_graph_bytes >= VERY_LARGE_GRAPH_BYTES:
+        size_cap = min(size_cap, 2)
+    elif largest_graph_bytes >= LARGE_GRAPH_BYTES:
+        size_cap = min(size_cap, 4)
+
+    adjusted_workers = max(1, min(max_workers, memory_limited_workers, size_cap))
+    reason = (
+        f"available={available_gb:.1f} GB, reserve={memory_reserve_gb:.1f} GB, "
+        f"largest_graph={largest_graph_gb:.2f} GB, "
+        f"estimated={estimated_worker_memory_gb:.2f} GB/worker"
+    )
+    return adjusted_workers, reason
 
 
 def front_lookup(registry: dict[str, dict[str, int]], quarter: str, community: int) -> int | None:
@@ -111,17 +186,10 @@ def analyze_quarter(
     graph_path: Path,
     args: argparse.Namespace,
     registry: dict[str, dict[str, int]],
-    ingest_path: Path | None = None,
 ) -> dict[str, object]:
     Gfull: nx.DiGraph = trusted_io.load_trusted_binary(
         graph_path, description="citation graph",
     )
-
-    # Load metadata lookup table (graphs now use minimal attributes for memory efficiency)
-    if ingest_path is None:
-        ingest_path = REPO_ROOT / "data" / "current_ingest" / "ingest.parquet"
-    metadata_df = pd.read_parquet(ingest_path, columns=['work_id', 'title', 'cited_by_count'])
-    metadata_lookup = metadata_df.set_index('work_id').to_dict('index')
 
     partition_map = compute_partition(Gfull, quarter, args, args.cache_dir)
     if not partition_map:
@@ -166,8 +234,6 @@ def analyze_quarter(
                 external_comms.add(int(nbr_comm))
         bridge_ratio = float(external / degree) if degree else 0.0
         node_data = G.nodes[node]
-        # Lookup rich metadata from ingest.parquet (not embedded in minimal graphs)
-        node_metadata = metadata_lookup.get(str(node), {})
         bridge_rows.append(
             {
                 "node_id": node,
@@ -177,9 +243,7 @@ def analyze_quarter(
                 "external_degree": external,
                 "external_communities": len(external_comms),
                 "bridge_ratio": bridge_ratio,
-                "title": node_metadata.get("title"),
-                "publication_date": node_data.get("publication_date"),  # Still in minimal graph
-                "cited_by_count": node_metadata.get("cited_by_count"),
+                "publication_date": node_data.get("publication_date"),
             }
         )
 
@@ -257,14 +321,126 @@ def render_plot(payload: dict[str, object], out_path: Path) -> None:
 
 def analyze_quarter_wrapper(args_tuple):
     """Wrapper for parallel processing."""
-    quarter, path, args, registry, ingest_path = args_tuple
-    return analyze_quarter(quarter, path, args, registry, ingest_path)
+    quarter, path, args, registry = args_tuple
+    return analyze_quarter(quarter, path, args, registry)
+
+
+def enrich_top_nodes_with_metadata(
+    quarters: list[dict[str, object]],
+    ingest_path: Path | None,
+) -> None:
+    """
+    Add lightweight metadata to the final top-node summaries only.
+
+    Memory expectation:
+        Loads the selected ingest columns once in the parent process after all
+        graph work completes, instead of repeating the same parquet read in
+        every worker.
+    """
+    if not quarters or ingest_path is None or not ingest_path.exists():
+        return
+
+    top_node_ids = sorted({
+        str(node["node_id"])
+        for row in quarters
+        for node in row.get("top_nodes", [])
+        if node.get("node_id") is not None
+    })
+    if not top_node_ids:
+        return
+
+    metadata_df = pd.read_parquet(
+        ingest_path,
+        columns=["work_id", "title", "cited_by_count"],
+    )
+    metadata_df["work_id"] = metadata_df["work_id"].astype(str)
+    metadata_lookup = (
+        metadata_df.loc[metadata_df["work_id"].isin(top_node_ids)]
+        .set_index("work_id")
+        .to_dict("index")
+    )
+
+    for row in quarters:
+        for node in row.get("top_nodes", []):
+            node_metadata = metadata_lookup.get(str(node.get("node_id")), {})
+            node["title"] = node_metadata.get("title")
+            node["cited_by_count"] = node_metadata.get("cited_by_count")
+
+    del metadata_df
+    del metadata_lookup
+    gc.collect()
+
+
+def is_memory_pressure_error(exc: BaseException) -> bool:
+    message = f"{type(exc).__name__}: {exc}".lower()
+    return isinstance(exc, MemoryError) or any(
+        marker in message
+        for marker in (
+            "memoryerror",
+            "out of memory",
+            "not enough memory",
+            "paging file",
+        )
+    )
+
+
+def run_quarter_analyses_with_backoff(
+    quarter_args: list[tuple[str, Path, argparse.Namespace, dict[str, dict[str, int]]]],
+    graph_paths: list[Path],
+    requested_workers: int,
+    memory_reserve_gb: float,
+) -> tuple[list[dict[str, object]], int, str]:
+    """
+    Run quarter analyses with adaptive worker selection and memory backoff.
+
+    Memory expectation:
+        Starts from a conservative worker estimate and halves the pool after a
+        memory-pressure failure until the run succeeds or sequential mode fails.
+    """
+    worker_count, selection_reason = suggest_worker_count(
+        graph_paths=graph_paths,
+        requested_workers=requested_workers,
+        memory_reserve_gb=memory_reserve_gb,
+    )
+    attempts = [worker_count]
+
+    while True:
+        try:
+            print(
+                f"Processing {len(quarter_args)} quarters using {worker_count} "
+                f"worker(s) ({selection_reason})..."
+            )
+            if worker_count == 1:
+                quarters = []
+                for quarter_arg in quarter_args:
+                    quarters.append(analyze_quarter_wrapper(quarter_arg))
+                    gc.collect()
+            else:
+                with Pool(worker_count) as pool:
+                    quarters = pool.map(analyze_quarter_wrapper, quarter_args, chunksize=1)
+            return quarters, worker_count, selection_reason
+        except Exception as exc:
+            if not is_memory_pressure_error(exc) or worker_count == 1:
+                raise
+            next_worker_count = max(1, worker_count // 2)
+            print(
+                f"Memory pressure detected with {worker_count} worker(s) "
+                f"({type(exc).__name__}). Retrying with {next_worker_count}."
+            )
+            worker_count = next_worker_count
+            attempts.append(worker_count)
+            selection_reason = (
+                f"{selection_reason}; memory backoff attempted workers={attempts}"
+            )
+            gc.collect()
 
 
 def write_standardized_outputs(
     payload: dict[str, object],
     input_files: list[Path],
     args: argparse.Namespace,
+    workers_used: int,
+    worker_selection_reason: str,
 ) -> None:
     """
     Write standardized parquet outputs and metadata for cross-cluster bridging metric.
@@ -308,6 +484,10 @@ def write_standardized_outputs(
             "min_degree": args.min_degree,
             "high_ratio_threshold": args.high_ratio_threshold,
             "num_input_files": len(input_files),
+            "max_workers_requested": args.max_workers,
+            "workers_used": workers_used,
+            "memory_reserve_gb": args.memory_reserve_gb,
+            "worker_selection_reason": worker_selection_reason,
         },
         input_files=input_files,  # Track all input graph files
         level="global",
@@ -364,21 +544,23 @@ def main() -> None:
     if args.limit is not None:
         graph_pairs = graph_pairs[: args.limit]
 
+    if not graph_pairs:
+        raise FileNotFoundError(f"No cumulative graph files found in {args.graphs_dir}")
+
     # Track input files for provenance
     input_files = [path for quarter, path in graph_pairs]
 
-    # Parallelize across quarters using multiprocessing
-    from multiprocessing import Pool, cpu_count
-    n_workers = min(cpu_count(), len(graph_pairs))
-    print(f"Processing {len(graph_pairs)} quarters using {n_workers} parallel workers...")
-
     # Prepare arguments for parallel processing
-    quarter_args = [(quarter, path, args, registry, args.ingest_path) for quarter, path in graph_pairs]
+    quarter_args = [(quarter, path, args, registry) for quarter, path in graph_pairs]
+    quarters, workers_used, worker_selection_reason = run_quarter_analyses_with_backoff(
+        quarter_args=quarter_args,
+        graph_paths=input_files,
+        requested_workers=args.max_workers,
+        memory_reserve_gb=args.memory_reserve_gb,
+    )
+    print(f"Completed processing {len(quarters)} quarters using {workers_used} worker(s).")
 
-    with Pool(n_workers) as pool:
-        quarters = pool.map(analyze_quarter_wrapper, quarter_args)
-
-    print(f"Completed processing {len(quarters)} quarters.")
+    enrich_top_nodes_with_metadata(quarters, args.ingest_path)
 
     payload = {
         "metric": "cross_cluster_bridging",
@@ -390,6 +572,10 @@ def main() -> None:
             "min_degree": args.min_degree,
             "top_nodes": args.top_nodes,
             "high_ratio_threshold": args.high_ratio_threshold,
+            "max_workers_requested": args.max_workers,
+            "workers_used": workers_used,
+            "memory_reserve_gb": args.memory_reserve_gb,
+            "worker_selection_reason": worker_selection_reason,
         },
         "quarters": quarters,
     }
@@ -409,7 +595,13 @@ def main() -> None:
             figure_path.unlink()
 
     # Standardized parquet outputs with provenance tracking (Task 1.1 + 1.2)
-    write_standardized_outputs(payload, input_files, args)
+    write_standardized_outputs(
+        payload,
+        input_files,
+        args,
+        workers_used=workers_used,
+        worker_selection_reason=worker_selection_reason,
+    )
 
 
 if __name__ == "__main__":
