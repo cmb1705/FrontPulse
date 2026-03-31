@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.run_build_pipeline import resolve_front_config_path
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
@@ -424,6 +426,16 @@ class TestRunBuildPipelineDomainForwarding:
         assert "extend" in func_text or "'--domain'" in func_text, (
             "run_build_pipeline must use extend/list format for --domain forwarding"
         )
+
+    def test_resolve_front_config_path_uses_domain_specific_aliases(self) -> None:
+        """CRISPR runs must use the CRISPR front-alias config."""
+        crispr_path = resolve_front_config_path("crispr")
+        psc_path = resolve_front_config_path("psc")
+        default_path = resolve_front_config_path(None)
+
+        assert crispr_path.name == "front_aliases_crispr.yaml"
+        assert psc_path.name == "front_aliases.yaml"
+        assert default_path.name == "front_aliases.yaml"
 
 
 # ---------------------------------------------------------------------------

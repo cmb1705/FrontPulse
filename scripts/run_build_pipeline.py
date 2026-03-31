@@ -57,8 +57,17 @@ from _path_bootstrap import ensure_repo_imports
 
 repo_root = ensure_repo_imports()
 
-from src.domain_registry import add_domain_args, resolve_script_paths  # noqa: E402
+from src.domain_registry import add_domain_args, get_domain, resolve_script_paths  # noqa: E402
 from src.lineage_text_store import LineageTextStore  # noqa: E402
+
+
+def resolve_front_config_path(domain: str | None) -> Path:
+    """Resolve the front-alias config for the active domain."""
+    if domain is not None:
+        front_aliases = get_domain(domain).resolve_paths(repo_root).get("front_aliases")
+        if front_aliases is not None:
+            return front_aliases
+    return repo_root / "config" / "front_aliases.yaml"
 
 
 class PipelineConfig:
@@ -95,6 +104,7 @@ class PipelineConfig:
 
         # Domain forwarding
         self.domain = getattr(args, "domain", None)
+        self.front_config_path = resolve_front_config_path(self.domain)
 
         # Stage-specific parameters (can be expanded)
         self.embedding_device = args.device
@@ -219,7 +229,7 @@ def run_stage2_embeddings(config: PipelineConfig, store: LineageTextStore) -> No
         profile=config.profile,
         output_path=config.lineage_dir / "lineage_embeddings.npz",
         lineage_metrics_path=config.lineage_metrics_path,
-        front_config_path=Path('config/front_aliases.yaml'),
+        front_config_path=config.front_config_path,
         partitions_dir=config.partitions_dir,
         output_root=config.output_root,
         store=store,  # Pass shared store!
@@ -254,7 +264,7 @@ def run_stage3_ctfidf(config: PipelineConfig, store: LineageTextStore) -> None:
         min_quarters=config.min_quarters,
         top_n=50,
         similarity_threshold=0.01,
-        front_config_path=Path('config/front_aliases.yaml'),
+        front_config_path=config.front_config_path,
         partitions_dir=config.partitions_dir,
         store=store,  # Pass shared store!
         output_root=config.output_root,
@@ -292,7 +302,7 @@ def run_stage4_npmi(config: PipelineConfig, store: LineageTextStore) -> None:
         min_npmi=config.npmi_min_score,
         min_pair_count=config.npmi_min_count,
         output_threshold=0.8,
-        front_config_path=Path('config/front_aliases.yaml'),
+        front_config_path=config.front_config_path,
         partitions_dir=config.partitions_dir,
         ctfidf_vocab_path=config.lineage_dir / "lineage_ctfidf_terms.csv",
         vocab_size=100,
@@ -340,7 +350,7 @@ def run_stage5_ensemble(config: PipelineConfig, _store: LineageTextStore) -> Non
         stage4_similarity_path=config.mapping_dir / "lineage_front_npmi_similarity.csv",
         stage3_terms_path=config.lineage_dir / "lineage_ctfidf_terms.csv",
         stage4_pairs_path=config.lineage_dir / "lineage_npmi_pairs.csv",
-        front_config_path=Path('config/front_aliases.yaml'),
+        front_config_path=config.front_config_path,
         top_k=3,
         store=None,  # Stage 5 doesn't use the store
         output_root=config.output_root,
