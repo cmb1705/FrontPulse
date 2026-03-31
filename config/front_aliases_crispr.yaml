@@ -1,26 +1,105 @@
 # Research Front Definitions for CRISPR Gene Editing
-# Placeholder -- will be refined after inspecting Leiden clustering output.
-# Not consumed by the pipeline until front-mapping is implemented (Phase 2+).
+# Structure matches PSC front_aliases.yaml: top-level keys are front names.
+# anchor_dois are landmark papers used for embedding-based front similarity.
 
-fronts:
-  cas9_methodology:
-    canonical: "Cas9 Editing Methodology"
-    aliases: ["CRISPR-Cas9", "RNA-guided endonuclease"]
-  eukaryotic_applications:
-    canonical: "Eukaryotic/Mammalian Applications"
-    aliases: []
-  in_vivo_editing:
-    canonical: "In Vivo Therapeutic Editing"
-    aliases: []
-  base_editing:
-    canonical: "Base Editing"
-    aliases: ["cytosine base editor", "adenine base editor", "CBE", "ABE"]
-  prime_editing:
-    canonical: "Prime Editing"
-    aliases: []
-  diagnostics:
-    canonical: "CRISPR Diagnostics"
-    aliases: ["SHERLOCK", "DETECTR", "Cas13"]
-  clinical_therapeutics:
-    canonical: "Clinical/FDA-Approved Therapies"
-    aliases: ["Casgevy", "exa-cel", "sickle cell"]
+cas9_methodology:
+  description: "Core CRISPR-Cas9 editing methodology and mechanism"
+  canonical:
+    - "CRISPR-Cas9"
+    - "RNA-guided endonuclease"
+    - "guide RNA"
+    - "Cas9 nuclease"
+  aliases:
+    - "CRISPR"
+    - "clustered regularly interspaced short palindromic repeats"
+    - "Streptococcus pyogenes Cas9"
+    - "SpCas9"
+  anchor_dois:
+    - "10.1126/science.1225829"   # Jinek et al. 2012 - programmable RNA-guided DNA endonuclease
+    - "10.1126/science.1232033"   # Cong et al. 2013 - multiplex genome engineering
+
+eukaryotic_applications:
+  description: "CRISPR applications in eukaryotic and mammalian cells"
+  canonical:
+    - "mammalian genome editing"
+    - "eukaryotic CRISPR"
+    - "human cell editing"
+  aliases:
+    - "genome engineering"
+    - "gene knockout"
+    - "gene disruption"
+  anchor_dois:
+    - "10.1126/science.1231143"   # Mali et al. 2013 - RNA-guided human genome engineering
+    - "10.1016/j.cell.2013.02.022" # Jinek et al. 2013 - Cas9 in human cells
+
+in_vivo_editing:
+  description: "In vivo therapeutic gene editing in animal models and humans"
+  canonical:
+    - "in vivo gene editing"
+    - "therapeutic genome editing"
+    - "gene therapy CRISPR"
+  aliases:
+    - "somatic gene editing"
+    - "liver gene editing"
+    - "in vivo delivery"
+  anchor_dois:
+    - "10.1038/nbt.3081"           # Yin et al. 2014 - in vivo gene correction
+    - "10.1038/nature17946"        # Long et al. 2016 - CRISPR in Duchenne muscular dystrophy
+
+base_editing:
+  description: "Precision base editing without double-strand breaks"
+  canonical:
+    - "base editing"
+    - "cytosine base editor"
+    - "adenine base editor"
+  aliases:
+    - "CBE"
+    - "ABE"
+    - "C-to-T conversion"
+    - "A-to-G conversion"
+  anchor_dois:
+    - "10.1038/nature17946"        # Komor et al. 2016 - cytosine base editor
+    - "10.1038/nature24644"        # Gaudelli et al. 2017 - adenine base editor
+
+prime_editing:
+  description: "Search-and-replace genome editing via prime editors"
+  canonical:
+    - "prime editing"
+    - "prime editor"
+    - "pegRNA"
+  aliases:
+    - "PE"
+    - "PE2"
+    - "PE3"
+    - "search-and-replace editing"
+  anchor_dois:
+    - "10.1038/s41586-019-1711-4"  # Anzalone et al. 2019 - prime editing
+
+diagnostics:
+  description: "CRISPR-based diagnostic platforms"
+  canonical:
+    - "CRISPR diagnostics"
+    - "SHERLOCK"
+    - "DETECTR"
+  aliases:
+    - "Cas13 diagnostics"
+    - "Cas12 detection"
+    - "nucleic acid detection"
+    - "lateral flow CRISPR"
+  anchor_dois:
+    - "10.1126/science.aam9321"    # Gootenberg et al. 2017 - SHERLOCK
+    - "10.1126/science.aar6245"    # Chen et al. 2018 - DETECTR
+
+clinical_therapeutics:
+  description: "FDA-approved and clinical-stage CRISPR therapies"
+  canonical:
+    - "CRISPR therapy"
+    - "Casgevy"
+    - "exa-cel"
+  aliases:
+    - "sickle cell CRISPR"
+    - "beta-thalassemia CRISPR"
+    - "CTX001"
+    - "EDIT-101"
+  anchor_dois:
+    - "10.1056/NEJMoa2031054"      # Frangoul et al. 2021 - CTX001 trial results
