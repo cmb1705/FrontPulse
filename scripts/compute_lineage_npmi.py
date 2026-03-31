@@ -843,7 +843,7 @@ class LineageNPMIAnalyzer:
     def generate_outputs(
         self,
         front_config: dict,
-        _output_threshold: float = 0.8,
+        output_threshold: float = 0.8,
         output_dir_lineage: Path = Path("data/out/02_lineage_tracking"),
         output_dir_mapping: Path = Path("data/out/03_milestone_mapping")
     ):
