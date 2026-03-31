@@ -452,6 +452,9 @@ def main():
                        help='Disable FP16 mixed precision')
     parser.add_argument('--no-compile', action='store_true',
                        help='Disable torch.compile')
+    parser.add_argument('--model', default='allenai/scibert_scivocab_uncased',
+                       help='HuggingFace model ID (default: SciBERT). '
+                            'Use allenai/specter2_base for SPECTER2.')
     add_domain_args(parser)
     args = parser.parse_args()
 
@@ -524,10 +527,11 @@ def main():
     # Step 4: Compute embeddings
     embeddings = compute_quarterly_embeddings_optimized(
         lineage_quarter_data,
+        model_name=args.model,
         batch_size=BATCH_SIZE,
         num_workers=NUM_WORKERS,
         use_fp16=USE_FP16,
-        use_compile=USE_COMPILE
+        use_compile=USE_COMPILE,
     )
 
     # Step 5: Compute velocity
