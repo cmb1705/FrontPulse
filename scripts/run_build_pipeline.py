@@ -107,6 +107,7 @@ class PipelineConfig:
         self.front_config_path = resolve_front_config_path(self.domain)
 
         # Stage-specific parameters (can be expanded)
+        self.embedding_model = getattr(args, "embedding_model", "allenai/specter2_base")
         self.embedding_device = args.device
         self.npmi_min_score = args.npmi_min_score
         self.npmi_min_count = args.npmi_min_count
@@ -232,8 +233,9 @@ def run_stage2_embeddings(config: PipelineConfig, store: LineageTextStore) -> No
         front_config_path=config.front_config_path,
         partitions_dir=config.partitions_dir,
         output_root=config.output_root,
-        store=store,  # Pass shared store!
-        validate=config.validate  # Pass validate flag
+        store=store,
+        validate=config.validate,
+        model_name=config.embedding_model,
     )
 
     t_stage = time.time() - t_start
@@ -428,10 +430,17 @@ def main():
 
     # Stage 2 parameters
     parser.add_argument(
+        "--embedding-model",
+        default="allenai/specter2_base",
+        help="HuggingFace model for Stage 2 embeddings (default: %(default)s). "
+             "Use allenai/specter2_base for SPECTER2, "
+             "allenai/scibert_scivocab_uncased for SciBERT."
+    )
+    parser.add_argument(
         "--device",
         choices=["cuda", "cpu", "auto"],
         default="auto",
-        help="Device for SciBERT inference (Stage 2)"
+        help="Device for embedding model inference (Stage 2)"
     )
 
     # Stage 4 parameters

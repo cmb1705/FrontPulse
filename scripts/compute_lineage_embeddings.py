@@ -70,29 +70,32 @@ STOPWORDS = {
 
 class LineageEmbedder:
     """
-    Compute SciBERT embeddings for community lineages.
+    Compute transformer embeddings for community lineages.
 
-    Uses allenai/scibert_scivocab_uncased for scientific text understanding.
+    Supports SciBERT and SPECTER2 models for scientific text understanding.
     Aggregates paper-level embeddings to lineage-level with recency weighting.
     """
+
+    DEFAULT_MODEL = "allenai/specter2_base"
 
     def __init__(
         self,
         raw_dir: Path = None,
-        model_name: str = "allenai/scibert_scivocab_uncased",
+        model_name: str = DEFAULT_MODEL,
         device: str = None,
         extractor=None
     ):
         """
-        Initialize embedder with SciBERT model and abstract extractor.
+        Initialize embedder with a transformer model and abstract extractor.
 
         Args:
             raw_dir: Directory containing raw JSONL files (not needed if extractor provided)
-            model_name: HuggingFace model identifier
+            model_name: HuggingFace model identifier (default: SPECTER2)
             device: 'cuda' or 'cpu' (auto-detects if None)
             extractor: Optional AbstractExtractor instance (for pipeline mode)
         """
-        print(f"[EMBEDDER] Initializing SciBERT model: {model_name}")
+        self.model_name = model_name
+        print(f"[EMBEDDER] Initializing model: {model_name}")
 
         # Auto-detect device
         if device is None:
@@ -446,10 +449,11 @@ def run_embeddings(
     raw_dir: Path = None,  # For standalone mode
     _graphs_dir: Path = None,  # For standalone mode (optional)
     store=None,
-    validate: bool = True
+    validate: bool = True,
+    model_name: str = LineageEmbedder.DEFAULT_MODEL,
 ) -> tuple:
     """
-    Compute SciBERT embeddings for persistent lineages.
+    Compute transformer embeddings for persistent lineages.
 
     Can be called standalone or from pipeline with shared store.
 
@@ -467,6 +471,7 @@ def run_embeddings(
         graphs_dir: Path to citation graph PKL files (standalone mode, optional)
         store: Optional LineageTextStore for pipeline mode
         validate: Run validation checks and generate reports (default: True)
+        model_name: HuggingFace model ID (default: SPECTER2)
 
     Returns:
         (embeddings_array, lineage_ids, metadata_list, validation_results)
@@ -482,7 +487,7 @@ def run_embeddings(
         print("[LOAD] Using shared store (pipeline mode)")
         persistent_lineages = store.get_persistent_lineages(min_quarters)
         lineage_registry = store.registry
-        embedder = LineageEmbedder(device=device, extractor=store.extractor)
+        embedder = LineageEmbedder(device=device, extractor=store.extractor, model_name=model_name)
     else:
         print(f"[LOAD] Loading lineage metrics from {lineage_metrics_path}")
         df_metrics = pd.read_csv(lineage_metrics_path)
@@ -504,7 +509,7 @@ def run_embeddings(
 
         # Initialize embedder
         raw_dir_path = raw_dir or Path("data/current_ingest/raw")
-        embedder = LineageEmbedder(raw_dir_path, device=device)
+        embedder = LineageEmbedder(raw_dir_path, device=device, model_name=model_name)
 
     print(f"[LOAD] Found {len(persistent_lineages)} persistent lineages "
           f"(>= {min_quarters} quarters)")
@@ -1137,10 +1142,17 @@ def main():
         help="Minimum quarters for persistent lineages (default: 6)"
     )
     parser.add_argument(
+        "--model",
+        default=LineageEmbedder.DEFAULT_MODEL,
+        help="HuggingFace model for embeddings (default: %(default)s). "
+             "Use allenai/specter2_base for SPECTER2, "
+             "allenai/scibert_scivocab_uncased for SciBERT."
+    )
+    parser.add_argument(
         "--device",
         choices=["cuda", "cpu", "auto"],
         default="auto",
-        help="Device for SciBERT inference"
+        help="Device for model inference"
     )
     parser.add_argument(
         "--profile",
@@ -1189,9 +1201,10 @@ def main():
         output_root=Path(args.output_root),
         registry_path=Path(args.lineage_registry),
         raw_dir=Path(args.raw_dir),
-        graphs_dir=Path(args.graphs_dir),
+        _graphs_dir=Path(args.graphs_dir),
         store=None,  # Standalone mode
-        validate=args.validate  # Pass validate flag
+        validate=args.validate,
+        model_name=args.model,
     )
 
 
