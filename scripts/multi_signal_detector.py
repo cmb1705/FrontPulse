@@ -122,24 +122,40 @@ def _parse_lag_max_arg(value: str | None) -> int | None:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def compute_confusion_stats(pred_df: pd.DataFrame) -> dict[str, float]:
-    tp = int(((pred_df['is_milestone_pred'] == 1) & (pred_df['is_milestone_true'] == 1)).sum())
-    fp = int(((pred_df['is_milestone_pred'] == 1) & (pred_df['is_milestone_true'] == 0)).sum())
-    fn = int(((pred_df['is_milestone_pred'] == 0) & (pred_df['is_milestone_true'] == 1)).sum())
-    tn = int(((pred_df['is_milestone_pred'] == 0) & (pred_df['is_milestone_true'] == 0)).sum())
+def compute_confusion_stats(
+    pred_df: pd.DataFrame,
+    pred_col: str = "is_milestone_pred",
+    true_col: str = "is_milestone_true",
+    prefix: str = "",
+) -> dict[str, float]:
+    """Compute TP/FP/FN/TN confusion stats from prediction columns.
+
+    Args:
+        pred_df: DataFrame with prediction and truth columns.
+        pred_col: Column name for binary predictions.
+        true_col: Column name for ground truth labels.
+        prefix: Key prefix for output dict (e.g. ``"persistent_"``).
+
+    Returns:
+        Dict of confusion metrics with optional prefix.
+    """
+    tp = int(((pred_df[pred_col] == 1) & (pred_df[true_col] == 1)).sum())
+    fp = int(((pred_df[pred_col] == 1) & (pred_df[true_col] == 0)).sum())
+    fn = int(((pred_df[pred_col] == 0) & (pred_df[true_col] == 1)).sum())
+    tn = int(((pred_df[pred_col] == 0) & (pred_df[true_col] == 0)).sum())
     precision = tp / (tp + fp) if (tp + fp) else 0.0
     recall = tp / (tp + fn) if (tp + fn) else 0.0
     f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
     fpr = fp / (fp + tn) if (fp + tn) else 0.0
     return {
-        "tp_threshold": tp,
-        "fp_threshold": fp,
-        "fn_threshold": fn,
-        "tn_threshold": tn,
-        "precision_threshold": precision,
-        "recall_threshold": recall,
-        "f1_threshold": f1,
-        "fpr_threshold": fpr,
+        f"{prefix}tp_threshold": tp,
+        f"{prefix}fp_threshold": fp,
+        f"{prefix}fn_threshold": fn,
+        f"{prefix}tn_threshold": tn,
+        f"{prefix}precision_threshold": precision,
+        f"{prefix}recall_threshold": recall,
+        f"{prefix}f1_threshold": f1,
+        f"{prefix}fpr_threshold": fpr,
     }
 
 
@@ -1720,10 +1736,20 @@ def main():
         persistence_window=args.persistence_window,
     )
 
+    # Raw threshold confusion stats (ranking performance)
     threshold_stats = compute_confusion_stats(predictions_df)
     lag_stats = summarize_detection_lag(predictions_df)
     metrics.update(threshold_stats)
     metrics.update(lag_stats)
+
+    # Persistence-filtered confusion stats (operational alert performance)
+    persistent_stats = compute_confusion_stats(
+        predictions_df,
+        pred_col="is_onset_pred_persistent",
+        true_col="is_onset_true",
+        prefix="persistent_",
+    )
+    metrics.update(persistent_stats)
     metrics["persistent_positive_count"] = int(predictions_df["is_onset_pred_persistent"].sum())
 
     # Step 8: Save model and metrics
@@ -1797,6 +1823,20 @@ def main():
         if metrics['recall_test'] > 0.068:
             improvement = (metrics['recall_test'] - 0.068) / 0.068 * 100
             print(f"Improvement:      +{improvement:.1f}%")
+
+    # Print both raw and persistent threshold stats
+    print(f"\nThreshold Analysis (t={metrics.get('threshold', 0.70):.2f}):")
+    print(f"   Raw:        TP={metrics['tp_threshold']}, FP={metrics['fp_threshold']}, "
+          f"FN={metrics['fn_threshold']}, TN={metrics['tn_threshold']}")
+    print(f"   Raw P/R/F1: {metrics['precision_threshold']:.3f} / "
+          f"{metrics['recall_threshold']:.3f} / {metrics['f1_threshold']:.3f}")
+    print(f"   Persistent: TP={metrics['persistent_tp_threshold']}, "
+          f"FP={metrics['persistent_fp_threshold']}, "
+          f"FN={metrics['persistent_fn_threshold']}, "
+          f"TN={metrics['persistent_tn_threshold']}")
+    print(f"   Pers P/R/F1: {metrics['persistent_precision_threshold']:.3f} / "
+          f"{metrics['persistent_recall_threshold']:.3f} / "
+          f"{metrics['persistent_f1_threshold']:.3f}")
 
 
 if __name__ == '__main__':
