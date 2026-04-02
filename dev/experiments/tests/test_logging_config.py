@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import pytest
 
-from src.logging_config import setup_logging, get_logger, log_section
+from src.logging_config import get_logger, log_section, setup_logging
 
 
 @pytest.mark.unit
@@ -55,7 +54,7 @@ class TestSetupLogging:
         logger = setup_logging(level="INFO", console=False)
 
         # Logger should have no console handlers
-        console_handlers = [
+        [
             h for h in logger.handlers
             if isinstance(h, logging.StreamHandler) and h.stream.name == "<stdout>"
         ]
@@ -192,7 +191,7 @@ class TestLogSection:
 
         log_section(logger, "Should Not Appear")
 
-        content = log_file.read_text()
+        log_file.read_text()
         # log_section uses INFO level, so should not appear with WARNING level
         # Note: This behavior depends on implementation
         # If log_section is implemented to always log, this test may need adjustment

@@ -10,15 +10,14 @@ Creates informative visualizations for tripwire validation results:
 5. Detection performance heatmap
 6. Lead time vs magnitude scatter
 """
-import argparse
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.gridspec import GridSpec
-import seaborn as sns
 from pathlib import Path
-from datetime import datetime
+
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from matplotlib.gridspec import GridSpec
 
 # Suppress matplotlib GUI
 plt.switch_backend('Agg')
@@ -55,7 +54,7 @@ def compute_precision_recall_metrics(alerts, validation):
     - FN = milestones missed (no significant alert in window)
     """
     # Get significant alerts
-    sig_alerts = alerts[alerts['significant'] == True].copy()
+    sig_alerts = alerts[alerts['significant']].copy()
 
     # For each significant alert, check if it matches any milestone
     # Milestone detection window is typically event_quarter ± 1 quarter
@@ -123,7 +122,7 @@ def plot_timeline_with_milestones(alerts, validation, outdir):
                 '--', color='gray', linewidth=1, label='Expected (NB model)', alpha=0.6)
 
         # Highlight significant alerts
-        sig = front_data[front_data['significant'] == True]
+        sig = front_data[front_data['significant']]
         if len(sig) > 0:
             ax.scatter(sig['quarter_dt'], sig['observed'],
                       s=100, marker='*', color='red', label='Significant alert',
@@ -205,7 +204,7 @@ def plot_precision_recall_analysis(metrics, outdir):
     bars = ax2.barh(metric_names, metric_values, color=colors, alpha=0.7, edgecolor='black')
 
     # Add value labels
-    for i, (bar, val) in enumerate(zip(bars, metric_values)):
+    for i, (_bar, val) in enumerate(zip(bars, metric_values)):
         ax2.text(val + 0.02, i, f'{val:.1%}', va='center', fontweight='bold')
 
     ax2.set_xlim(0, 1.1)
@@ -232,7 +231,7 @@ def plot_precision_recall_analysis(metrics, outdir):
                      fontsize=11, fontweight='bold')
 
         # Add value labels
-        for i, (bar, val) in enumerate(zip(bars, fp_by_front.values)):
+        for i, (_bar, val) in enumerate(zip(bars, fp_by_front.values)):
             ax3.text(val + 0.1, i, f'{val}', va='center', fontweight='bold', fontsize=9)
 
         ax3.grid(axis='x', alpha=0.3)
@@ -258,8 +257,8 @@ def plot_zscore_distributions(alerts, outdir):
     # 1. Overall z-score distribution
     ax1 = axes[0, 0]
 
-    sig = alerts[alerts['significant'] == True]
-    non_sig = alerts[alerts['significant'] == False]
+    sig = alerts[alerts['significant']]
+    non_sig = alerts[not alerts['significant']]
 
     ax1.hist(non_sig['z_score'], bins=50, alpha=0.5, label='Non-significant',
             color='gray', edgecolor='black')
@@ -457,8 +456,8 @@ def plot_precision_at_k_curve(alerts, validation, outdir):
     # 2. Composite score distribution
     ax2 = axes[1]
 
-    relevant = alerts_sorted[alerts_sorted['is_relevant'] == True]
-    irrelevant = alerts_sorted[alerts_sorted['is_relevant'] == False]
+    relevant = alerts_sorted[alerts_sorted['is_relevant']]
+    irrelevant = alerts_sorted[not alerts_sorted['is_relevant']]
 
     ax2.hist(irrelevant['composite_score'], bins=40, alpha=0.5,
             label='Irrelevant alerts', color='gray', edgecolor='black')
@@ -484,7 +483,7 @@ def plot_lead_time_analysis(validation, outdir):
     """
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    detected = validation[validation['detected'] == True].copy()
+    detected = validation[validation['detected']].copy()
 
     # 1. Lead time distribution
     ax1 = axes[0, 0]
@@ -611,7 +610,7 @@ def create_summary_dashboard(metrics, validation, alerts, outdir):
     ax1 = fig.add_subplot(gs[0, :])
     ax1.axis('off')
 
-    detected = validation[validation['detected'] == True]
+    detected = validation[validation['detected']]
     detection_rate = len(detected) / len(validation)
 
     metrics_text = f"""
@@ -627,7 +626,7 @@ def create_summary_dashboard(metrics, validation, alerts, outdir):
 
     ax1.text(0.5, 0.5, metrics_text, ha='center', va='center',
             fontsize=12, family='monospace',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.3})
 
     # 2. Detection by magnitude
     ax2 = fig.add_subplot(gs[1, 0])
@@ -693,7 +692,7 @@ def create_summary_dashboard(metrics, validation, alerts, outdir):
         ax.fill_between(front_data['quarter_dt'], 0, front_data['observed'],
                        alpha=0.3, color='steelblue')
 
-        sig = front_data[front_data['significant'] == True]
+        sig = front_data[front_data['significant']]
         if len(sig) > 0:
             ax.scatter(sig['quarter_dt'], sig['observed'],
                       marker='*', s=80, color='red', zorder=5)

@@ -654,6 +654,7 @@ _DOMAIN_PORTED_SCRIPTS = [
     "scripts/compute_lineage_npmi.py",
     "scripts/compute_lineage_embeddings.py",
     "scripts/compute_front_level_features.py",
+    "scripts/aggregate_lineages_to_fronts.py",
     "scripts/aggregate_field_metrics.py",
     "scripts/metric_author_influx.py",
     "scripts/metric_citation_velocity.py",
@@ -709,6 +710,7 @@ def test_script_calls_add_domain_args(rel_path: str) -> None:
         "scripts/run_build_pipeline.py",
         "scripts/compute_lineage_embeddings.py",
         "scripts/stage1_quarterly_embeddings_optimized.py",
+        "scripts/aggregate_lineages_to_fronts.py",
     ],
 )
 def test_cli_entrypoint_import_bootstrap(rel_path: str) -> None:

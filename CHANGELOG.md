@@ -62,7 +62,7 @@
 
 - **Multi-Signal Detector**:
   - Added `zero_division=0` guards around sklearn metrics to suppress `UndefinedMetricWarning` when no positives fire at the default 0.50 threshold.
-  - All LightGBM fit/predict paths now operate on NumPy arrays to eliminate feature-name mismatch warnings when scoring disjoint holdouts.
+  - LightGBM scoring now normalizes ndarray inputs back to the estimator's fitted feature-name contract, eliminating residual sklearn feature-name mismatch warnings during CV and holdout prediction.
   - Imports quarter helpers from the shared utility module instead of maintaining bespoke implementations.
   - Feature selector auto-detects field-relative columns, logs the counts per feature family, and exposes `--disable-field-features` / `--field-features-only` for ablation runs (with prediction slices reusing the same feature list).
   - Added `--n-estimators` and `--learning-rate` knobs (plus metadata logging) so GradientBoosting/LightGBM/RF runs respect Optuna-tuned settings during both CV and holdout training; `scripts/msd_meta_tune.py` now emits those flags in its "retrain" instructions.

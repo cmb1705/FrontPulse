@@ -1,5 +1,5 @@
-import os
 from pathlib import Path
+
 patterns = ['phase0_', 'phase1_', 'phase2_', 'phase3_', 'phase4_', 'phase5_', 'phase2 ', 'phase3 ', 'phase4 ', 'phase5 ']
 skip_dirs = {'data','docs','references','.git','.venv','__pycache__'}
 exts = {'.py','.md','.txt','.yaml','.yml','.json','.rst','.cfg','.ini'}

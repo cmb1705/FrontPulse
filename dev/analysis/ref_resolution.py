@@ -1,7 +1,9 @@
 # ref_resolution.py
-import pandas as pd
 from pathlib import Path
+
 import numpy as np
+import pandas as pd
+
 try:
     import pyarrow as pa
 except Exception:
@@ -14,8 +16,10 @@ for fp in Path("data/out").glob("by_quarter__*.parquet"):
     all_ids.update(df["work_id"].dropna().astype(str))
 
 def safe_len(x):
-    if x is None: return 0
-    if isinstance(x, list): return len(x)
+    if x is None:
+        return 0
+    if isinstance(x, list):
+        return len(x)
     if isinstance(x, str):
         s = x.strip()
         if s.startswith("[") and s.endswith("]"):

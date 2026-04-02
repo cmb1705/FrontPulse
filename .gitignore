@@ -37,6 +37,7 @@ htmlcov/
 .tox/
 .nox/
 .coverage
+.coverage.*
 coverage.xml
 *.cover
 .cache
@@ -92,6 +93,8 @@ _local/
 github_issues.json
 slice_validation.json
 threshold_curve.png
+.codex-loop/
+*.stackdump
 
 # Dolt database files (added by bd init)
 .dolt/

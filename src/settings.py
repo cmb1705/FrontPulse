@@ -26,6 +26,8 @@ DEFAULTS: dict[str, Any] = {
     "last_ingested_date": None,   # Watermark for incremental ingestion
 }
 
+_PERSISTED_SECRET_KEYS = frozenset({"api_key"})
+
 
 def _flatten_yaml_settings(yaml_data: dict[str, Any]) -> dict[str, Any]:
     """
@@ -128,7 +130,21 @@ def save_settings(
     """
     target = domain_settings_path if domain_settings_path else SETTINGS_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(cfg, indent=2))
+    target.write_text(json.dumps(_sanitize_settings_for_persistence(cfg), indent=2))
+
+
+def _sanitize_settings_for_persistence(value: Any) -> Any:
+    """Return a JSON-serializable copy with credential fields removed."""
+    if isinstance(value, dict):
+        sanitized: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in _PERSISTED_SECRET_KEYS:
+                continue
+            sanitized[key] = _sanitize_settings_for_persistence(item)
+        return sanitized
+    if isinstance(value, list):
+        return [_sanitize_settings_for_persistence(item) for item in value]
+    return value
 
 
 def redact_mailto(mailto: str | None) -> str | None:

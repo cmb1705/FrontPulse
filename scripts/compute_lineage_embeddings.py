@@ -18,7 +18,7 @@ Usage:
 
 Output:
     - lineage_embeddings.npz: Compressed array of embeddings [n_lineages x 768]
-    - lineage_embedding_metadata.json: Lineage IDs, paper counts, coverage stats
+    - lineage_embeddings.json: Lineage IDs, paper counts, coverage stats, and model provenance
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -66,6 +67,100 @@ STOPWORDS = {
     'while', 'who', 'whom', 'why', 'will', 'with', 'would', 'you', 'your', 'yours',
     'yourself', 'yourselves'
 }
+
+REQUIRED_EMBEDDING_METADATA_KEYS = (
+    "model",
+    "model_version",
+    "embedding_dim",
+    "generated_at",
+)
+
+
+def _current_utc_timestamp() -> str:
+    """Return a stable UTC timestamp for artifact metadata."""
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _resolve_model_version(embedder: object, model_name: str) -> str:
+    """Resolve the best available model revision/version identifier."""
+    model = getattr(embedder, "model", None)
+    config = getattr(model, "config", None)
+    tokenizer = getattr(embedder, "tokenizer", None)
+    init_kwargs = getattr(tokenizer, "init_kwargs", {}) if tokenizer is not None else {}
+
+    candidates = [
+        getattr(config, "_commit_hash", None),
+        getattr(config, "revision", None),
+        init_kwargs.get("revision") if isinstance(init_kwargs, dict) else None,
+        getattr(config, "_name_or_path", None),
+        getattr(config, "name_or_path", None),
+        model_name,
+    ]
+    for candidate in candidates:
+        if candidate:
+            return str(candidate)
+    return str(model_name)
+
+
+def _build_embedding_metadata(
+    lineage_ids: list[int],
+    metadata_list: list[dict],
+    embedding_dim: int,
+    model_name: str,
+    model_version: str,
+) -> dict:
+    """Build the JSON metadata persisted next to lineage_embeddings.npz."""
+    return {
+        "model": model_name,
+        "model_version": model_version,
+        "embedding_dim": int(embedding_dim),
+        "generated_at": _current_utc_timestamp(),
+        "lineages": [
+            {
+                "lineage_id": int(lid),
+                "n_papers": meta["n_papers"],
+                "n_with_text": meta["n_with_text"],
+                "coverage": meta["coverage"],
+            }
+            for lid, meta in zip(lineage_ids, metadata_list)
+        ],
+        "summary": {
+            "n_lineages": len(lineage_ids),
+            "embedding_dim": int(embedding_dim),
+            "avg_papers_per_lineage": float(np.mean([m["n_papers"] for m in metadata_list])),
+            "avg_coverage": float(np.mean([m["coverage"] for m in metadata_list])),
+        },
+    }
+
+
+def _write_json_atomic(output_path: Path, payload: dict) -> None:
+    """Write JSON atomically so manifests are never half-written."""
+    temp_path = output_path.with_suffix(f"{output_path.suffix}.tmp")
+    with open(temp_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+        handle.write("\n")
+    temp_path.replace(output_path)
+
+
+def _metadata_supports_cache(metadata_output: dict, model_name: str, embedding_dim: int) -> tuple[bool, str]:
+    """Return whether cached NPZ reuse is safe for the requested model."""
+    missing_keys = [key for key in REQUIRED_EMBEDDING_METADATA_KEYS if key not in metadata_output]
+    if missing_keys:
+        return False, (
+            "[CACHE] Existing metadata is missing required provenance keys "
+            f"{missing_keys}."
+        )
+    if metadata_output.get("model") != model_name:
+        return False, (
+            "[CACHE] Existing metadata model "
+            f"{metadata_output.get('model')!r} does not match requested model {model_name!r}."
+        )
+    if int(metadata_output.get("embedding_dim", -1)) != int(embedding_dim):
+        return False, (
+            "[CACHE] Existing metadata embedding_dim "
+            f"{metadata_output.get('embedding_dim')!r} does not match cached NPZ dim {embedding_dim}."
+        )
+    return True, ""
 
 
 class LineageEmbedder:
@@ -525,13 +620,20 @@ def run_embeddings(
             if cached_ids == expected_ids:
                 embeddings_array = cached["embeddings"]
                 lineage_ids = cached["lineage_ids"].tolist()
-                with open(metadata_path) as _mf:
+                with open(metadata_path, encoding="utf-8") as _mf:
                     metadata_output = json.load(_mf)
                 metadata_list = metadata_output.get("lineages", [])
-                reuse_npz = True
-                print(f"[CACHE] Reusing existing embeddings NPZ ({len(lineage_ids)} lineages, "
-                      f"{embeddings_array.shape[1]}d) -- lineage set matches.")
-                print(f"[CACHE] Skipping {len(lineage_ids)} lineage embedding computations.")
+                reuse_npz, cache_reason = _metadata_supports_cache(
+                    metadata_output,
+                    model_name=model_name,
+                    embedding_dim=embeddings_array.shape[1],
+                )
+                if reuse_npz:
+                    print(f"[CACHE] Reusing existing embeddings NPZ ({len(lineage_ids)} lineages, "
+                          f"{embeddings_array.shape[1]}d) -- lineage set matches.")
+                    print(f"[CACHE] Skipping {len(lineage_ids)} lineage embedding computations.")
+                else:
+                    print(f"{cache_reason} Recomputing embeddings.")
             else:
                 added = expected_ids - cached_ids
                 removed = cached_ids - expected_ids
@@ -571,8 +673,9 @@ def run_embeddings(
         t_embed_start = time.time()
         all_embeddings = embedder.embed_texts_batch(texts_ordered)
         t_embed = time.time() - t_embed_start
+        papers_per_second = len(texts_ordered) / max(t_embed, 1e-9)
         print(f"[EMBED-GLOBAL] Done in {t_embed:.1f}s "
-              f"({len(texts_ordered)/t_embed:.0f} papers/s)")
+              f"({papers_per_second:.0f} papers/s)")
 
         # Index: paper_id -> row index in all_embeddings
         paper_emb_index = {pid: idx for idx, pid in enumerate(paper_ids_with_text)}
@@ -641,26 +744,14 @@ def run_embeddings(
         )
 
         # Save metadata
-        metadata_output = {
-            'lineages': [
-                {
-                    'lineage_id': int(lid),
-                    'n_papers': meta['n_papers'],
-                    'n_with_text': meta['n_with_text'],
-                    'coverage': meta['coverage']
-                }
-                for lid, meta in zip(lineage_ids, metadata_list)
-            ],
-            'summary': {
-                'n_lineages': len(lineage_ids),
-                'embedding_dim': embeddings_array.shape[1],
-                'avg_papers_per_lineage': np.mean([m['n_papers'] for m in metadata_list]),
-                'avg_coverage': np.mean([m['coverage'] for m in metadata_list])
-            }
-        }
-
-        with open(metadata_path, 'w') as f:
-            json.dump(metadata_output, f, indent=2)
+        metadata_output = _build_embedding_metadata(
+            lineage_ids=lineage_ids,
+            metadata_list=metadata_list,
+            embedding_dim=embeddings_array.shape[1],
+            model_name=model_name,
+            model_version=_resolve_model_version(embedder, model_name),
+        )
+        _write_json_atomic(metadata_path, metadata_output)
 
         print(f"[SAVE] Saved metadata to {metadata_path}")
 
@@ -670,6 +761,7 @@ def run_embeddings(
     print(f"{'='*70}")
     print(f"Total lineages: {len(lineage_ids)}")
     print(f"Embedding dimensions: {embeddings_array.shape[1]}")
+    print(f"Embedding model: {metadata_output['model']} ({metadata_output['model_version']})")
     print(f"Average papers per lineage: {metadata_output['summary']['avg_papers_per_lineage']:.1f}")
     print(f"Average text coverage: {metadata_output['summary']['avg_coverage']*100:.1f}%")
     print("\nOutputs:")

@@ -1,6 +1,7 @@
 """Check year distribution in historical coupling data."""
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 print("=" * 80)
 print("HISTORICAL COUPLING YEAR ANALYSIS")
@@ -15,21 +16,21 @@ df = pd.read_parquet(edges_file)
 print(f"Total edges: {len(df):,}")
 
 # Year distribution
-print(f"\nYear range in edges:")
+print("\nYear range in edges:")
 print(f"  year_a: {df['year_a'].min()} - {df['year_a'].max()}")
 print(f"  year_b: {df['year_b'].min()} - {df['year_b'].max()}")
 
 # Count edges by max year (cumulative perspective)
 df['max_year'] = df[['year_a', 'year_b']].max(axis=1)
 
-print(f"\nEdge count by maximum year (cumulative view):")
+print("\nEdge count by maximum year (cumulative view):")
 year_counts = df['max_year'].value_counts().sort_index()
 print(year_counts.tail(20))
 
 # How many edges involve papers from 2018 or earlier?
 edges_up_to_2018 = df[(df['year_a'] <= 2018) & (df['year_b'] <= 2018)]
-print(f"\n" + "=" * 80)
-print(f"Edges where BOTH papers are from 2018 or earlier:")
+print("\n" + "=" * 80)
+print("Edges where BOTH papers are from 2018 or earlier:")
 print(f"  Count: {len(edges_up_to_2018):,}")
 print(f"  Percentage: {len(edges_up_to_2018) / len(df) * 100:.1f}%")
 
@@ -37,7 +38,7 @@ print(f"  Percentage: {len(edges_up_to_2018) / len(df) * 100:.1f}%")
 nodes_file = archive_path / "coupling_nodes.json"
 if nodes_file.exists():
     import json
-    with open(nodes_file, 'r') as f:
+    with open(nodes_file) as f:
         nodes = json.load(f)
 
     # Nodes are stored as list, but we need to check years from edges
@@ -48,10 +49,10 @@ print("\n" + "=" * 80)
 print("INTERPRETATION")
 print("=" * 80)
 
-print(f"\nIf historical cache was for full dataset (up to 2023):")
+print("\nIf historical cache was for full dataset (up to 2023):")
 print(f"  - Then only {len(edges_up_to_2018):,} coupling edges up to 2018Q4")
-print(f"  - Current 2018Q1 has 16.2M coupling edges")
+print("  - Current 2018Q1 has 16.2M coupling edges")
 print(f"  - That's {16242733 / len(edges_up_to_2018):.1f}x MORE edges in current build!")
-print(f"\n  VERDICT: Current build has MASSIVE edge bloat compared to historical")
+print("\n  VERDICT: Current build has MASSIVE edge bloat compared to historical")
 
 print("\n" + "=" * 80)

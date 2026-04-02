@@ -1,144 +1,159 @@
 # FrontPulse Corrected Project Status
 
-**Date**: 2026-03-31
-**Scope**: FP-ss7 audit remediation closeout
-**Supersedes**: docs/reports/convergence_ablation_final_2026_03_30.md (stale)
+**Date**: 2026-04-01
+
+**Scope**: FP-ss7 audit-remediation closeout status
+
+**Supersedes**: `docs/reports/convergence_ablation_final_2026_03_30.md` for current-project status claims
 
 ---
 
-## What Changed (Audit Remediation)
+## Executive Summary
 
-The Codex reviewer audit (FP-ss7) identified that the project was not at a
-defensible stopping point. Key issues remediated:
-
-1. **Data contamination**: Prior PSC experiments ran on CRISPR-contaminated
-   feature matrices (21,608 rows, 231 labels). PSC was re-ingested from T10247
-   (192,222 perovskite works) but downstream artifacts were never regenerated.
-
-2. **HPO asymmetry**: Convergence ablation compared 65-feat (100 trials) vs
-   51-feat (50 trials). The +20% claim was an artifact of unequal search budget.
-
-3. **Silent stale inputs**: Pipeline scripts warned and backfilled zeros when
-   upstream metric files were missing, allowing experiments to silently proceed
-   on incomplete data.
-
-4. **Missing provenance**: Experiment artifacts did not record their exact run
-   configuration, making reproduction impossible without reading source code.
-
-5. **Schema ambiguity**: Onset-label experiments used inflection-era column
-   names, making it impossible to distinguish the two workflows from file
-   inspection alone.
+FrontPulse now has a defensible CRISPR artifact set for the corrected 198-label
+workflow, but it does not yet have a valid cross-domain story. The CRISPR
+Stage 2-5 mapping and validation pipeline has been rerun cleanly under the
+domain-isolated CRISPR tree with SPECTER2 metadata on disk, the corrected
+holdout and ablation artifacts are present, and the memo now cites only
+verifiable artifacts. PSC remains incomplete from community detection onward,
+so PSC-vs-CRISPR comparisons are still out of scope.
 
 ---
 
-## Preserved Artifacts (Valid, Not Regenerated)
+## Preserved Artifacts (Trusted, Not Regenerated)
 
-| Domain | Artifact | Status |
-|--------|----------|--------|
-| CRISPR | Raw corpus (data/crispr/ingest/) | Valid -- 238,526 works, T10878 |
-| CRISPR | Cumulative graphs (data/crispr/graphs/) | Valid -- 109 quarterly PKL files |
-| CRISPR | Community partitions (data/crispr/out/cache_cum/) | Valid |
-| CRISPR | Onset labels (onset_labels_msd.csv) | Valid -- 198 onset labels |
-| CRISPR | Convergence features (convergence_features.csv) | Valid -- 15,597 rows |
-| PSC | Raw corpus (data/psc/ingest/) | Valid -- 192,222 works, T10247 |
-| PSC | Cumulative graphs (data/psc/graphs/) | Valid -- 109 quarterly PKL files |
+| Domain | Artifact | Evidence | Status |
+|--------|----------|----------|--------|
+| CRISPR | Raw corpus | `data/crispr/ingest/` | Preserved-valid, topic T10878 |
+| CRISPR | Cumulative graphs | `data/crispr/graphs/` | Preserved-valid, 109 quarterly graph files |
+| CRISPR | Community partitions and caches | `data/crispr/out/cache_cum/` | Preserved-valid |
+| CRISPR | Onset labels | `data/crispr/out/02_lineage_tracking/onset_labels_msd.csv` | Preserved-valid, 198 onset labels |
+| CRISPR | Convergence features | `data/crispr/out/02_lineage_tracking/convergence_features.csv` | Preserved-valid |
+| PSC | Raw corpus | `data/psc/ingest/` | Preserved-valid, topic T10247 |
+| PSC | Cumulative graphs | `data/psc/graphs/` | Preserved-valid, 109 quarterly graph files |
 
 ## Regenerated Artifacts
 
-| Artifact | Old State | New State |
-|----------|-----------|-----------|
-| CRISPR front alias config | Wrapped in `fronts:` key (broken) | 7 top-level fronts with anchor DOIs |
-| CRISPR Stage 2-5 pipeline | PSC front aliases in CRISPR outputs | CRISPR-specific front aliases |
-| CRISPR lineage embeddings | SciBERT (stale) | SPECTER2 (correct model) |
-| 51-feat Optuna HPO | 50 trials, 231 labels (stale) | 100 trials, 198 labels |
-| 65-feat Optuna HPO | 100 trials, 231 labels (stale) | 100 trials, 198 labels |
-| Convergence ablation | Copied legacy artifacts | Fresh per-fold diagnostics |
+| Artifact | Evidence | Current state |
+|----------|----------|---------------|
+| CRISPR front alias config | `config/front_aliases_crispr.yaml` | Fixed to 7 top-level CRISPR fronts with anchor DOIs |
+| CRISPR Stage 2 embeddings | `data/crispr/out/02_lineage_tracking/lineage_embeddings.json` | Regenerated with `model=allenai/specter2_base`, `embedding_dim=768`, `n_lineages=542` |
+| CRISPR Stage 2 similarity | `data/crispr/out/03_milestone_mapping/lineage_front_similarity.csv` | Regenerated; columns match only CRISPR fronts |
+| CRISPR Stage 3 similarity | `data/crispr/out/03_milestone_mapping/lineage_front_term_similarity.csv` | Regenerated under CRISPR output tree |
+| CRISPR Stage 4 similarity | `data/crispr/out/03_milestone_mapping/lineage_front_npmi_similarity.csv` | Regenerated under CRISPR output tree |
+| CRISPR Stage 5 mappings | `data/crispr/out/03_milestone_mapping/lineage_front_mappings.csv` | Regenerated; 542 mapped lineages across 7 CRISPR fronts |
+| CRISPR front aggregation | `data/crispr/out/04_front_aggregation/front_timeseries_delta_long.csv` | Regenerated; 720 front-quarter records across 7 fronts |
+| CRISPR Stage 2-5 validation | `data/crispr/out/06_validation/stage2/` through `data/crispr/out/06_validation/stage5/` | Regenerated inside the CRISPR domain tree |
+| 51-feature Optuna HPO | `data/crispr/out/experiments/optuna_search_51feat_100trials/` | Regenerated on corrected 198-label data |
+| 65-feature Optuna HPO | `data/crispr/out/experiments/optuna_search_with_convergence_198labels/` | Regenerated on corrected 198-label data |
+| CRISPR holdout | `data/crispr/out/experiments/msd_holdout_2020_onset_labels/` | Regenerated with raw and persistence-filtered metrics plus provenance |
+| CRISPR ablation diagnostics | `data/crispr/out/experiments/ablation_51feat_198labels/` and `data/crispr/out/experiments/ablation_65feat_198labels/` | Regenerated diagnostics, plots, and Wilcoxon JSON |
 
 ---
 
-## Current Metrics (Corrected)
+## CRISPR Pipeline Audit (Fresh Stage 2-5 Rerun)
 
-### CRISPR MSD Cross-Validation (5-fold, 198 onset labels, 13,031 samples)
+The clean CRISPR rerun used preserved CRISPR ingest and graphs, not OpenAlex.
 
-**Optuna HPO results (100 trials each, selection-biased upper bound):**
+- Stage 2 command: `D:\Git_Repos\FrontPulse\.venv\Scripts\python.exe -u scripts/run_build_pipeline.py --domain crispr --stages 2 --device cuda --no-validate`
+- Stage 2 result: 147,141 unique papers embedded with SPECTER2 in 8,562.1 s; outputs written to `data/crispr/out/02_lineage_tracking/` and `data/crispr/out/03_milestone_mapping/`
+- Stage 2-5 command: `D:\Git_Repos\FrontPulse\.venv\Scripts\python.exe -u scripts/run_build_pipeline.py --domain crispr --stages 2,3,4,5 --device cuda --npmi-workers 10`
+- Aggregation command: `D:\Git_Repos\FrontPulse\.venv\Scripts\python.exe -u scripts/aggregate_lineages_to_fronts.py --domain crispr`
 
-| Variant | Model | PR-AUC | ROC-AUC | Trial |
-|---------|-------|--------|---------|-------|
-| 51-feat (no convergence) | XGBoost | 0.237 +/- 0.050 | 0.922 +/- 0.021 | 84 |
-| 65-feat (with convergence) | LightGBM | 0.243 +/- 0.063 | 0.923 +/- 0.018 | 93 |
+Post-run audit findings:
 
-**Independent 5-fold CV (unbiased estimate):**
+- `lineage_embeddings.json` identifies the embedding model from file inspection alone.
+- Stage 2, Stage 3, and Stage 4 similarity matrices all expose exactly the 7 CRISPR front columns.
+- Stage 5 validation now writes to `data/crispr/out/06_validation/stage5/`, not `data/out/`.
+- `data/crispr/out/04_front_aggregation/` is no longer empty.
+- Text audit across `data/crispr/out/03_milestone_mapping/`, `data/crispr/out/04_front_aggregation/`, and `data/crispr/out/06_validation/` found zero PSC front-key hits and no `perovskite` leakage.
 
-| Variant | PR-AUC | ROC-AUC |
-|---------|--------|---------|
-| 51-feat (no convergence) | 0.179 +/- 0.041 | 0.900 +/- 0.016 |
-| 65-feat (with convergence) | 0.172 +/- 0.042 | 0.895 +/- 0.015 |
+---
 
-**Wilcoxon signed-rank test**: p = 0.81. Convergence features provide NO
-statistically significant improvement.
+## Corrected Metrics
 
-### Interpretation
+### CRISPR Cross-Validation and Ablation
 
-- The positive class rate is 1.52% (198/13,031). PR-AUC of 0.18 represents
-  ~12x improvement over random baseline (0.0152).
-- The gap between Optuna's reported PR-AUC (0.24) and independent CV (0.18)
-  reflects selection bias from choosing the best of 100 trials.
-- Convergence features add 14 columns but no measurable lift. The 65-feat
-  model has higher variance, suggesting the additional features introduce noise.
+Dataset context:
+
+- Source labels: 198 onset labels from `data/crispr/out/02_lineage_tracking/onset_labels_msd.csv`
+- Sample count: 13,031 lineage-quarter rows
+- Positive rate: 1.52%
+
+Matched-HPO upper bound from Optuna best trials:
+
+| Variant | Artifact | Model | PR-AUC | ROC-AUC |
+|---------|----------|-------|--------|---------|
+| 51-feature (no convergence) | `data/crispr/out/experiments/optuna_search_51feat_100trials/best_trial.json` | XGBoost | 0.237 +/- 0.050 | 0.922 +/- 0.021 |
+| 65-feature (with convergence) | `data/crispr/out/experiments/optuna_search_with_convergence_198labels/best_trial.json` | LightGBM | 0.243 +/- 0.063 | 0.923 +/- 0.018 |
+
+Independent 5-fold estimate from regenerated ablation diagnostics:
+
+| Variant | Artifact | PR-AUC | ROC-AUC |
+|---------|----------|--------|---------|
+| 51-feature (no convergence) | `data/crispr/out/experiments/ablation_51feat_198labels/diagnostic_summary.json` | 0.179 +/- 0.041 | 0.900 +/- 0.016 |
+| 65-feature (with convergence) | `data/crispr/out/experiments/ablation_65feat_198labels/diagnostic_summary.json` | 0.172 +/- 0.042 | 0.895 +/- 0.015 |
+
+Paired test:
+
+- Wilcoxon signed-rank on fold PR-AUC: `p = 0.8125`
+- Artifact: `data/crispr/out/experiments/ablation_51feat_198labels/ablation_wilcoxon.json`
+- Current conclusion: convergence features do not provide a statistically significant benefit on the corrected CRISPR workflow
+
+### CRISPR Time-Forward Holdout
+
+Artifact: `data/crispr/out/experiments/msd_holdout_2020_onset_labels/evaluation_metrics.json`
+
+- Ranking metrics: PR-AUC 0.208, ROC-AUC 0.903
+- Raw threshold metrics at `t = 0.70`: TP = 2, FP = 10, FN = 65, TN = 3,842
+- Raw threshold precision/recall/F1: 0.167 / 0.030 / 0.051
+- Persistence-filtered operational metrics with `persistence_window = 2`: TP = 0, FP = 0, FN = 67, TN = 3,852
+- Operational interpretation: the detector still carries ranking signal on the holdout, but the current production threshold plus persistence rule suppresses all positive alerts
+
+### CRISPR Stage 5 Mapping Status
+
+Artifact: `data/crispr/out/06_validation/stage5/Stage5_validation_results.json`
+
+- 542 mapped lineages across 7 CRISPR fronts
+- Confidence distribution: 1 high, 453 medium, 88 low
+- Review-needed count: 541
+- Interpretation: the alias-clean rerun is now trustworthy as a CRISPR-only artifact set, but the mapping layer still needs manual curation before it should be treated as high-confidence front labeling
 
 ---
 
 ## Retired Claims
 
-The following claims from prior reports are now retired:
+The following claims are retired and should not be reused:
 
-1. ~~Convergence features improve recall by +20.9%~~ -- Artifact of HPO
-   asymmetry (50 vs 100 trials) and PSC-contaminated data (231 labels from
-   wrong dataset).
+1. ~~Convergence features improve recall by +20.9%~~
+   The March 30 report used stale 231-label / PSC-contaminated comparisons and asymmetric HPO budgets.
 
-2. ~~MSD achieves PR-AUC 0.162 with convergence features~~ -- This was
-   the Optuna selection-biased result on contaminated data. Unbiased
-   estimate on correct data is 0.172.
+2. ~~CRISPR Stage 2-5 rerun remains pending~~
+   The rerun is now complete on disk under `data/crispr/out/`.
 
-3. ~~Cross-domain comparison: PSC vs CRISPR~~ -- PSC downstream artifacts
-   remain stale (communities onward not regenerated). No valid cross-domain
-   comparison exists yet.
-
----
-
-## Infrastructure Improvements (Code)
-
-| Change | Module | Purpose |
-|--------|--------|---------|
-| Run provenance | src/run_provenance.py | CLI args + input hashes + git SHA saved per experiment |
-| Artifact freshness | src/artifact_freshness.py | Hard failure on missing/stale upstream inputs |
-| Onset schema | MSD output columns | is_onset_* primary columns with legacy aliases |
-| Per-fold diagnostics | fold_diagnostics.json | PR curves, calibration, per-fold confusion matrices |
-| Holdout reporting | evaluation_metrics.json | Both raw threshold and persistence-filtered metrics |
-| Embedding cache | compute_lineage_embeddings.py | NPZ reuse when lineage set unchanged |
-| Global embedding | compute_lineage_embeddings.py | Embed each paper once, aggregate per lineage |
-| SPECTER2 default | --embedding-model flag | SPECTER2 replaces SciBERT for similarity scoring |
-| CRISPR front aliases | front_aliases_crispr.yaml | 7 fronts with anchor DOIs (was broken wrapper) |
+3. ~~Cross-domain PSC vs CRISPR comparison is ready~~
+   PSC downstream artifacts remain stale from community detection onward.
 
 ---
 
 ## Remaining Gaps
 
-1. **PSC pipeline rebuild** (FP-2r1): PSC downstream artifacts (communities
-   onward) are stale. Requires community detection + full pipeline rerun.
-   Multi-session effort.
+1. **PSC rebuild remains the primary blocker** (`FP-2r1`).
+   PSC output artifacts under `data/psc/out/` are still stale from the old contaminated workflow. No valid PSC-vs-CRISPR comparison should be claimed until PSC is rebuilt from community detection onward.
 
-2. **CRISPR holdout rerun**: The corrected holdout with raw + persistent
-   metrics has not been regenerated yet. Code infrastructure (FP-ss7.6) is
-   in place; needs an MSD run with temporal split.
+2. **CRISPR clinical_therapeutics anchor coverage needs repair** (`FP-olh`).
+   The Stage 2 rerun logged missing anchor abstracts for `clinical_therapeutics`. The artifact set is still valid for the alias-clean rerun issue, but this front-specific semantic anchor needs correction or explicit exclusion.
 
-3. **CRISPR Stage 2 embeddings**: Global paper-level SPECTER2 embedding
-   pipeline running. Pending completion and validation.
+3. **Stage 5 mappings still need curation**.
+   Only 1 of 542 mappings is currently marked ready-to-use without review. The pipeline is now domain-correct, but semantic labeling quality is not equivalent to expert-curated fronts yet.
 
-4. **Convergence features**: Given the null ablation result, convergence
-   features may be removed from the default feature set in future work.
-   They add complexity without measurable benefit.
+4. **Selection bias should stay explicit in reporting**.
+   Best-trial Optuna metrics are useful as search diagnostics, not as the primary generalization estimate. The regenerated ablation diagnostics are the better unbiased summary for CRISPR model comparison.
 
-5. **Selection bias in HPO reporting**: Optuna best-trial PR-AUC (0.24)
-   overstates true performance (0.18). Consider using nested CV or
-   reporting the independent CV estimate as the primary metric.
+---
+
+## Valid Claims Today
+
+- FrontPulse has a corrected CRISPR artifact stack for embeddings, mapping, front aggregation, holdout reporting, and ablation diagnostics under `data/crispr/out/`.
+- The corrected CRISPR workflow supports statements about CRISPR-only model performance, CRISPR-only front aggregation, and the null ablation result for convergence features.
+- FrontPulse does not yet support a valid PSC-vs-CRISPR comparison.

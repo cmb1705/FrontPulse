@@ -1,17 +1,22 @@
 
 # (same content as previously created, with stable NB/Poisson fallbacks)
 from __future__ import annotations
-import argparse, os, math
+
+import argparse
+import math
+import os
 from dataclasses import dataclass
-from typing import Optional, Tuple, List
-import pandas as pd, numpy as np
+
+import numpy as np
+import pandas as pd
+
 try:
     import mpmath as mp
     _HAS_MPMATH = True
 except Exception:
     _HAS_MPMATH = False
 
-def _auto_col(df: pd.DataFrame, candidates: List[str]) -> Optional[str]:
+def _auto_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
     cols = {c.lower(): c for c in df.columns}
     for key in candidates:
         if key.lower() in cols:
@@ -57,54 +62,97 @@ def _ensure_period(df: pd.DataFrame, date_col: str) -> pd.DataFrame:
     if isinstance(df[date_col].dtype, pd.PeriodDtype):
         return df
     lower = {c.lower(): c for c in df.columns}
-    if 'year' in lower and ('quarter' in lower or 'q' in lower):
-        ycol = lower['year']; qcol = lower.get('quarter', lower.get('q'))
-        per = pd.PeriodIndex(year=df[ycol].astype(int), quarter=df[qcol].astype(int), freq='Q')
-        df = df.copy(); df['__period__'] = per
-        return df.rename(columns={'__period__': date_col})
-    df = df.copy(); df[date_col] = _parse_period(df[date_col]); return df
+    if "year" in lower and ("quarter" in lower or "q" in lower):
+        ycol = lower["year"]
+        qcol = lower.get("quarter", lower.get("q"))
+        per = pd.PeriodIndex(
+            year=df[ycol].astype(int),
+            quarter=df[qcol].astype(int),
+            freq="Q",
+        )
+        df = df.copy()
+        df["__period__"] = per
+        return df.rename(columns={"__period__": date_col})
+    df = df.copy()
+    df[date_col] = _parse_period(df[date_col])
+    return df
 
 def _poisson_tail_by_sum(x: int, mu: float, max_terms: int = 200000) -> float:
-    if x <= 0: return 1.0
-    def log_pmf(k): return -mu + k * math.log(mu) - math.lgamma(k + 1)
-    pmf = math.exp(log_pmf(x)); total = pmf; k = x
+    if x <= 0:
+        return 1.0
+
+    def log_pmf(k):
+        return -mu + k * math.log(mu) - math.lgamma(k + 1)
+
+    pmf = math.exp(log_pmf(x))
+    total = pmf
+    k = x
     for _ in range(max_terms):
-        pmf = pmf * mu / (k + 1); total += pmf; k += 1
-        if pmf < 1e-15 * total: break
+        pmf = pmf * mu / (k + 1)
+        total += pmf
+        k += 1
+        if pmf < 1e-15 * total:
+            break
     return float(total)
 
 def _poisson_tail_sf(x: int, mu: float) -> float:
-    if x <= 0: return 1.0
-    if mu <= 0: return 0.0 if x > 0 else 1.0
+    if x <= 0:
+        return 1.0
+    if mu <= 0:
+        return 0.0 if x > 0 else 1.0
     if _HAS_MPMATH:
         try:
-            num = mp.gammainc(x, mu, mp.inf); den = mp.gamma(x)
-            val = float(num / den); 
+            num = mp.gammainc(x, mu, mp.inf)
+            den = mp.gamma(x)
+            val = float(num / den)
             return 0.0 if val < 0 else val
-        except Exception: pass
+        except Exception:
+            pass
     return _poisson_tail_by_sum(x, mu)
 
 def _nb_tail_by_sum(x: int, mu: float, k: float, max_terms: int = 100000) -> float:
-    r = k; p = mu / (mu + k)
-    if p <= 0.0: return 0.0 if x > 0 else 1.0
-    if p >= 1.0: return 1.0 if x <= 0 else 0.0
+    r = k
+    p = mu / (mu + k)
+    if p <= 0.0:
+        return 0.0 if x > 0 else 1.0
+    if p >= 1.0:
+        return 1.0 if x <= 0 else 0.0
+
     def log_pmf(j):
-        return (math.lgamma(j + r) - math.lgamma(r) - math.lgamma(j + 1)
-                + r * math.log(1 - p) + j * math.log(p))
-    pmf = math.exp(log_pmf(x)); total = pmf; j = x
+        return (
+            math.lgamma(j + r)
+            - math.lgamma(r)
+            - math.lgamma(j + 1)
+            + r * math.log(1 - p)
+            + j * math.log(p)
+        )
+
+    pmf = math.exp(log_pmf(x))
+    total = pmf
+    j = x
     for _ in range(max_terms):
-        pmf = pmf * p * (j + r) / (j + 1); total += pmf; j += 1
-        if pmf < 1e-15 * total: break
+        pmf = pmf * p * (j + r) / (j + 1)
+        total += pmf
+        j += 1
+        if pmf < 1e-15 * total:
+            break
     return float(total)
 
 def _nb_tail_sf(x: int, mu: float, k: float) -> float:
-    if x <= 0: return 1.0
-    if mu <= 0: return 0.0 if x > 0 else 1.0
-    if not np.isfinite(k) or k <= 0: return _poisson_tail_sf(x, mu)
-    if not _HAS_MPMATH: return _nb_tail_by_sum(x, mu, k)
-    r = k; p = mu / (mu + k)
-    if p <= 0.0: return 0.0 if x > 0 else 1.0
-    if p >= 1.0: return 1.0 if x <= 0 else 0.0
+    if x <= 0:
+        return 1.0
+    if mu <= 0:
+        return 0.0 if x > 0 else 1.0
+    if not np.isfinite(k) or k <= 0:
+        return _poisson_tail_sf(x, mu)
+    if not _HAS_MPMATH:
+        return _nb_tail_by_sum(x, mu, k)
+    r = k
+    p = mu / (mu + k)
+    if p <= 0.0:
+        return 0.0 if x > 0 else 1.0
+    if p >= 1.0:
+        return 1.0 if x <= 0 else 0.0
     z = 1 - p
     try:
         I = mp.betainc(r, x, 0, z, regularized=True)
@@ -128,22 +176,23 @@ def _bh_fdr(pvals: pd.Series, alpha: float):
     flags = (q <= alpha) & valid
     return q, flags
 
-from dataclasses import dataclass
 @dataclass
 class Config:
     alpha: float = 0.10
     lookback: int = 12
     min_history: int = 8
-    min_count: Optional[int] = None
-    front_col: Optional[str] = None
-    date_col: Optional[str] = None
-    count_col: Optional[str] = None
+    min_count: int | None = None
+    front_col: str | None = None
+    date_col: str | None = None
+    count_col: str | None = None
 
 def _fit_baseline_and_pvalue(hist: np.ndarray, x_obs: int):
-    eps = 1e-12; n = len(hist)
-    if n == 0: return (np.nan, np.nan, np.nan, 'NA', np.nan)
+    eps = 1e-12
+    n = len(hist)
+    if n == 0:
+        return (np.nan, np.nan, np.nan, 'NA', np.nan)
     mu = float(np.mean(hist))
-    if mu <= eps: 
+    if mu <= eps:
         pval = 1.0 if x_obs <= 0 else 0.0
         return (mu, np.inf, pval, 'Zero', 0.0)
     var = float(np.var(hist, ddof=1)) if n >= 2 else float(np.var(hist, ddof=0))
@@ -159,7 +208,9 @@ def run_tripwire(timeseries_path: str, out_path: str, cfg: Config) -> pd.DataFra
     if ext == '.csv':
         df = pd.read_csv(timeseries_path)
     elif ext in ('.parquet', '.pq'):
-        import pyarrow.parquet as pq; df = pq.read_table(timeseries_path).to_pandas()
+        import pyarrow.parquet as pq
+
+        df = pq.read_table(timeseries_path).to_pandas()
     else:
         raise ValueError("Unsupported file type. Use CSV or Parquet.")
     front_col = cfg.front_col or _auto_col(df, ['lineage_id','front_id','front','community_id','community','front_uid'])
@@ -181,12 +232,16 @@ def run_tripwire(timeseries_path: str, out_path: str, cfg: Config) -> pd.DataFra
                                       pd.period_range(df['period'].min(), df['period'].max(), freq='Q')],
                                      names=['front_id','period'])
     df = df.set_index(['front_id','period']).reindex(idx).sort_index()
-    if 'count' not in df: df['count'] = np.nan
-    df['count'] = df['count'].fillna(0).astype(int); df = df.reset_index()
-    rows = []; L = int(cfg.lookback)
+    if 'count' not in df:
+        df['count'] = np.nan
+    df['count'] = df['count'].fillna(0).astype(int)
+    df = df.reset_index()
+    rows = []
+    L = int(cfg.lookback)
     for fid, g in df.groupby('front_id', sort=False):
         g = g.sort_values('period').reset_index(drop=True)
-        y = g['count'].values.astype(int); periods = g['period'].values
+        y = g['count'].values.astype(int)
+        periods = g['period'].values
         for i in range(len(g)):
             start = max(0, i - L)
             hist_window = y[start:i].astype(int)
@@ -212,11 +267,15 @@ def run_tripwire(timeseries_path: str, out_path: str, cfg: Config) -> pd.DataFra
                          'mu_hat': mu_hat,'var_hat': var_hat,'k_hat': k_hat,'model': model_type,
                          'p_value': pval,'rr_obs_over_mu': rr,'excess_obs_minus_mu': excess})
     out = pd.DataFrame(rows)
-    out['q_value'] = np.nan; out['alert'] = False
-    for per, gg in out.groupby('period'):
+    out['q_value'] = np.nan
+    out['alert'] = False
+    for _per, gg in out.groupby('period'):
         q, flags = _bh_fdr(gg['p_value'], cfg.alpha)
-        out.loc[gg.index, 'q_value'] = q.values; out.loc[gg.index, 'alert'] = flags.values
-    out['alpha'] = cfg.alpha; out['lookback'] = cfg.lookback; out['min_history'] = cfg.min_history
+        out.loc[gg.index, 'q_value'] = q.values
+        out.loc[gg.index, 'alert'] = flags.values
+    out['alpha'] = cfg.alpha
+    out['lookback'] = cfg.lookback
+    out['min_history'] = cfg.min_history
 
     model_str = out['model'].astype(str)
     has_model = (

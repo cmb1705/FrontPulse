@@ -1,6 +1,10 @@
 # graph_checks.py
-import pickle, networkx as nx, pandas as pd
+import pickle
 from pathlib import Path
+
+import networkx as nx
+import pandas as pd
+
 
 def check_graph(path):
     with open(path, "rb") as f:

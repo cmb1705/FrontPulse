@@ -1,6 +1,6 @@
 """Tests for field metrics loading and merge helpers."""
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pandas as pd
 import pytest

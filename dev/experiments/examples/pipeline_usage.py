@@ -11,8 +11,9 @@ Run from repo root:
 """
 
 from pathlib import Path
-from src.pipeline import Pipeline
+
 from src.graph_build import CouplingConfig
+from src.pipeline import Pipeline
 
 
 def example_full_pipeline():
@@ -35,7 +36,7 @@ def example_full_pipeline():
     # Run full pipeline
     results = pipeline.run(skip_ingest=False, run_communities=True)
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"- Ingested {len(results.df)} records")
     print(f"- Created {len(results.slices)} slices")
     print(f"- Built {sum(len(v) for v in results.graphs.values())} graphs")
@@ -117,7 +118,7 @@ def example_with_coupling():
     # Run with coupling
     results = pipeline.run(skip_ingest=True, run_communities=False)
 
-    print(f"\nResults with coupling:")
+    print("\nResults with coupling:")
     print(f"- Ingested {len(results.df)} records")
     print(f"- Built {sum(len(v) for v in results.graphs.values())} graphs with coupling")
 
@@ -149,7 +150,6 @@ def example_notebook_workflow():
     print(f"Unique quarters: {df['pub_qtr'].nunique()}")
 
     # Build a single graph for exploration
-    import pandas as pd
     from src.graph_build import build_direct_citation_graph
 
     # Filter to recent quarter
@@ -159,7 +159,7 @@ def example_notebook_workflow():
     print(f"\nBuilding graph for {latest_quarter} ({len(df_recent)} records)...")
     G = build_direct_citation_graph(df_recent)
 
-    print(f"Graph stats:")
+    print("Graph stats:")
     print(f"- Nodes: {G.number_of_nodes()}")
     print(f"- Edges: {G.number_of_edges()}")
     print(f"- Density: {G.number_of_edges() / (G.number_of_nodes() * (G.number_of_nodes() - 1)):.4f}")

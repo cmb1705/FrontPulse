@@ -1,7 +1,8 @@
 """Analyze historical coupling edge data from archive."""
-import pandas as pd
 import json
 from pathlib import Path
+
+import pandas as pd
 
 print("=" * 80)
 print("HISTORICAL COUPLING EDGE ANALYSIS")
@@ -14,7 +15,7 @@ archive_path = Path("data/archive_before_reorganization_20251101_172112/out_orig
 config_file = archive_path / "coupling_config.json"
 if config_file.exists():
     print("\nHistorical coupling configuration:")
-    with open(config_file, 'r') as f:
+    with open(config_file) as f:
         config = json.load(f)
     print(f"  min_shared_refs: {config.get('min_shared_refs', 'N/A')}")
     print(f"  min_coupling_score: {config.get('min_coupling_score', 'N/A')}")
@@ -25,29 +26,29 @@ if config_file.exists():
 edges_file = archive_path / "coupling_edges.parquet"
 if edges_file.exists():
     file_size_mb = edges_file.stat().st_size / (1024 ** 2)
-    print(f"\nHistorical coupling_edges.parquet:")
+    print("\nHistorical coupling_edges.parquet:")
     print(f"  File size: {file_size_mb:.2f} MB")
 
-    print(f"\n  Loading parquet file...")
+    print("\n  Loading parquet file...")
     df = pd.read_parquet(edges_file)
 
     print(f"  Total coupling edges: {len(df):,}")
     print(f"\n  Columns: {list(df.columns)}")
 
     if len(df) > 0:
-        print(f"\n  Sample edges (first 5):")
+        print("\n  Sample edges (first 5):")
         print(df.head().to_string())
 
         # Statistics
         if 'score' in df.columns:
-            print(f"\n  Score statistics:")
+            print("\n  Score statistics:")
             print(f"    Mean: {df['score'].mean():.4f}")
             print(f"    Median: {df['score'].median():.4f}")
             print(f"    Min: {df['score'].min():.4f}")
             print(f"    Max: {df['score'].max():.4f}")
 
         if 'shared_refs' in df.columns:
-            print(f"\n  Shared refs statistics:")
+            print("\n  Shared refs statistics:")
             print(f"    Mean: {df['shared_refs'].mean():.1f}")
             print(f"    Median: {df['shared_refs'].median():.1f}")
             print(f"    Min: {df['shared_refs'].min()}")
@@ -57,10 +58,10 @@ if edges_file.exists():
 nodes_file = archive_path / "coupling_nodes.json"
 if nodes_file.exists():
     file_size_mb = nodes_file.stat().st_size / (1024 ** 2)
-    print(f"\nHistorical coupling_nodes.json:")
+    print("\nHistorical coupling_nodes.json:")
     print(f"  File size: {file_size_mb:.2f} MB")
 
-    with open(nodes_file, 'r') as f:
+    with open(nodes_file) as f:
         nodes = json.load(f)
 
     print(f"  Total nodes: {len(nodes):,}")
@@ -86,7 +87,7 @@ if current_graph.exists():
     current_edges = G.number_of_edges()
     current_nodes = G.number_of_nodes()
 
-    print(f"\nCurrent 2018Q1 graph:")
+    print("\nCurrent 2018Q1 graph:")
     print(f"  Nodes: {current_nodes:,}")
     print(f"  Total edges: {current_edges:,}")
     print(f"  Avg edges/node: {current_edges/current_nodes:.1f}")
@@ -98,14 +99,14 @@ if current_graph.exists():
         citation_edges_count = stats.get('citation_edges', 0)
         hybrid_edges_count = stats.get('hybrid_edges', 0)
 
-        print(f"\n  Edge breakdown:")
+        print("\n  Edge breakdown:")
         print(f"    Coupling edges: {coupling_edges_count:,}")
         print(f"    Citation edges: {citation_edges_count:,}")
         print(f"    Hybrid edges: {hybrid_edges_count:,}")
 
         if edges_file.exists():
             historical_coupling = len(df)
-            print(f"\n  Historical vs Current coupling edges:")
+            print("\n  Historical vs Current coupling edges:")
             print(f"    Historical: {historical_coupling:,}")
             print(f"    Current: {coupling_edges_count:,}")
             if historical_coupling > 0:

@@ -43,6 +43,17 @@ LOG = logging.getLogger("optuna_msd")
 # Data loading (reuses MSD patterns)
 # ---------------------------------------------------------------------------
 
+
+def resolve_label_column(labels_df: pd.DataFrame) -> str:
+    """Return the supported onset-label column name."""
+    for candidate in ("is_onset", "is_inflection_onset"):
+        if candidate in labels_df.columns:
+            return candidate
+    raise ValueError(
+        "Label file must contain 'is_onset' or 'is_inflection_onset' column."
+    )
+
+
 def load_data(
     labels_path: str,
     multisignal_path: str,
@@ -54,6 +65,7 @@ def load_data(
     labels_df = pd.read_csv(labels_path)
     labels_df["lineage_id"] = labels_df["lineage_id"].astype(int)
     labels_df["quarter"] = labels_df["quarter"].astype(str)
+    label_col = resolve_label_column(labels_df)
 
     # Load features
     features_df = pd.read_csv(multisignal_path)
@@ -94,7 +106,9 @@ def load_data(
 
     # Merge labels
     features_df = features_df.merge(
-        labels_df[["lineage_id", "quarter", "is_inflection_onset"]],
+        labels_df[["lineage_id", "quarter", label_col]].rename(
+            columns={label_col: "is_inflection_onset"},
+        ),
         on=["lineage_id", "quarter"], how="left",
     )
     features_df["is_inflection_onset"] = (

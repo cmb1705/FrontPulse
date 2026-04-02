@@ -27,7 +27,7 @@ from _path_bootstrap import ensure_repo_imports
 
 _REPO = ensure_repo_imports()
 
-from utils.quarter_utils import quarter_to_int  # noqa: E402
+from utils.quarter_utils import int_to_quarter, quarter_to_int  # noqa: E402
 
 from src.domain_registry import (  # noqa: E402
     add_domain_args,
@@ -586,10 +586,49 @@ def prepare_timeseries(ts_path: Path) -> pd.DataFrame:
     df = df.copy()
     df["lineage_id"] = df["lineage_id"].astype(int)
     df["quarter"] = df["quarter"].astype(str)
-    df["quarter_int"] = df["quarter"].apply(quarter_to_int)
-    df["quarter_order"] = df.groupby("lineage_id")["quarter_int"].rank(method="first").astype(int) - 1
     df["new_works"] = df["new_works"].fillna(0).astype(float)
-    return df
+    df["quarter_int"] = df["quarter"].apply(quarter_to_int)
+    df = (
+        df.groupby(["lineage_id", "quarter_int"], as_index=False)["new_works"]
+        .sum()
+        .sort_values(["lineage_id", "quarter_int"])
+        .reset_index(drop=True)
+    )
+    df["quarter"] = df["quarter_int"].apply(int_to_quarter)
+
+    dense_groups: list[pd.DataFrame] = []
+    inserted_rows = 0
+    lineages_with_insertions = 0
+    for lineage_id, group in df.groupby("lineage_id", sort=False):
+        quarter_range = range(
+            int(group["quarter_int"].min()),
+            int(group["quarter_int"].max()) + 1,
+        )
+        dense_group = (
+            group.set_index("quarter_int")
+            .reindex(quarter_range)
+            .reset_index(names="quarter_int")
+        )
+        inserted = max(len(dense_group) - len(group), 0)
+        if inserted:
+            inserted_rows += inserted
+            lineages_with_insertions += 1
+        dense_group["lineage_id"] = int(lineage_id)
+        dense_group["quarter"] = dense_group["quarter_int"].apply(int_to_quarter)
+        dense_group["new_works"] = dense_group["new_works"].fillna(0.0)
+        dense_groups.append(dense_group[["lineage_id", "quarter", "quarter_int", "new_works"]])
+
+    dense_df = pd.concat(dense_groups, ignore_index=True)
+    dense_df["quarter_order"] = (
+        dense_df.groupby("lineage_id").cumcount().astype(int)
+    )
+    if inserted_rows:
+        LOG.info(
+            "Filled %d missing lineage-quarter rows across %d lineages.",
+            inserted_rows,
+            lineages_with_insertions,
+        )
+    return dense_df
 
 
 def save_metadata(out_path: Path, payload: dict[str, object]) -> None:

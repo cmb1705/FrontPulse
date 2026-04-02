@@ -46,6 +46,11 @@ import pandas as pd  # noqa: E402
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier  # noqa: E402
 from sklearn.linear_model import LogisticRegression  # noqa: E402
 
+from src.artifact_freshness import (  # noqa: E402
+    StaleInputError,
+    check_freshness,
+    validate_manifest_exists,
+)
 from src.domain_registry import (  # noqa: E402
     add_domain_args,
     apply_domain_path_defaults,
@@ -82,10 +87,57 @@ from utils.quarter_utils import (  # noqa: E402
     snapshot_dataset,
 )
 
-from src.run_provenance import collect_run_provenance, save_run_provenance  # noqa: E402
+from src.run_provenance import (  # noqa: E402
+    collect_run_provenance,
+    save_run_provenance,
+    validate_provenance_exists,
+)
 from src.trusted_io import save_trusted_pickle  # noqa: E402
 
 _PREFIT_CALIBRATION_WARNING_EMITTED = False
+
+
+class FeatureNameSafeLGBMClassifier(lgb.LGBMClassifier):
+    """Wrap ndarray predict inputs with fitted feature names to keep sklearn quiet."""
+
+    def _normalize_predict_input(self, X: Any) -> Any:
+        if not isinstance(X, np.ndarray) or X.ndim != 2:
+            return X
+        try:
+            feature_names = list(self.feature_names_in_)
+        except Exception:
+            return X
+        if len(feature_names) != X.shape[1]:
+            return X
+        return pd.DataFrame(X, columns=feature_names)
+
+    def predict(self, X: Any, *args: Any, **kwargs: Any) -> np.ndarray:
+        return super().predict(self._normalize_predict_input(X), *args, **kwargs)
+
+    def predict_proba(self, X: Any, *args: Any, **kwargs: Any) -> np.ndarray:
+        return super().predict_proba(self._normalize_predict_input(X), *args, **kwargs)
+
+    def predict_log_proba(self, X: Any, *args: Any, **kwargs: Any) -> np.ndarray:
+        return super().predict_log_proba(self._normalize_predict_input(X), *args, **kwargs)
+
+
+def _load_feature_manifest_inputs(manifest_path: Path) -> dict[str, Path]:
+    """Load file inputs recorded in a feature manifest."""
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    inputs = data.get("inputs", {})
+    if not isinstance(inputs, dict):
+        return {}
+    resolved: dict[str, Path] = {}
+    for name, entry in inputs.items():
+        if not isinstance(entry, dict):
+            continue
+        raw_path = entry.get("path")
+        if not raw_path:
+            continue
+        path = Path(raw_path)
+        if path.exists() and path.is_file():
+            resolved[name] = path
+    return resolved
 
 
 def _wrap_prefit_calibrator(estimator: Any) -> tuple[Any, dict[str, Any]]:
@@ -877,7 +929,7 @@ def train_models(
             f"n_estimators={n_estimators}, max_depth={max_depth}, learning_rate={learning_rate}"
         )
     elif model_type == 'lightgbm':
-        model = lgb.LGBMClassifier(
+        model = FeatureNameSafeLGBMClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
             num_leaves=2**max_depth - 1,  # Common pattern: full binary tree
@@ -1049,7 +1101,7 @@ def evaluate_with_cv(
             f"n_estimators={n_estimators}, max_depth={max_depth}, learning_rate={learning_rate}"
         )
     elif model_type == 'lightgbm':
-        model = lgb.LGBMClassifier(
+        model = FeatureNameSafeLGBMClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
             num_leaves=2**max_depth - 1,  # Common pattern: full binary tree
@@ -1639,8 +1691,20 @@ def main():
             print(f"ERROR: Input file not found: {path}")
             return
 
-    # Step 1: Load and merge signals
     labels_path = Path(args.labels) if getattr(args, "labels", None) else None
+    feature_manifest_name = "feature_manifest.json"
+    if not validate_manifest_exists(multisignal_path.parent, filename=feature_manifest_name):
+        raise StaleInputError(
+            f"Feature manifest missing or invalid for {multisignal_path}. "
+            "Rerun compute_lineage_multisignal_features.py to regenerate the "
+            "feature matrix with feature_manifest.json."
+        )
+    feature_inputs = _load_feature_manifest_inputs(multisignal_path.parent / feature_manifest_name)
+    if labels_path is not None:
+        feature_inputs.setdefault("labels", labels_path)
+    check_freshness(multisignal_path, feature_inputs, context="multi_signal_detector feature matrix")
+
+    # Step 1: Load and merge signals
     features_df, labels_df, tight_mapping = load_and_merge_signals(
         tight_mapping_path,
         semantic_velocity_path,
@@ -1882,6 +1946,8 @@ def main():
         },
     )
     prov_path = save_run_provenance(provenance, output_dir)
+    if not validate_provenance_exists(output_dir):
+        raise RuntimeError(f"Run provenance missing or invalid: {prov_path}")
     print(f"   Saved run provenance to {prov_path}")
 
     # Summary

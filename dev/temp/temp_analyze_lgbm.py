@@ -2,7 +2,6 @@
 """Quick analysis of LightGBM predictions at threshold 0.70"""
 
 import pandas as pd
-import numpy as np
 
 # Load predictions
 lgbm_pred = pd.read_csv('data/out/experiments/phase2_lightgbm/breakthrough_predictions.csv')
@@ -25,17 +24,17 @@ f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 e
 print("=" * 70)
 print("LIGHTGBM PERFORMANCE AT THRESHOLD 0.70")
 print("=" * 70)
-print(f"\nConfusion Matrix:")
+print("\nConfusion Matrix:")
 print(f"  TP: {tp:4d}    FP: {fp:4d}")
 print(f"  FN: {fn:4d}    TN: {tn:4d}")
-print(f"\nMetrics:")
+print("\nMetrics:")
 print(f"  Precision: {precision*100:5.1f}%")
 print(f"  Recall:    {recall*100:5.1f}%")
 print(f"  F1 Score:  {f1*100:5.1f}%")
 print(f"  TP:FP Ratio: {tp}:{fp} = 1:{fp/tp:.1f}" if tp > 0 else "  TP:FP Ratio: 0:0")
 
 # Probability distribution
-print(f"\nProbability Distribution:")
+print("\nProbability Distribution:")
 print(f"  Mean:   {lgbm_pred['milestone_probability'].mean():.3f}")
 print(f"  Median: {lgbm_pred['milestone_probability'].median():.3f}")
 print(f"  75th %: {lgbm_pred['milestone_probability'].quantile(0.75):.3f}")
@@ -64,10 +63,10 @@ precision_rf = tp_rf / (tp_rf + fp_rf) if (tp_rf + fp_rf) > 0 else 0
 recall_rf = tp_rf / (tp_rf + fn_rf) if (tp_rf + fn_rf) > 0 else 0
 f1_rf = 2 * precision_rf * recall_rf / (precision_rf + recall_rf) if (precision_rf + recall_rf) > 0 else 0
 
-print(f"\nConfusion Matrix:")
+print("\nConfusion Matrix:")
 print(f"  TP: {tp_rf:4d}    FP: {fp_rf:4d}")
 print(f"  FN: {fn_rf:4d}")
-print(f"\nMetrics:")
+print("\nMetrics:")
 print(f"  Precision: {precision_rf*100:5.1f}%")
 print(f"  Recall:    {recall_rf*100:5.1f}%")
 print(f"  F1 Score:  {f1_rf*100:5.1f}%")

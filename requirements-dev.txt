@@ -14,7 +14,7 @@ mypy==1.13.0
 pandas-stubs==2.2.3.241126
 
 # Configuration validation
-pydantic==2.10.3
+pydantic==2.12.3
 
 # Testing utilities
 pytest-xdist==3.6.1  # Parallel test execution
@@ -38,4 +38,4 @@ plotly==5.24.1
 
 # Optional: Statistical analysis
 scipy==1.15.0
-scikit-learn==1.6.0
+scikit-learn>=1.7.0

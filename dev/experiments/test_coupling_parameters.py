@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.graph_build import CouplingConfig, _COUPLING_DEFAULTS
+from src.graph_build import _COUPLING_DEFAULTS, CouplingConfig
 
 print("=" * 80)
 print("COUPLING PARAMETER VERIFICATION")

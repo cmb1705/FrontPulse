@@ -1,6 +1,7 @@
 """Compare edge/node counts across quarters to detect bloat."""
 import pickle
 from pathlib import Path
+
 import pandas as pd
 
 graph_dir = Path("data/current_graphs")
@@ -75,7 +76,7 @@ if len(results) >= 2:
     last_avg = results[-1]['avg_edges_per_node']
     growth_factor = last_avg / first_avg if first_avg > 0 else 0
 
-    print(f"\nEdges per node growth:")
+    print("\nEdges per node growth:")
     print(f"  {results[0]['quarter']}: {first_avg:.1f} edges/node")
     print(f"  {results[-1]['quarter']}: {last_avg:.1f} edges/node")
     print(f"  Growth factor: {growth_factor:.2f}x")
@@ -85,19 +86,19 @@ if len(results) >= 2:
     elif growth_factor > 2.0:
         print(f"  [CAUTION] Edges/node grew by {growth_factor:.1f}x - monitor closely")
     else:
-        print(f"  [OK] Growth is reasonable for cumulative graphs")
+        print("  [OK] Growth is reasonable for cumulative graphs")
 
 # Check MB per 1K edges consistency
 mb_per_1k = [r['mb_per_1k_edges'] for r in results]
 avg_mb_per_1k = sum(mb_per_1k) / len(mb_per_1k)
-print(f"\nFile size efficiency (MB per 1K edges):")
+print("\nFile size efficiency (MB per 1K edges):")
 print(f"  Average: {avg_mb_per_1k:.3f} MB/1K edges")
 print(f"  Range: {min(mb_per_1k):.3f} - {max(mb_per_1k):.3f}")
 
 # Check for referenced_works
 if any(r['has_referenced_works'] for r in results):
-    print(f"\n[CRITICAL] Some graphs still have referenced_works - memory bloat!")
+    print("\n[CRITICAL] Some graphs still have referenced_works - memory bloat!")
 else:
-    print(f"\n[OK] All graphs have referenced_works stripped")
+    print("\n[OK] All graphs have referenced_works stripped")
 
 print("\n" + "=" * 80)

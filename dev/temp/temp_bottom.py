@@ -1,3 +1,32 @@
+import argparse
+from pathlib import Path
+
+from temp_top import (
+    compute_precision_recall_metrics,
+    create_summary_dashboard,
+    load_data,
+    plot_detection_performance_heatmap,
+    plot_lead_time_analysis,
+    plot_precision_at_k_curve,
+    plot_precision_recall_analysis,
+    plot_timeline_with_milestones,
+    plot_zscore_distributions,
+)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate tripwire validation visualizations.",
+    )
+    parser.add_argument(
+        "--outdir",
+        type=Path,
+        required=True,
+        help="Directory containing tripwire validation outputs.",
+    )
+    return parser.parse_args()
+
+
 def main():
     """Generate all visualizations."""
     args = parse_args()
@@ -10,7 +39,7 @@ def main():
     print("Computing precision/recall metrics...")
     metrics = compute_precision_recall_metrics(alerts, validation)
 
-    print(f"\n=== PRECISION/RECALL METRICS ===")
+    print("\n=== PRECISION/RECALL METRICS ===")
     print(f"True Positives (TP): {metrics['tp']}")
     print(f"False Positives (FP): {metrics['fp']}")
     print(f"False Negatives (FN): {metrics['fn']}")
@@ -42,7 +71,7 @@ def main():
     print("  [7/7] Timeline with milestones...")
     plot_timeline_with_milestones(alerts, validation, outdir)
 
-    print(f"\n✅ All visualizations saved to {outdir}/")
+    print(f"\nAll visualizations saved to {outdir}/")
     print("  - 00_dashboard_summary.png")
     print("  - 01_timeline_comprehensive.png")
     print("  - 02_precision_recall_analysis.png")

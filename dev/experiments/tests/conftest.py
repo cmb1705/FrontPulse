@@ -1,9 +1,8 @@
 """Pytest fixtures for 2YP test suite."""
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -49,7 +48,7 @@ def sample_works_df() -> pd.DataFrame:
 
 
 @pytest.fixture
-def sample_citation_graph_data() -> Dict[str, Any]:
+def sample_citation_graph_data() -> dict[str, Any]:
     """Provide sample citation graph data for testing."""
     return {
         "nodes": ["W001", "W002", "W003", "W004"],

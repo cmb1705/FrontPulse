@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.settings import load_settings, save_settings, DEFAULTS
+from src.settings import DEFAULTS, load_settings, save_settings
 
 
 def _isolate_settings_paths(monkeypatch: pytest.MonkeyPatch, legacy_path: Path) -> None:
@@ -37,7 +37,7 @@ class TestDefaults:
 
     def test_defaults_are_valid_types(self):
         """Test that default values have appropriate types."""
-        for key, value in DEFAULTS.items():
+        for _key, value in DEFAULTS.items():
             # Values should be JSON-serializable
             assert value is None or isinstance(value, (str, int, float, bool, dict, list))
 
@@ -82,7 +82,7 @@ class TestLoadSettings:
         # Should have both partial settings and defaults
         assert settings["mailto"] == "partial@example.com"
         # Should also have keys from defaults
-        for key in DEFAULTS.keys():
+        for key in DEFAULTS:
             if key != "mailto":  # We overrode this one
                 assert key in settings
 

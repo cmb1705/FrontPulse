@@ -11,10 +11,12 @@ Optimizations:
 Estimated runtime: 20-30 minutes on GPU
 """
 
+import hashlib
 import json
 import shutil
 from collections import defaultdict
 from pathlib import Path
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -35,9 +37,10 @@ from src.domain_registry import (  # noqa: E402
 )
 
 STAGE1_OUTPUT_DIR = Path('data/out/experiments/stage1_quarterly_embeddings')
-LEGACY_PHASE1_OUTPUT_DIR = Path('data/out/experiments/phase1_quarterly_embeddings')
-STAGE0_TIGHT_MAPPING = Path('data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv')
-LEGACY_PHASE0_TIGHT_MAPPING = Path('data/out/experiments/phase0_tight_mapping/milestone_lineage_mapping_tight.csv')
+LEGACY_PHASE1_DIRNAME = 'phase1_quarterly_embeddings'
+STAGE0_DIRNAME = 'stage0_tight_mapping'
+LEGACY_PHASE0_DIRNAME = 'phase0_tight_mapping'
+TIGHT_MAPPING_FILENAME = 'milestone_lineage_mapping_tight.csv'
 
 
 class LineageQuarterDataset(Dataset):
@@ -349,21 +352,81 @@ def compute_semantic_velocity(
     return df
 
 
-def resolve_tight_mapping_path() -> Path:
-    if STAGE0_TIGHT_MAPPING.exists():
-        return STAGE0_TIGHT_MAPPING
-    if LEGACY_PHASE0_TIGHT_MAPPING.exists():
-        return LEGACY_PHASE0_TIGHT_MAPPING
-    raise FileNotFoundError(
-        "Tight mapping file not found in either stage0 or phase0 directories. "
-        "Run stage0_semantic_milestone_mapping.py first."
-    )
+def build_abstract_cache_path(raw_dir: Path, cache_dir: Path) -> Path:
+    """Build a deterministic abstract-index cache path under the requested cache root."""
+    digest = hashlib.md5(str(raw_dir.resolve()).encode("utf-8")).hexdigest()[:8]
+    slug = raw_dir.resolve().name
+    return cache_dir / f"abstract_index_{slug}_{digest}.pkl"
+
+
+def resolve_legacy_output_dirs(output_dir: Path) -> list[Path]:
+    """Return legacy sibling directories that should receive mirrored outputs."""
+    if output_dir.name != STAGE1_OUTPUT_DIR.name:
+        return []
+    legacy_dir = output_dir.parent / LEGACY_PHASE1_DIRNAME
+    if legacy_dir == output_dir:
+        return []
+    return [legacy_dir]
+
+
+def resolve_tight_mapping_path(
+    output_dir: Path,
+    explicit_path: Optional[str] = None,
+) -> Optional[Path]:
+    """Resolve the optional tight-mapping audit input for the active experiments tree."""
+    if explicit_path:
+        path = Path(explicit_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Tight mapping file not found: {path}")
+        return path
+
+    experiments_dir = output_dir.parent
+    candidates = [
+        experiments_dir / STAGE0_DIRNAME / TIGHT_MAPPING_FILENAME,
+        experiments_dir / LEGACY_PHASE0_DIRNAME / TIGHT_MAPPING_FILENAME,
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def load_registry_lineage_ids(registry_path: Path) -> set[int]:
+    """Load the unique lineage IDs present in the active lineage registry."""
+    with open(registry_path) as f:
+        registry = json.load(f)
+    return {
+        int(lineage_id)
+        for quarter_map in registry.values()
+        for lineage_id in quarter_map.values()
+    }
+
+
+def audit_tight_mapping_against_registry(
+    tight_mapping_path: Path,
+    registry_lineages: set[int],
+) -> dict[str, Any]:
+    """Check whether a tight mapping is valid for the active lineage registry."""
+    tight_mapping = pd.read_csv(tight_mapping_path)
+    milestone_lineages = set(tight_mapping['lineage_id'].astype(int).unique())
+    stale_lineages = milestone_lineages - registry_lineages
+
+    return {
+        'tight_mapping_path': str(tight_mapping_path),
+        'milestone_lineages': len(milestone_lineages),
+        'registry_lineages': len(registry_lineages),
+        'stale_mapping_lineages': len(stale_lineages),
+        'stale_mapping_lineage_ids_preview': [int(lineage_id) for lineage_id in sorted(stale_lineages)[:10]],
+    }
 
 
 def save_embeddings_and_velocity(
     embeddings: dict[tuple[int, str], np.ndarray],
     velocity_df: pd.DataFrame,
-    output_dir: Path
+    output_dir: Path,
+    summary_extras: Optional[dict[str, Any]] = None,
+    legacy_output_dirs: Optional[list[Path]] = None,
 ):
     """Save quarterly embeddings and velocity data."""
     print("[5/6] Saving embeddings and velocity...")
@@ -398,6 +461,8 @@ def save_embeddings_and_velocity(
         'velocity_min': float(velocity_df['semantic_velocity'].min()),
         'velocity_max': float(velocity_df['semantic_velocity'].max())
     }
+    if summary_extras:
+        summary.update(summary_extras)
 
     with open(output_dir / 'quarterly_embeddings_summary.json', 'w') as f:
         json.dump(summary, f, indent=2)
@@ -411,22 +476,48 @@ def save_embeddings_and_velocity(
     for key, value in summary.items():
         print(f"      {key}: {value}")
 
-    LEGACY_PHASE1_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    for filename in ['quarterly_embeddings.npz', 'semantic_velocity.csv', 'quarterly_embeddings_summary.json']:
-        src = output_dir / filename
-        if src.exists():
-            shutil.copy2(src, LEGACY_PHASE1_OUTPUT_DIR / filename)
+    for legacy_dir in legacy_output_dirs or []:
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        for filename in ['quarterly_embeddings.npz', 'semantic_velocity.csv', 'quarterly_embeddings_summary.json']:
+            src = output_dir / filename
+            if src.exists():
+                shutil.copy2(src, legacy_dir / filename)
 
 
-def test_coverage(embeddings: dict, tight_mapping_path: Path):
-    """Test coverage of milestone lineages."""
+def test_coverage(
+    embeddings: dict[tuple[int, str], np.ndarray],
+    registry_path: Path,
+    tight_mapping_path: Optional[Path],
+) -> dict[str, Any]:
+    """Audit milestone-lineage coverage when a current tight mapping is available."""
     print("[6/6] Testing coverage on Stage 0 tight mapping...")
 
-    # Load tight mapping
-    tight_mapping = pd.read_csv(tight_mapping_path)
-    milestone_lineages = set(tight_mapping['lineage_id'].unique())
+    registry_lineages = load_registry_lineage_ids(registry_path)
 
-    # Check coverage
+    if tight_mapping_path is None:
+        print("   Skipping coverage audit: no domain-local tight mapping found.")
+        return {
+            'coverage_audit': {
+                'status': 'skipped_missing_tight_mapping',
+                'registry_lineages': len(registry_lineages),
+            }
+        }
+
+    coverage_audit = audit_tight_mapping_against_registry(tight_mapping_path, registry_lineages)
+    if coverage_audit['stale_mapping_lineages'] > 0:
+        print(
+            "   Skipping coverage audit: tight mapping contains "
+            f"{coverage_audit['stale_mapping_lineages']} lineage IDs not present in the active registry."
+        )
+        preview = coverage_audit['stale_mapping_lineage_ids_preview']
+        if preview:
+            print(f"   Stale lineage preview: {preview}")
+        coverage_audit['status'] = 'skipped_stale_tight_mapping'
+        return {'coverage_audit': coverage_audit}
+
+    tight_mapping = pd.read_csv(tight_mapping_path)
+    milestone_lineages = set(tight_mapping['lineage_id'].astype(int).unique())
+
     embedded_lineages = {k[0] for k in embeddings}
     coverage = len(milestone_lineages & embedded_lineages)
 
@@ -434,10 +525,18 @@ def test_coverage(embeddings: dict, tight_mapping_path: Path):
     print(f"   Embedded lineages: {len(embedded_lineages)}")
     print(f"   Coverage: {coverage}/{len(milestone_lineages)} ({coverage/len(milestone_lineages)*100:.1f}%)")
 
-    # Show missing lineages
     missing = milestone_lineages - embedded_lineages
     if missing:
         print(f"   Missing {len(missing)} milestone lineages: {sorted(missing)[:10]}...")
+
+    coverage_audit.update({
+        'status': 'validated',
+        'embedded_lineages': len(embedded_lineages),
+        'coverage': coverage,
+        'missing_embedded_milestone_lineages': len(missing),
+        'missing_embedded_lineage_ids_preview': [int(lineage_id) for lineage_id in sorted(missing)[:10]],
+    })
+    return {'coverage_audit': coverage_audit}
 
 
 def main():
@@ -455,6 +554,13 @@ def main():
     parser.add_argument('--model', default='allenai/scibert_scivocab_uncased',
                        help='HuggingFace model ID (default: SciBERT). '
                             'Use allenai/specter2_base for SPECTER2.')
+    parser.add_argument(
+        '--tight-mapping',
+        default=None,
+        help='Optional Stage 0 tight mapping CSV used only for the final coverage audit. '
+             'When omitted, the script checks the active experiments tree and skips coverage '
+             'if no current-domain mapping exists.'
+    )
     add_domain_args(parser)
     args = parser.parse_args()
 
@@ -472,6 +578,10 @@ def main():
         "raw_dir": (
             "raw", "",
             "data/current_ingest/raw",
+        ),
+        "cache_dir": (
+            "cache_lineage", "",
+            "data/out/cache_lineage",
         ),
         "output_dir": (
             "experiments", "stage1_quarterly_embeddings",
@@ -491,8 +601,11 @@ def main():
     registry_path = Path(getattr(args, "registry", "") or "data/out/02_lineage_tracking/lineage_registry.json")
     partitions_dir = Path(getattr(args, "partitions_dir", "") or "data/out/cache_cum/partitions_cum")
     raw_dir = Path(getattr(args, "raw_dir", "") or "data/current_ingest/raw")
+    cache_dir = Path(getattr(args, "cache_dir", "") or "data/out/cache_lineage")
     output_dir = Path(getattr(args, "output_dir", "") or str(STAGE1_OUTPUT_DIR))
-    tight_mapping_path = resolve_tight_mapping_path()
+    tight_mapping_path = resolve_tight_mapping_path(output_dir, args.tight_mapping)
+    legacy_output_dirs = resolve_legacy_output_dirs(output_dir)
+    abstract_cache_path = build_abstract_cache_path(raw_dir, cache_dir)
 
     # Configuration
     BATCH_SIZE = args.batch_size
@@ -514,7 +627,7 @@ def main():
 
     # Step 2: Initialize abstract extractor
     print("[2/6] Initializing AbstractExtractor...")
-    extractor = AbstractExtractor(raw_dir)
+    extractor = AbstractExtractor(raw_dir, cache_path=abstract_cache_path)
     print(f"   Loaded extractor with {len(extractor._work_to_store)} works indexed")
 
     # Step 3: Aggregate texts
@@ -537,11 +650,17 @@ def main():
     # Step 5: Compute velocity
     velocity_df = compute_semantic_velocity(embeddings)
 
-    # Step 6: Save
-    save_embeddings_and_velocity(embeddings, velocity_df, output_dir)
+    # Step 6: Test coverage
+    summary_extras = test_coverage(embeddings, registry_path, tight_mapping_path)
 
-    # Step 7: Test coverage
-    test_coverage(embeddings, tight_mapping_path)
+    # Step 7: Save
+    save_embeddings_and_velocity(
+        embeddings,
+        velocity_df,
+        output_dir,
+        summary_extras=summary_extras,
+        legacy_output_dirs=legacy_output_dirs,
+    )
 
     print("\n" + "="*70)
     print("STAGE 1 COMPLETE")

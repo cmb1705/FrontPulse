@@ -561,7 +561,11 @@ def run_ensemble(
         print("Stage 5 VALIDATION")
         print(f"{'='*70}\n")
 
-        validation_results = run_Stage5_validation(mappings_df, evidence_dict)
+        validation_results = run_Stage5_validation(
+            mappings_df,
+            evidence_dict,
+            validation_dir=output_root / "06_validation" / "stage5",
+        )
     else:
         validation_results = None
 
@@ -572,13 +576,18 @@ def run_ensemble(
 # VALIDATION FUNCTIONS (integrated from validate_stage5.py)
 # ============================================================================
 
-def run_Stage5_validation(mappings_df: pd.DataFrame, evidence_dict: dict) -> dict:
+def run_Stage5_validation(
+    mappings_df: pd.DataFrame,
+    evidence_dict: dict,
+    validation_dir: Path = Path("data/out/06_validation/stage5"),
+) -> dict:
     """
     Run Stage 5 validation checks and generate outputs.
 
     Args:
         mappings_df: DataFrame with final lineage-front mappings
         evidence_dict: Dictionary with evidence for each lineage
+        validation_dir: Directory for validation artifacts
 
     Returns:
         Dictionary with validation results
@@ -586,7 +595,7 @@ def run_Stage5_validation(mappings_df: pd.DataFrame, evidence_dict: dict) -> dic
     # Lazy imports to avoid overhead when validation disabled
 
     # Create output directory
-    output_dir = Path('data/out/06_validation/Stage5')
+    output_dir = Path(validation_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Compute validation statistics

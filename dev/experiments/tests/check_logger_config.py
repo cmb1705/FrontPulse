@@ -18,14 +18,14 @@ print("LOGGER CONFIGURATION DIAGNOSTIC")
 print("=" * 70)
 
 # Check logger levels
-print(f"\n2yp logger:")
+print("\n2yp logger:")
 print(f"  Name: {logger_2yp.name}")
 print(f"  Level: {logging.getLevelName(logger_2yp.level)}")
 print(f"  Handlers: {len(logger_2yp.handlers)}")
 for i, handler in enumerate(logger_2yp.handlers):
     print(f"    Handler {i}: {type(handler).__name__}, level={logging.getLevelName(handler.level)}")
 
-print(f"\nsrc.graph_build logger:")
+print("\nsrc.graph_build logger:")
 print(f"  Name: {logger_graph_build.name}")
 print(f"  Level: {logging.getLevelName(logger_graph_build.level)}")
 print(f"  Effective level: {logging.getLevelName(logger_graph_build.getEffectiveLevel())}")
@@ -35,7 +35,7 @@ for i, handler in enumerate(logger_graph_build.handlers):
     print(f"    Handler {i}: {type(handler).__name__}, level={logging.getLevelName(handler.level)}")
 
 # Check parent logger
-print(f"\nParent chain:")
+print("\nParent chain:")
 current = logger_graph_build
 depth = 0
 while current:
@@ -46,7 +46,7 @@ while current:
         break
 
 # Test logging
-print(f"\n" + "=" * 70)
+print("\n" + "=" * 70)
 print("TESTING LOGGING OUTPUT")
 print("=" * 70)
 

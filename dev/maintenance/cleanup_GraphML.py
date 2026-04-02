@@ -1,12 +1,17 @@
-import pickle, networkx as nx, pathlib
+import pathlib
+import pickle
+
+import networkx as nx
 
 gdir = pathlib.Path("data/out/graphs")
 for p in sorted(gdir.glob("*.pkl")):
-    G = pickle.load(open(p, "rb"))
+    with p.open("rb") as handle:
+        G = pickle.load(handle)
     n = len(list(nx.selfloop_edges(G)))
     if n:
         G.remove_edges_from(nx.selfloop_edges(G))
-        pickle.dump(G, open(p, "wb"))
+        with p.open("wb") as handle:
+            pickle.dump(G, handle)
         print(f"{p.name}: removed {n} self-loops")
     # re-export GraphML using the cleaned pickle
     try:

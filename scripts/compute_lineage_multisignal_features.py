@@ -44,6 +44,7 @@ from scripts.compute_lineage_ctfidf import (  # type: ignore  # noqa: E402
 )
 from src.artifact_freshness import (  # noqa: E402
     StaleInputError,
+    check_freshness,
     require_inputs,
     save_input_manifest,
 )
@@ -335,6 +336,37 @@ def iter_raw_records(raw_dir: Path) -> Iterable[tuple[str, dict]]:
 # ---------------------------------------------------------------------------
 # Global metric loading and context features
 
+GLOBAL_METRIC_FILENAMES = {
+    "author_influx": "author_influx.parquet",
+    "citation_velocity": "citation_velocity.parquet",
+    "reference_vitality": "reference_vitality.parquet",
+    "topic_diversity": "topic_diversity.parquet",
+    "cross_cluster_bridging": "cross_cluster_bridging.parquet",
+}
+
+MULTISIGNAL_DOMAIN_DEFAULTS = {
+    "registry": ("lineage_tracking", "lineage_registry.json", "data/out/02_lineage_tracking/lineage_registry.json"),
+    "timeseries": ("lineage_tracking", "lineage_timeseries.csv", "data/out/02_lineage_tracking/lineage_timeseries.csv"),
+    "raw_dir": ("raw", "", "data/current_ingest/raw"),
+    "partitions_dir": ("cache_cum", "partitions_cum", "data/out/cache_cum/partitions_cum"),
+    "reference_cache": ("cache_lineage", "reference_data.pkl", "data/out/cache_lineage/reference_data.pkl"),
+    "out": ("lineage_tracking", "lineage_multisignal_features.csv", "data/out/02_lineage_tracking/lineage_multisignal_features.csv"),
+    "metrics_dir": ("out", "metrics", "data/out/metrics"),
+    "field_metrics": ("front_aggregation", "field_metrics.parquet", "data/out/04_front_aggregation/field_metrics.parquet"),
+    "milestones": ("experiments", "stage0_tight_mapping/milestone_lineage_mapping_tight.csv", "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"),
+    "onset_labels": ("lineage_tracking", "onset_labels.csv", "data/out/02_lineage_tracking/onset_labels.csv"),
+    "maturation_labels": ("lineage_tracking", "maturation_labels.csv", "data/out/02_lineage_tracking/maturation_labels.csv"),
+    "convergence_features": ("lineage_tracking", "convergence_features.csv", "data/out/02_lineage_tracking/convergence_features.csv"),
+}
+
+
+def get_global_metric_input_files(metrics_dir: Path) -> dict[str, Path]:
+    """Return the file-level global metric inputs required for context features."""
+    return {
+        f"global_metric_{metric_name}": metrics_dir / "global" / filename
+        for metric_name, filename in GLOBAL_METRIC_FILENAMES.items()
+    }
+
 
 def load_global_metrics(metrics_dir: Path) -> dict[str, dict[str, float]]:
     """
@@ -349,18 +381,10 @@ def load_global_metrics(metrics_dir: Path) -> dict[str, dict[str, float]]:
             'cross_cluster_bridging': value,
         }
     """
-    metric_files = {
-        'author_influx': 'author_influx.parquet',
-        'citation_velocity': 'citation_velocity.parquet',
-        'reference_vitality': 'reference_vitality.parquet',
-        'topic_diversity': 'topic_diversity.parquet',
-        'cross_cluster_bridging': 'cross_cluster_bridging.parquet',
-    }
-
     global_metrics: dict[str, dict[str, float]] = defaultdict(dict)
 
-    for metric_name, filename in metric_files.items():
-        filepath = metrics_dir / 'global' / filename
+    for input_name, filepath in get_global_metric_input_files(metrics_dir).items():
+        metric_name = input_name.removeprefix("global_metric_")
         if not filepath.exists():
             raise StaleInputError(
                 f"Required metric file not found: {filepath}. "
@@ -1076,17 +1100,7 @@ def main() -> None:
     configure_logging(args.verbose)
 
     paths = resolve_script_paths(args, REPO_ROOT)
-    apply_domain_path_defaults(args, paths, {
-        "registry": ("lineage_tracking", "lineage_registry.json", "data/out/02_lineage_tracking/lineage_registry.json"),
-        "timeseries": ("lineage_tracking", "lineage_timeseries.csv", "data/out/02_lineage_tracking/lineage_timeseries.csv"),
-        "raw_dir": ("raw", "", "data/current_ingest/raw"),
-        "partitions_dir": ("cache_cum", "partitions_cum", "data/out/cache_cum/partitions_cum"),
-        "reference_cache": ("cache_lineage", "reference_data.pkl", "data/out/cache_lineage/reference_data.pkl"),
-        "out": ("lineage_tracking", "lineage_multisignal_features.csv", "data/out/02_lineage_tracking/lineage_multisignal_features.csv"),
-        "metrics_dir": ("out", "metrics", "data/out/metrics"),
-        "field_metrics": ("front_aggregation", "field_metrics.parquet", "data/out/04_front_aggregation/field_metrics.parquet"),
-        "milestones": ("experiments", "stage0_tight_mapping/milestone_lineage_mapping_tight.csv", "data/out/experiments/stage0_tight_mapping/milestone_lineage_mapping_tight.csv"),
-    })
+    apply_domain_path_defaults(args, paths, MULTISIGNAL_DOMAIN_DEFAULTS)
 
     registry_path = Path(args.registry)
     timeseries_path = Path(args.timeseries)
@@ -1100,6 +1114,40 @@ def main() -> None:
         {"registry": registry_path, "timeseries": timeseries_path},
         context="compute_lineage_multisignal_features",
     )
+
+    manifest_inputs: dict[str, Path | None] = {
+        "registry": registry_path,
+        "timeseries": timeseries_path,
+    }
+    freshness_inputs: dict[str, Path] = {
+        "registry": registry_path,
+        "timeseries": timeseries_path,
+    }
+    if args.enable_context_features:
+        metric_inputs = get_global_metric_input_files(Path(args.metrics_dir))
+        manifest_inputs.update(metric_inputs)
+        freshness_inputs.update(metric_inputs)
+    if not args.disable_field_metrics and args.field_metrics:
+        field_metrics_path = Path(args.field_metrics)
+        manifest_inputs["field_metrics"] = field_metrics_path
+        freshness_inputs["field_metrics"] = field_metrics_path
+    if args.enable_milestone_proximity and args.milestones:
+        milestone_path = Path(args.milestones)
+        manifest_inputs["milestones"] = milestone_path
+        freshness_inputs["milestones"] = milestone_path
+    if args.convergence_features:
+        convergence_path = Path(args.convergence_features)
+        manifest_inputs["convergence_features"] = convergence_path
+        freshness_inputs["convergence_features"] = convergence_path
+    if args.onset_labels:
+        onset_labels_path = Path(args.onset_labels)
+        manifest_inputs["onset_labels"] = onset_labels_path
+        freshness_inputs["onset_labels"] = onset_labels_path
+    if args.maturation_labels:
+        maturation_labels_path = Path(args.maturation_labels)
+        manifest_inputs["maturation_labels"] = maturation_labels_path
+        freshness_inputs["maturation_labels"] = maturation_labels_path
+    check_freshness(out_path, freshness_inputs, context="compute_lineage_multisignal_features")
 
     start_total = time.perf_counter()
 
@@ -1355,21 +1403,6 @@ def main() -> None:
     LOG.info("Feature table written to %s", out_path)
 
     # Save input manifest for provenance tracking
-    manifest_inputs: dict[str, Path | None] = {
-        "registry": registry_path,
-        "timeseries": timeseries_path,
-        "partitions_dir": partitions_dir,
-    }
-    if not args.disable_field_metrics:
-        manifest_inputs["field_metrics"] = Path(args.field_metrics)
-    if args.enable_context_features:
-        manifest_inputs["metrics_dir"] = Path(args.metrics_dir)
-    if args.convergence_features:
-        manifest_inputs["convergence_features"] = Path(args.convergence_features)
-    if args.onset_labels:
-        manifest_inputs["onset_labels"] = Path(args.onset_labels)
-    if args.maturation_labels:
-        manifest_inputs["maturation_labels"] = Path(args.maturation_labels)
     save_input_manifest(manifest_inputs, out_path.parent, filename="feature_manifest.json")
 
     LOG.info("Feature summary (head):\n%s", features_df.head().to_string(index=False))
